@@ -75,8 +75,8 @@ test("day navigation keeps the date in the URL (DST day renders)", async ({ page
   await page.getByLabel("Slaptažodis").fill(OWNER.password);
   await page.getByRole("button", { name: "Prisijungti" }).click();
   await expect(page).toHaveURL(/date=2026-10-25/);
-  await expect(page.getByText("sekmadienis")).toBeVisible();
+  await expect(page.getByText("sekmadienis", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Kita diena" }).click();
   await expect(page).toHaveURL(/date=2026-10-26/);
-  await expect(page.getByText("pirmadienis")).toBeVisible();
+  await expect(page.getByText("pirmadienis", { exact: true })).toBeVisible();
 });
