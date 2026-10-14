@@ -17,7 +17,8 @@ test.describe("US-01 login", () => {
     await page.getByLabel("El. paštas").fill(OWNER.email);
     await page.getByLabel("Slaptažodis").fill("wrong-password-123");
     await page.getByRole("button", { name: "Prisijungti" }).click();
-    await expect(page.getByRole("alert")).toHaveText("Neteisingas el. paštas arba slaptažodis.");
+    // Next.js adds an empty role="alert" route announcer, so match by text
+    await expect(page.getByText("Neteisingas el. paštas arba slaptažodis.")).toBeVisible();
   });
 
   test("owner logs in, lands on today's calendar, can navigate and log out", async ({ page, isMobile }) => {

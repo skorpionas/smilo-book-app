@@ -30,7 +30,8 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
     // Never reveal whether the e-mail exists.
-    return { error: error.status === 400 ? t("invalidCredentials") : t("genericError") };
+    const badCredentials = error.code === "invalid_credentials" || error.status === 400;
+    return { error: badCredentials ? t("invalidCredentials") : t("genericError") };
   }
   redirect(safeNextPath(formData.get("next")));
 }
