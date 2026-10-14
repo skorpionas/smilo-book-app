@@ -29,7 +29,8 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
-    // Never reveal whether the e-mail exists.
+    // Never reveal whether the e-mail exists. Log only non-personal error metadata.
+    console.error("[auth] signIn failed", { code: error.code, status: error.status, name: error.name });
     const badCredentials = error.code === "invalid_credentials" || error.status === 400;
     return { error: badCredentials ? t("invalidCredentials") : t("genericError") };
   }

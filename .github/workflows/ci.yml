@@ -60,6 +60,14 @@ jobs:
           echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
           echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${PUBLISHABLE_KEY:-$ANON_KEY}" >> "$GITHUB_ENV"
 
+      - name: Smoke - seed owner can log in via Supabase Auth
+        run: |
+          curl -sS -X POST "$NEXT_PUBLIC_SUPABASE_URL/auth/v1/token?grant_type=password" \
+            -H "apikey: $NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" -H "Content-Type: application/json" \
+            -d '{"email":"owner@smilo.local","password":"smilo-dev-password"}' \
+            | jq -r 'if .access_token then "OK: logged in as \(.user.email)" else "FAIL: \(.)" end'
+          echo "URL=$NEXT_PUBLIC_SUPABASE_URL keyprefix=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:0:15}"
+
       - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
