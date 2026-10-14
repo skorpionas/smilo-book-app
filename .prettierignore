@@ -1,0 +1,10 @@
+
+# prettier
+pnpm-lock.yaml
+supabase/.temp
+.next
+node_modules
+next-env.d.ts
+coverage
+playwright-report
+test-results

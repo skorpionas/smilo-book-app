@@ -1,0 +1,71 @@
+{
+  "app": {
+    "name": "Smilo",
+    "description": "Šunų ir kačių kirpyklos registracija",
+    "loading": "Kraunama…"
+  },
+  "nav": {
+    "calendar": "Kalendorius",
+    "upcoming": "Artimiausi",
+    "search": "Paieška",
+    "clients": "Klientai",
+    "settings": "Nustatymai",
+    "logout": "Atsijungti",
+    "mainNavigation": "Pagrindinė navigacija"
+  },
+  "auth": {
+    "title": "Prisijungimas",
+    "email": "El. paštas",
+    "password": "Slaptažodis",
+    "submit": "Prisijungti",
+    "submitting": "Jungiamasi…",
+    "forgotPassword": "Pamiršau slaptažodį",
+    "invalidCredentials": "Neteisingas el. paštas arba slaptažodis.",
+    "genericError": "Nepavyko prisijungti. Bandykite dar kartą.",
+    "resetTitle": "Slaptažodžio atkūrimas",
+    "resetIntro": "Įveskite el. paštą – atsiųsime nuorodą naujam slaptažodžiui nustatyti.",
+    "resetSubmit": "Siųsti nuorodą",
+    "resetSent": "Jei toks el. paštas yra, nuoroda išsiųsta. Patikrinkite paštą.",
+    "backToLogin": "Grįžti į prisijungimą",
+    "newPasswordTitle": "Naujas slaptažodis",
+    "newPassword": "Naujas slaptažodis",
+    "newPasswordHint": "Ne trumpesnis nei 12 simbolių.",
+    "newPasswordSubmit": "Išsaugoti slaptažodį",
+    "linkInvalid": "Nuoroda nebegalioja. Paprašykite naujos.",
+    "passwordTooShort": "Slaptažodis turi būti bent 12 simbolių."
+  },
+  "calendar": {
+    "today": "Šiandien",
+    "day": "Diena",
+    "week": "Savaitė",
+    "previousDay": "Ankstesnė diena",
+    "nextDay": "Kita diena",
+    "previousWeek": "Ankstesnė savaitė",
+    "nextWeek": "Kita savaitė",
+    "newBooking": "Nauja registracija",
+    "comingSoon": "Dienos vaizdas bus 2 savaitę."
+  },
+  "pages": {
+    "upcoming": "Artimiausi vizitai",
+    "search": "Paieška",
+    "clients": "Klientai",
+    "settings": "Nustatymai",
+    "comingSoon": "Šis skyrius bus netrukus."
+  },
+  "errors": {
+    "required": "Privalomas laukas.",
+    "invalidPhone": "Neteisingas telefono numeris.",
+    "invalidEmail": "Neteisingas el. pašto adresas.",
+    "invalidDate": "Neteisinga data.",
+    "invalidTime": "Neteisingas laikas.",
+    "offGrid": "Laikas turi būti kas 15 min.",
+    "invalidDuration": "Trukmė turi būti nuo 15 min. iki 10 val., kas 15 min.",
+    "invalidPrice": "Kaina turi būti nuo 0 iki 9 999,99 €.",
+    "slotTaken": "Šis laikas jau užimtas: {range}, {pets}",
+    "slotTakenBlock": "Šis laikas jau užimtas: {range}, nedarbo laikas",
+    "unauthorized": "Sesija baigėsi. Prisijunkite iš naujo.",
+    "unknown": "Įvyko klaida. Bandykite dar kartą.",
+    "notFound": "Puslapis nerastas.",
+    "backHome": "Į kalendorių"
+  }
+}
