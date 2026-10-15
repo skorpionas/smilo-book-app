@@ -1,0 +1,73 @@
+name: DB backup (weekly, encrypted)
+
+# Requirements §16/§17: weekly `supabase db dump` of PRODUCTION, encrypted with `age`
+# to the owner's PUBLIC key, kept 30 days as a private workflow artifact.
+# Supplements (does not replace) Supabase Pro daily backups.
+#
+# Runs in its own GitHub environment "prod-backup" (NOT "production": that one has a
+# required reviewer, which would block every scheduled run). Restrict it to branch main.
+# Needs in "prod-backup":
+#   secrets   SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD (prod values, same as "production")
+#   secret    BACKUP_AGE_PUBLIC_KEY  ("age1…", public part only; the private key
+#             stays offline with the owner — without it nobody can read the dump)
+#   variable  SUPABASE_PROJECT_REF   (prod ref)
+# Restore steps: docs/environments.md → "Backups and restore".
+on:
+  schedule:
+    - cron: "17 2 * * 1" # Mondays 02:17 UTC (04:17/05:17 Vilnius)
+  workflow_dispatch:
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: prod-backup
+    env:
+      EXPECTED_REF: qxfovtpskynncfkygpzg
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_PUBLIC_KEY }}
+    steps:
+      - name: Guard - right database, credentials and key present
+        run: |
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || { echo "::error::Secret SUPABASE_ACCESS_TOKEN missing"; exit 1; }
+          [ -n "$SUPABASE_DB_PASSWORD" ]  || { echo "::error::Secret SUPABASE_DB_PASSWORD missing"; exit 1; }
+          case "$AGE_RECIPIENT" in age1*) ;; *) echo "::error::Secret BACKUP_AGE_PUBLIC_KEY missing or not an age public key"; exit 1;; esac
+          [ "$SUPABASE_PROJECT_REF" = "$EXPECTED_REF" ] || {
+            echo "::error::Variable SUPABASE_PROJECT_REF is '$SUPABASE_PROJECT_REF', expected '$EXPECTED_REF'"; exit 1; }
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq age
+      - run: pnpm exec supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: Dump and encrypt (plaintext never leaves the runner's temp dir)
+        run: |
+          set -euo pipefail
+          umask 077
+          stamp="$(date -u +%Y-%m-%dT%H%MZ)"
+          work="$RUNNER_TEMP/dump"; mkdir -p "$work" backup
+          pnpm exec supabase db dump --linked --role-only -f "$work/roles.sql"
+          pnpm exec supabase db dump --linked -f "$work/schema.sql"
+          pnpm exec supabase db dump --linked --data-only --use-copy -f "$work/data.sql"
+          tar -C "$work" -czf - roles.sql schema.sql data.sql \
+            | age -r "$AGE_RECIPIENT" -o "backup/smilo-prod-$stamp.tar.gz.age"
+          rm -rf "$work"
+          ls -l backup
+          echo "STAMP=$stamp" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smilo-prod-db-${{ env.STAMP }}
+          path: backup/*.age
+          retention-days: 30
+          if-no-files-found: error
