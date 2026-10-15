@@ -26,7 +26,7 @@ export async function saveService(_prev: FormState, formData: FormData): Promise
   if (error) return dbFailed(error, "saveService");
 
   revalidatePath("/settings");
-  revalidatePath("/calendar");
+  revalidatePath("/calendar", "layout");
   return { ok: true, savedAt: Date.now(), id: data.id };
 }
 
@@ -40,7 +40,7 @@ export async function setServiceArchived(id: string, archived: boolean): Promise
     .eq("id", id);
   if (error) return dbFailed(error, "setServiceArchived");
   revalidatePath("/settings");
-  revalidatePath("/calendar");
+  revalidatePath("/calendar", "layout");
   return { ok: true, savedAt: Date.now(), id };
 }
 
@@ -53,14 +53,14 @@ export async function saveGroomer(_prev: FormState, formData: FormData): Promise
   const parsed = groomerSchema.safeParse(formToObject(formData));
   if (!parsed.success) return validationFailed(parsed.error.issues);
 
-  const { id, name, color, isActive } = parsed.data;
+  const { id, name, color, isActive, workDays } = parsed.data;
   const supabase = await createClient();
 
   let result;
   if (id) {
     result = await supabase
       .from("groomers")
-      .update({ name, color, is_active: isActive })
+      .update({ name, color, is_active: isActive, work_days: workDays })
       .eq("id", id)
       .select("id")
       .single();
@@ -74,14 +74,20 @@ export async function saveGroomer(_prev: FormState, formData: FormData): Promise
       .maybeSingle();
     result = await supabase
       .from("groomers")
-      .insert({ name, color, is_active: isActive, sort_order: (last?.sort_order ?? 0) + 1 })
+      .insert({
+        name,
+        color,
+        is_active: isActive,
+        work_days: workDays,
+        sort_order: (last?.sort_order ?? 0) + 1,
+      })
       .select("id")
       .single();
   }
   if (result.error) return dbFailed(result.error, "saveGroomer");
 
   revalidatePath("/settings");
-  revalidatePath("/calendar");
+  revalidatePath("/calendar", "layout");
   return { ok: true, savedAt: Date.now(), id: result.data.id };
 }
 
@@ -112,6 +118,6 @@ export async function moveGroomer(id: string, direction: "up" | "down"): Promise
     if (e) return dbFailed(e, "moveGroomer");
   }
   revalidatePath("/settings");
-  revalidatePath("/calendar");
+  revalidatePath("/calendar", "layout");
   return { ok: true, savedAt: Date.now() };
 }

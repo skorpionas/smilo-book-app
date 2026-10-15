@@ -34,9 +34,11 @@ values (
 -- ---------------------------------------------------------------------------
 -- Groomers and services
 -- ---------------------------------------------------------------------------
-insert into public.groomers (id, owner_id, name, color, sort_order) values
-  ('0b000000-0000-4000-8000-00000000000a', '0a000000-0000-4000-8000-000000000001', 'Meistrė A', '#0d9488', 1),
-  ('0b000000-0000-4000-8000-00000000000b', '0a000000-0000-4000-8000-000000000001', 'Meistrė B', '#d97706', 2);
+-- Working days: A every day (so Sundays show a single lane and E2E can book on
+-- empty Sundays), B Monday–Saturday (the default).
+insert into public.groomers (id, owner_id, name, color, sort_order, work_days) values
+  ('0b000000-0000-4000-8000-00000000000a', '0a000000-0000-4000-8000-000000000001', 'Meistrė A', '#0d9488', 1, '{1,2,3,4,5,6,7}'),
+  ('0b000000-0000-4000-8000-00000000000b', '0a000000-0000-4000-8000-000000000001', 'Meistrė B', '#d97706', 2, '{1,2,3,4,5,6}');
 
 insert into public.services (owner_id, name, default_duration_min, default_price) values
   ('0a000000-0000-4000-8000-000000000001', 'Pilnas kirpimas',          120, 40.00),

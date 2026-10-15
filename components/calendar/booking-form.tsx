@@ -36,6 +36,7 @@ import type { BookingInput } from "@/lib/schemas/booking";
 import { searchDigits } from "@/lib/search";
 import { DAY_CLOSE, DAY_OPEN, minutesToTime, timeToMinutes } from "@/lib/clock";
 import { cn } from "@/lib/utils";
+import { worksOn } from "@/lib/schedule";
 
 export type BookingDefaults = {
   groomerId: string;
@@ -153,6 +154,8 @@ function BookingForm({
   const startMin = timeToMinutes(startTime);
   const endMin = startMin + totalDuration;
   const outsideHours = startMin < timeToMinutes(DAY_OPEN) || endMin > timeToMinutes(DAY_CLOSE);
+  const groomer = groomers.find((g) => g.id === groomerId);
+  const offDay = Boolean(groomer && /^\d{4}-\d{2}-\d{2}$/.test(date) && !worksOn(groomer, date));
   const totalPrice = items.reduce((s, i) => s + (parseEur(i.price) ?? 0), 0);
 
   function chooseClient(next: ClientState) {
@@ -319,6 +322,12 @@ function BookingForm({
             )}
           </Field>
         </div>
+
+        {offDay && groomer ? (
+          <Alert tone="info" className="-mt-4">
+            {t("groomerOffDay", { name: groomer.name })}
+          </Alert>
+        ) : null}
 
         <ClientPicker
           client={client}

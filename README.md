@@ -94,3 +94,17 @@ supabase/tests/        pgTAP: overlap constraint, RLS, RPC functions
   conflicting booking; a duplicate phone (23505) is shown on the phone field.
 - **Groomer order** = calendar column order; reordering renumbers `sort_order` 1…n.
 - **Archive, never delete** for services, clients and pets (requirements §13). Archived services can be restored.
+
+## Decisions: working days, week and month views
+
+- **Working days live on the groomer** (`groomers.work_days`, ISO weekdays 1 = Monday … 7 = Sunday, default
+  Monday–Saturday, at least one day). The calendar shows a groomer's lane only on those days
+  (`lib/schedule.ts`). If something is already booked for her on a day off, the lane still appears and is
+  marked "Ne darbo diena" — a booking never disappears from the calendar.
+- **Days off warn, they don't block.** The booking form shows a note when the chosen groomer doesn't work
+  that day, but saving is allowed (an extra Saturday happens). The database doesn't enforce working days.
+- **Three views, one header:** `/calendar` (day), `/calendar/week`, `/calendar/month`, with a Diena · Savaitė ·
+  Mėnuo switcher that keeps the date. Week: agenda list on phones/tablets, 7 day columns split into groomer
+  lanes on ≥ 1024 px (tap a free slot to book). Month: a Server Component with no client JS — per-groomer
+  counts on phones, the first three visits per day on desktop; every day opens the day view.
+- Mutations revalidate `/calendar` as a layout so all three views refresh.

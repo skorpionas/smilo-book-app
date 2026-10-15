@@ -55,11 +55,32 @@ describe("serviceSchema", () => {
 
 describe("groomerSchema", () => {
   it("lower-cases the colour and reads the checkbox", () => {
-    expect(groomerSchema.parse({ name: "Rasa", color: "#0D9488", isActive: "on" })).toMatchObject({
+    expect(
+      groomerSchema.parse({ name: "Rasa", color: "#0D9488", isActive: "on", workDays: "1,2,3,4,5,6" }),
+    ).toMatchObject({
       color: "#0d9488",
       isActive: true,
+      workDays: [1, 2, 3, 4, 5, 6],
     });
-    expect(groomerSchema.parse({ name: "Rasa", color: "#0d9488" }).isActive).toBe(false);
+    expect(groomerSchema.parse({ name: "Rasa", color: "#0d9488", workDays: "1" }).isActive).toBe(false);
+  });
+
+  it("normalises working days and requires at least one", () => {
+    expect(groomerSchema.parse({ name: "Rasa", color: "#0d9488", workDays: "5, 1,3,1" }).workDays).toEqual([
+      1, 3, 5,
+    ]);
+    expect(errors(groomerSchema.safeParse({ name: "Rasa", color: "#0d9488", workDays: "" }))).toEqual({
+      workDays: "workDaysRequired",
+    });
+    expect(errors(groomerSchema.safeParse({ name: "Rasa", color: "#0d9488" }))).toEqual({
+      workDays: "workDaysRequired",
+    });
+    expect(errors(groomerSchema.safeParse({ name: "Rasa", color: "#0d9488", workDays: "0,8" }))).toEqual({
+      workDays: "invalid",
+    });
+    expect(errors(groomerSchema.safeParse({ name: "Rasa", color: "#0d9488", workDays: "1,x" }))).toEqual({
+      workDays: "invalid",
+    });
   });
 
   it("rejects a bad colour", () => {

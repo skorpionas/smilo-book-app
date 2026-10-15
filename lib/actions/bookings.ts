@@ -131,7 +131,7 @@ export async function createBooking(input: BookingInput): Promise<CreateBookingR
     return dbFailed(error, "createBooking");
   }
 
-  revalidatePath("/calendar");
+  revalidatePath("/calendar", "layout");
   revalidatePath("/clients", "layout");
   const range = `${toVilniusTime(start)}–${toVilniusTime(end)}`;
   return { ok: true, savedAt: Date.now(), id: bookingId, summary: { range } };
@@ -178,7 +178,7 @@ export async function cancelBooking(id: string): Promise<ActionState> {
   if (error) return dbFailed(error, "cancelBooking");
   if (!data) return dbFailed({ code: "P0002" }, "cancelBooking");
 
-  revalidatePath("/calendar");
+  revalidatePath("/calendar", "layout");
   if (data.client_id) revalidatePath(`/clients/${data.client_id}`);
   return { ok: true, savedAt: Date.now(), id };
 }

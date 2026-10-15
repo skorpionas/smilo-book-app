@@ -193,6 +193,7 @@ export type Database = {
           owner_id: string;
           sort_order: number;
           updated_at: string;
+          work_days: number[];
         };
         Insert: {
           color?: string;
@@ -203,6 +204,7 @@ export type Database = {
           owner_id?: string;
           sort_order?: number;
           updated_at?: string;
+          work_days?: number[];
         };
         Update: {
           color?: string;
@@ -213,6 +215,7 @@ export type Database = {
           owner_id?: string;
           sort_order?: number;
           updated_at?: string;
+          work_days?: number[];
         };
         Relationships: [];
       };

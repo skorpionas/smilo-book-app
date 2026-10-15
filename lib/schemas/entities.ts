@@ -10,6 +10,7 @@ import {
   price,
   requiredText,
   uuid,
+  workDays,
 } from "./common";
 
 const optionalId = z.preprocess((v) => (v === "" || v === null ? undefined : v), uuid.optional());
@@ -36,6 +37,7 @@ export const groomerSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/, { error: "invalidColor" })
     .transform((c) => c.toLowerCase()),
   isActive: checkbox,
+  workDays,
 });
 export type GroomerInput = z.output<typeof groomerSchema>;
 

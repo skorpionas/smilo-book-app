@@ -24,10 +24,11 @@ import {
 } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/toast";
 import { moveGroomer, saveGroomer } from "@/lib/actions/settings";
+import { DEFAULT_WORK_DAYS, ISO_WEEKDAYS, formatWorkDays, type IsoDay } from "@/lib/clock";
 import { cn } from "@/lib/utils";
 import { SectionHeading } from "./services-section";
 
-export type GroomerRow = { id: string; name: string; color: string; isActive: boolean };
+export type GroomerRow = { id: string; name: string; color: string; isActive: boolean; workDays: number[] };
 
 // Mid-tone colours: readable as a dot / stripe / 16 % tint on both themes.
 const PRESETS = [
@@ -43,6 +44,7 @@ const PRESETS = [
 
 export function GroomersSection({ groomers }: { groomers: GroomerRow[] }) {
   const t = useTranslations("settings");
+  const tw = useTranslations("weekdays");
   const [editing, setEditing] = React.useState<GroomerRow | "new" | null>(null);
   const [moving, startMove] = React.useTransition();
 
@@ -85,13 +87,21 @@ export function GroomersSection({ groomers }: { groomers: GroomerRow[] }) {
           <ul className="divide-border divide-y" aria-busy={moving || undefined}>
             {groomers.map((g, i) => (
               <li key={g.id} className="flex min-h-16 items-center gap-1 py-2 pr-2 pl-4">
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <GroomerChip
-                    name={g.name}
-                    color={g.color}
-                    className={cn("truncate", !g.isActive && "opacity-60")}
-                  />
-                  {!g.isActive ? <Badge tone="outline">{t("inactive")}</Badge> : null}
+                <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
+                  <div className="flex max-w-full items-center gap-2">
+                    <GroomerChip
+                      name={g.name}
+                      color={g.color}
+                      className={cn("truncate", !g.isActive && "opacity-60")}
+                    />
+                    {!g.isActive ? <Badge tone="outline">{t("inactive")}</Badge> : null}
+                  </div>
+                  <span className="text-muted pl-1 text-sm">
+                    <span className="sr-only">{t("workDays")}: </span>
+                    {g.workDays.length === 7
+                      ? t("everyDay")
+                      : formatWorkDays(g.workDays, (d) => tw(`short.${d as IsoDay}`))}
+                  </span>
                 </div>
                 {groomers.length > 1 ? (
                   <>
@@ -156,7 +166,9 @@ function GroomerForm({
 }) {
   const t = useTranslations("settings");
   const tc = useTranslations("common");
+  const tw = useTranslations("weekdays");
   const [state, onSubmit, pending] = useFormAction(saveGroomer);
+  const [days, setDays] = React.useState<number[]>(groomer?.workDays ?? [...DEFAULT_WORK_DAYS]);
   const [color, setColor] = React.useState(groomer?.color ?? defaultColor);
   const [name, setName] = React.useState(groomer?.name ?? "");
   useOnSaved(state, () => {
@@ -175,6 +187,7 @@ function GroomerForm({
       <SheetBody className="space-y-5 pb-5">
         {groomer ? <input type="hidden" name="id" value={groomer.id} /> : null}
         <input type="hidden" name="color" value={color} />
+        <input type="hidden" name="workDays" value={days.join(",")} />
         {state?.error && !state.fieldErrors ? (
           <Alert tone="danger" role="alert">
             {state.error}
@@ -248,6 +261,45 @@ function GroomerForm({
           <div className="mt-3">
             <GroomerChip name={name.trim() || t("groomerNamePlaceholder")} color={color} />
           </div>
+        </fieldset>
+
+        <fieldset aria-describedby="groomer-days-hint">
+          <legend className="text-foreground mb-2 text-sm font-medium">{t("workDays")}</legend>
+          <div className="grid grid-cols-7 gap-1.5">
+            {ISO_WEEKDAYS.map((d) => {
+              const on = days.includes(d);
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  aria-pressed={on}
+                  aria-label={tw(`long.${d}`)}
+                  title={tw(`long.${d}`)}
+                  onClick={() =>
+                    setDays((prev) => (on ? prev.filter((x) => x !== d) : [...prev, d].sort((a, b) => a - b)))
+                  }
+                  className={cn(
+                    "focus-visible:ring-ring/40 flex h-11 items-center justify-center rounded-md border text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none",
+                    on
+                      ? "text-foreground border-2"
+                      : "border-border bg-surface text-muted hover:border-border-strong line-through decoration-1",
+                  )}
+                  style={
+                    on
+                      ? {
+                          borderColor: color,
+                          backgroundColor: `color-mix(in oklab, ${color} 18%, var(--surface))`,
+                        }
+                      : undefined
+                  }
+                >
+                  {tw(`short.${d}`)}
+                </button>
+              );
+            })}
+          </div>
+          <FieldHint id="groomer-days-hint">{t("workDaysHint")}</FieldHint>
+          {fe.workDays ? <p className="text-danger mt-1.5 text-sm">{fe.workDays}</p> : null}
         </fieldset>
 
         <div>

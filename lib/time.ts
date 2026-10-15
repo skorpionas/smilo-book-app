@@ -8,7 +8,15 @@
  *  - `Date`     = an absolute instant
  */
 import { tz } from "@date-fns/tz";
-import { addDays as dfAddDays, format, isValid, parse, startOfISOWeek } from "date-fns";
+import {
+  addDays as dfAddDays,
+  addMonths as dfAddMonths,
+  format,
+  getISOWeek,
+  isValid,
+  parse,
+  startOfISOWeek,
+} from "date-fns";
 
 import {
   DAY_CLOSE,
@@ -155,6 +163,36 @@ export function weekDays(date: DateStr): DateStr[] {
   return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 }
 
+/** First day of the month containing `date`. */
+export function startOfMonth(date: DateStr): DateStr {
+  if (!isDateStr(date)) throw new Error(`Invalid date: ${date}`);
+  return `${date.slice(0, 8)}01`;
+}
+
+/** Same day `months` later, clamped to the month's length (2026-01-31 + 1 → 2026-02-28). */
+export function addMonths(date: DateStr, months: number): DateStr {
+  return format(dfAddMonths(dateStrToLocal(date), months), "yyyy-MM-dd");
+}
+
+/**
+ * Weeks (Mon..Sun) covering the month containing `date`: 4–6 rows of 7 dates,
+ * including the leading / trailing days of the neighbouring months.
+ */
+export function monthWeeks(date: DateStr): DateStr[][] {
+  const first = startOfMonth(date);
+  const nextFirst = startOfMonth(addMonths(first, 1));
+  const weeks: DateStr[][] = [];
+  for (let monday = startOfWeek(first); monday < nextFirst; monday = addDays(monday, 7)) {
+    weeks.push(Array.from({ length: 7 }, (_, i) => addDays(monday, i)));
+  }
+  return weeks;
+}
+
+/** ISO week number (1–53). */
+export function isoWeekNumber(date: DateStr): number {
+  return getISOWeek(dateStrToLocal(date));
+}
+
 /** ISO weekday: 1 = Monday … 7 = Sunday. */
 export function isoWeekday(date: DateStr): number {
   const day = dateStrToLocal(date).getDay();
@@ -230,4 +268,12 @@ const weekdayFormatter = new Intl.DateTimeFormat("lt-LT", { weekday: "long", tim
 export function weekdayName(date: DateStr): string {
   if (!isDateStr(date)) throw new Error(`Invalid date: ${date}`);
   return weekdayFormatter.format(new Date(`${date}T12:00:00Z`));
+}
+
+const monthFormatter = new Intl.DateTimeFormat("lt-LT", { year: "numeric", month: "long", timeZone: "UTC" });
+
+/** "2026-10-15" -> "2026 m. spalis" */
+export function monthTitle(date: DateStr): string {
+  if (!isDateStr(date)) throw new Error(`Invalid date: ${date}`);
+  return monthFormatter.format(new Date(`${date}T12:00:00Z`));
 }

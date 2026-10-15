@@ -1,17 +1,16 @@
-import { ChevronLeft, ChevronRight, Plus, UserRound } from "lucide-react";
+import { Plus, UserRound } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { CalendarHeader } from "@/components/calendar/calendar-header";
 import { DayView } from "@/components/calendar/day-view";
-import { PageHeader } from "@/components/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getClientForBooking } from "@/lib/actions/bookings";
-import { loadDay } from "@/lib/calendar-data";
+import { lanesFor, loadDay } from "@/lib/calendar-data";
 import { addDays, parseDateParam, todayInVilnius, weekdayName } from "@/lib/time";
-import { cn } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("nav");
@@ -30,12 +29,14 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
     loadDay(date),
     typeof clientParam === "string" ? getClientForBooking(clientParam) : Promise.resolve(null),
   ]);
+  const lanes = lanesFor(groomers, date, bookings);
   const openOnLoad = preselectedClient !== null || newParam === "1";
 
   return (
     <div className="flex min-h-[calc(100dvh-5rem)] flex-col lg:min-h-dvh">
-      <PageHeader
-        wide
+      <CalendarHeader
+        view="day"
+        date={date}
         eyebrow={
           <span className="flex items-center gap-2">
             <span className="capitalize">{weekdayName(date)}</span>
@@ -43,43 +44,11 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           </span>
         }
         title={<span className="tabular-nums">{date}</span>}
-        className="border-b-0"
-      >
-        <div
-          role="group"
-          aria-label={t("dayNavigation")}
-          className="border-border bg-surface flex items-center rounded-full border p-0.5 shadow-xs"
-        >
-          <Button asChild variant="ghost" size="icon" className="rounded-full" aria-label={t("previousDay")}>
-            <Link href={`/calendar?date=${addDays(date, -1)}`}>
-              <ChevronLeft aria-hidden />
-            </Link>
-          </Button>
-          <Button
-            asChild
-            variant="ghost"
-            size="sm"
-            className={cn("rounded-full px-3", isToday && "text-muted")}
-          >
-            <Link href="/calendar" aria-current={isToday ? "date" : undefined}>
-              {t("today")}
-            </Link>
-          </Button>
-          <Button asChild variant="ghost" size="icon" className="rounded-full" aria-label={t("nextDay")}>
-            <Link href={`/calendar?date=${addDays(date, 1)}`}>
-              <ChevronRight aria-hidden />
-            </Link>
-          </Button>
-        </div>
-        {groomers.length > 0 ? (
-          <Button asChild className="ml-2 hidden lg:inline-flex">
-            <Link href={`/calendar?date=${date}&new=1`} scroll={false}>
-              <Plus aria-hidden />
-              {t("newBooking")}
-            </Link>
-          </Button>
-        ) : null}
-      </PageHeader>
+        isCurrent={isToday}
+        prevDate={addDays(date, -1)}
+        nextDate={addDays(date, 1)}
+        newBookingHref={groomers.length > 0 ? `/calendar?date=${date}&new=1` : undefined}
+      />
 
       {failed ? (
         <div className="px-4 pb-2 sm:px-6">
@@ -94,6 +63,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           key={date}
           date={date}
           today={today}
+          lanes={lanes}
           groomers={groomers}
           services={services}
           bookings={bookings}

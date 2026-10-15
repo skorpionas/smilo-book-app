@@ -35,7 +35,7 @@ export async function saveClient(_prev: FormState, formData: FormData): Promise<
 
   revalidatePath("/clients");
   revalidatePath(`/clients/${data.id}`);
-  revalidatePath("/calendar");
+  revalidatePath("/calendar", "layout");
   // Created from the clients list: go straight to the new client's page. A server-side redirect
   // is reliable; a client-side push right after the action can lose the race with the refresh.
   if (!id && formData.get("then") === "open") redirect(`/clients/${data.id}`);
@@ -88,7 +88,7 @@ export async function savePet(_prev: FormState, formData: FormData): Promise<For
 
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/clients");
-  revalidatePath("/calendar");
+  revalidatePath("/calendar", "layout");
   return { ok: true, savedAt: Date.now(), id: data.id };
 }
 
