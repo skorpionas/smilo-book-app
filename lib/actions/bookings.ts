@@ -137,6 +137,8 @@ export async function createBooking(input: BookingInput): Promise<CreateBookingR
   }
 
   revalidatePath("/calendar", "layout");
+
+  revalidatePath("/upcoming");
   revalidatePath("/clients", "layout");
   const range = `${toVilniusTime(start)}–${toVilniusTime(end)}`;
   return { ok: true, savedAt: Date.now(), id: bookingId, summary: { range } };
@@ -190,6 +192,8 @@ export async function cancelBooking(id: string): Promise<ActionState> {
   if (!data) return dbFailed({ code: "P0002" }, "cancelBooking");
 
   revalidatePath("/calendar", "layout");
+
+  revalidatePath("/upcoming");
   if (data.client_id) revalidatePath(`/clients/${data.client_id}`);
   return { ok: true, savedAt: Date.now(), id };
 }
@@ -224,6 +228,8 @@ export async function rescheduleBooking(input: RescheduleInput): Promise<CreateB
   if (!data) return dbFailed({ code: "P0002" }, "rescheduleBooking");
 
   revalidatePath("/calendar", "layout");
+
+  revalidatePath("/upcoming");
   if (data.client_id) revalidatePath(`/clients/${data.client_id}`);
   const range = `${toVilniusTime(start)}–${toVilniusTime(end)}`;
   return { ok: true, savedAt: Date.now(), id, summary: { range } };
@@ -249,6 +255,8 @@ export async function deleteBooking(id: string): Promise<ActionState> {
   if (!data) return dbFailed({ code: "P0002" }, "deleteBooking");
 
   revalidatePath("/calendar", "layout");
+
+  revalidatePath("/upcoming");
   if (data.client_id) revalidatePath(`/clients/${data.client_id}`);
   return { ok: true, savedAt: Date.now(), id };
 }
