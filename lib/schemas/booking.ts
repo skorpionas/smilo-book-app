@@ -11,6 +11,10 @@ import {
   uuid,
 } from "./common";
 import { SPECIES } from "@/lib/pets";
+import { todayInVilnius } from "@/lib/time";
+
+/** Bookings can be made for today (any time) or later, never for a past day. */
+export const bookingDate = dateStr.refine((d) => d >= todayInVilnius(), { error: "pastDate" });
 
 /**
  * createBooking input (US-05, US-06, US-07). Sent as a plain object from the
@@ -42,7 +46,7 @@ export const bookingItemSchema = z.object({
 export const bookingSchema = z
   .object({
     groomerId: uuid,
-    date: dateStr,
+    date: bookingDate,
     startTime: gridTime,
     durationMin: duration,
     client: z.discriminatedUnion("mode", [existingClient, newClient], { error: "required" }),
@@ -69,3 +73,13 @@ export type BookingData = z.output<typeof bookingSchema>;
 export function sumDurations(items: { durationMin: number }[]): number {
   return items.reduce((sum, item) => sum + item.durationMin, 0);
 }
+
+/** US-10: move a booking (or blocked time) to another groomer, date, start or length. */
+export const rescheduleSchema = z.object({
+  id: uuid,
+  groomerId: uuid,
+  date: bookingDate,
+  startTime: gridTime,
+  durationMin: duration,
+});
+export type RescheduleInput = z.input<typeof rescheduleSchema>;

@@ -34,7 +34,14 @@ import { DURATION_OPTIONS, formatDuration } from "@/lib/format";
 import { formatEur, parseEur } from "@/lib/money";
 import type { BookingInput } from "@/lib/schemas/booking";
 import { searchDigits } from "@/lib/search";
-import { DAY_CLOSE, DAY_OPEN, minutesToTime, timeToMinutes } from "@/lib/clock";
+import {
+  BOOKING_START_TIMES,
+  DAY_CLOSE,
+  DAY_OPEN,
+  minutesToTime,
+  timeToMinutes,
+  vilniusClock,
+} from "@/lib/clock";
 import { cn } from "@/lib/utils";
 import { worksOn } from "@/lib/schedule";
 
@@ -45,8 +52,7 @@ export type BookingDefaults = {
   client: BookingClientOption | null;
 };
 
-// Start times offered: 06:00–21:45 (outside 08:00–19:00 shows a warning, not a block).
-const START_TIMES = Array.from({ length: 64 }, (_, i) => minutesToTime(6 * 60 + i * 15));
+const START_TIMES = BOOKING_START_TIMES;
 const NEW_PET = "__new";
 
 type ItemState = {
@@ -302,7 +308,14 @@ function BookingForm({
           </Field>
           <Field id="booking-date" label={t("date")} error={fe.date}>
             {(p) => (
-              <Input {...p} type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+              <Input
+                {...p}
+                type="date"
+                min={vilniusClock().date}
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                required
+              />
             )}
           </Field>
           <Field id="booking-start" label={t("start")} error={fe.startTime}>

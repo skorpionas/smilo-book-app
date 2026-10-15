@@ -22,6 +22,7 @@ export type ErrorKey =
   | "invalidColor"
   | "itemsRequired"
   | "workDaysRequired"
+  | "pastDate"
   | "invalid";
 
 const err = (key: ErrorKey) => ({ error: key });
@@ -111,6 +112,7 @@ const KNOWN = new Set<string>([
   "invalidColor",
   "itemsRequired",
   "workDaysRequired",
+  "pastDate",
   "invalid",
 ]);
 

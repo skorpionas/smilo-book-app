@@ -56,7 +56,7 @@ export default async function WeekPage({ searchParams }: PageProps<"/calendar/we
         prevDate={addDays(monday, -7)}
         nextDate={addDays(monday, 7)}
         newBookingHref={
-          groomers.length > 0 ? `/calendar?date=${isCurrent ? today : monday}&new=1` : undefined
+          groomers.length > 0 ? `/calendar?date=${monday > today ? monday : today}&new=1` : undefined
         }
       />
 

@@ -47,7 +47,9 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
         isCurrent={isToday}
         prevDate={addDays(date, -1)}
         nextDate={addDays(date, 1)}
-        newBookingHref={groomers.length > 0 ? `/calendar?date=${date}&new=1` : undefined}
+        newBookingHref={
+          groomers.length > 0 ? `/calendar?date=${date < today ? today : date}&new=1` : undefined
+        }
       />
 
       {failed ? (

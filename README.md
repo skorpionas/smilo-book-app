@@ -112,3 +112,9 @@ supabase/tests/        pgTAP: overlap constraint, RLS, RPC functions
 - **Pet birth = year + optional month** (`pets.birth_year`, `pets.birth_month`; no day). Owners rarely know the
   exact date. Month requires a year; neither may be in the future. Age shows "6 m." / "5 mėn.", or "iki 1 m."
   when only the current year is known. Existing `birth_date` values were converted (year + month kept).
+- **No bookings on past days.** Today (any hour) or later only — checked by the shared zod schema on the server
+  (`pastDate`), the date pickers start at today, and past days in the day / week views offer no slots ("+" books
+  today). Not a DB constraint, so completing or editing old visits keeps working.
+- **Change, cancel, delete** (US-10) in the booking sheet while a booking is `scheduled`: "Keisti datą ar laiką"
+  (groomer, date, start, length; overlap still enforced by the DB), "Atšaukti vizitą" (stays in history and in the
+  client's Atšaukta counter), "Ištrinti" (for mistakes, removed completely — A6). Blocks can be moved or deleted.

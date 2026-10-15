@@ -47,7 +47,7 @@ export default async function MonthPage({ searchParams }: PageProps<"/calendar/m
         prevDate={addMonths(first, -1)}
         nextDate={addMonths(first, 1)}
         newBookingHref={
-          groomers.length > 0 ? `/calendar?date=${today.startsWith(month) ? today : first}&new=1` : undefined
+          groomers.length > 0 ? `/calendar?date=${first > today ? first : today}&new=1` : undefined
         }
       />
 

@@ -83,3 +83,8 @@ export function formatWorkDays(days: readonly number[], shortName: (day: number)
     )
     .join(", ");
 }
+
+/** Start times offered in booking forms: 06:00–21:45 (outside 08:00–19:00 shows a warning, not a block). */
+export const BOOKING_START_TIMES: readonly TimeStr[] = Array.from({ length: 64 }, (_, i) =>
+  minutesToTime(6 * 60 + i * SLOT_MINUTES),
+);

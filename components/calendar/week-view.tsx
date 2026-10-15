@@ -74,11 +74,7 @@ export function WeekView({
           if (!days.some((d) => d.date === savedDate)) router.push(`/calendar/week?date=${savedDate}`);
         }}
       />
-      <BookingDetailSheet
-        booking={selected}
-        groomer={groomers.find((g) => g.id === selected?.groomerId) ?? null}
-        onClose={() => setSelected(null)}
-      />
+      <BookingDetailSheet booking={selected} groomers={groomers} onClose={() => setSelected(null)} />
     </>
   );
 }
@@ -147,7 +143,7 @@ function WeekAgenda({
                   />
                 ))}
               </span>
-              {!closed ? (
+              {!closed && day.date >= today ? (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -372,6 +368,7 @@ function WeekGrid({
                   onSlot={(time) => onSlot(day.date, g.id, time)}
                   onOpen={onOpen}
                   dateLabel={`${day.weekdayLong} ${day.date}`}
+                  readOnly={day.date < today}
                   compact
                   className={cn(i > 0 && "border-dashed")}
                 />

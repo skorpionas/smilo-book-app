@@ -77,15 +77,23 @@ export function DayView({
     return DAY_OPEN;
   }, [date, today, nowMinutes]);
   const firstGroomerId = (lanes[0] ?? groomers[0]).id;
+  // No bookings on past days: the grid is read-only and "+" books for today.
+  const past = date < today;
+  const bookingDate = past ? today : date;
 
   // Opened from a client page (?client=) or the desktop "Nauja registracija" button (?new=1).
   const openedOnLoad = React.useRef(false);
   React.useEffect(() => {
     if (!openOnLoad || openedOnLoad.current) return;
     openedOnLoad.current = true;
-    setNewBooking({ groomerId: firstGroomerId, date, startTime: defaultTime(), client: preselectedClient });
+    setNewBooking({
+      groomerId: firstGroomerId,
+      date: bookingDate,
+      startTime: past ? DAY_OPEN : defaultTime(),
+      client: preselectedClient,
+    });
     router.replace(`${pathname}?date=${date}`, { scroll: false });
-  }, [openOnLoad, firstGroomerId, date, defaultTime, preselectedClient, router, pathname]);
+  }, [openOnLoad, firstGroomerId, date, bookingDate, past, defaultTime, preselectedClient, router, pathname]);
 
   // Today: start scrolled near the current time (F2).
   React.useEffect(() => {
@@ -117,7 +125,12 @@ export function DayView({
         className="fixed right-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-30 size-14 rounded-full shadow-lg lg:hidden [&_svg]:size-6"
         aria-label={t("newBooking")}
         onClick={() =>
-          setNewBooking({ groomerId: firstGroomerId, date, startTime: defaultTime(), client: null })
+          setNewBooking({
+            groomerId: firstGroomerId,
+            date: bookingDate,
+            startTime: past ? DAY_OPEN : defaultTime(),
+            client: null,
+          })
         }
       >
         <Plus aria-hidden />
@@ -133,11 +146,7 @@ export function DayView({
           if (savedDate !== date) router.push(`/calendar?date=${savedDate}`);
         }}
       />
-      <BookingDetailSheet
-        booking={selected}
-        groomer={groomers.find((g) => g.id === selected?.groomerId) ?? null}
-        onClose={() => setSelected(null)}
-      />
+      <BookingDetailSheet booking={selected} groomers={groomers} onClose={() => setSelected(null)} />
     </>
   );
 
@@ -224,6 +233,7 @@ export function DayView({
               groomer={g}
               bookings={byGroomer.get(g.id) ?? []}
               onSlot={(time) => setNewBooking({ groomerId: g.id, date, startTime: time, client: null })}
+              readOnly={past}
               onOpen={setSelected}
             />
           ))}
@@ -255,6 +265,7 @@ export function GroomerColumn({
   onOpen,
   dateLabel,
   compact = false,
+  readOnly = false,
   className,
 }: {
   groomer: CalendarGroomer;
@@ -265,6 +276,8 @@ export function GroomerColumn({
   dateLabel?: string;
   /** Narrow lanes (week view): smaller booking cards. */
   compact?: boolean;
+  /** Past days: no tap-to-book slots. */
+  readOnly?: boolean;
   className?: string;
 }) {
   const t = useTranslations("calendar");
@@ -293,7 +306,7 @@ export function GroomerColumn({
           )}
           style={{ gridRow: i + 1 }}
         >
-          {busy.has(i) ? null : (
+          {busy.has(i) || readOnly ? null : (
             <button
               type="button"
               className="hover:bg-primary-soft/60 focus-visible:bg-primary-soft focus-visible:ring-ring/40 block size-full transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"

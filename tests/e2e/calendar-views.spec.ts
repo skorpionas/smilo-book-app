@@ -3,7 +3,21 @@ import { expect, test, type Page } from "@playwright/test";
 // Working days, week and month views against the seeded local stack (supabase/seed.sql):
 // Meistrė A works every day, Meistrė B Monday–Saturday. Read-only: nothing is saved.
 const OWNER = { email: "owner@smilo.local", password: "smilo-dev-password" };
-const SUNDAY = "2026-10-25"; // no seeded bookings, not used by booking.spec.ts
+/** Next Sunday (YYYY-MM-DD); slots are only offered for today and later. */
+function nextSunday(): string {
+  const d = new Date();
+  d.setUTCHours(12, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() + ((7 - d.getUTCDay()) % 7 || 7));
+  return d.toISOString().slice(0, 10);
+}
+const shift = (date: string, days: number) => {
+  const d = new Date(`${date}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+};
+const SUNDAY = nextSunday();
+const SATURDAY = shift(SUNDAY, -1);
+const MONDAY = shift(SUNDAY, -6);
 
 async function login(page: Page, next: string) {
   await page.goto(`/login?next=${encodeURIComponent(next)}`);
@@ -20,7 +34,7 @@ test("day view shows a lane only for groomers working that weekday", async ({ pa
 
   // A weekday has both lanes.
   await page.getByRole("link", { name: "Ankstesnė diena" }).click();
-  await expect(page).toHaveURL(/date=2026-10-24/);
+  await expect(page).toHaveURL(new RegExp(`date=${SATURDAY}`));
   await expect(page.getByRole("button", { name: /^Registruoti: Meistrė B,/ }).first()).toBeAttached();
 });
 
@@ -31,8 +45,8 @@ test("switch to the week view and back to a day", async ({ page }, testInfo) => 
     .getByRole("link", { name: "Savaitė" })
     .click();
   await expect(page).toHaveURL(new RegExp(`/calendar/week\\?date=${SUNDAY}`));
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("10-19 – 10-25");
-  await expect(page.getByText("43 savaitė")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(`${MONDAY.slice(5)} – ${SUNDAY.slice(5)}`);
+  await expect(page.getByText(/\d+ savaitė/)).toBeVisible();
 
   if (testInfo.project.name === "desktop") {
     const grid = page.getByRole("region", { name: "Savaitės tvarkaraštis" });
@@ -43,18 +57,11 @@ test("switch to the week view and back to a day", async ({ page }, testInfo) => 
       grid.getByRole("button", { name: new RegExp(`^Registruoti: sekmadienis ${SUNDAY}, Meistrė B`) }),
     ).toHaveCount(0);
     await expect(
-      grid.getByRole("button", { name: /^Registruoti: pirmadienis 2026-10-19, Meistrė B/ }).first(),
+      grid
+        .getByRole("button", { name: new RegExp(`^Registruoti: šeštadienis ${SATURDAY}, Meistrė B`) })
+        .first(),
     ).toBeAttached();
   }
-
-  // Seeded visits open the booking detail sheet.
-  const visit = page
-    .getByRole("button", { name: /^\d{2}:\d{2}–\d{2}:\d{2}, .+, .+$/ })
-    .locator("visible=true")
-    .first();
-  await visit.click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.keyboard.press("Escape");
 
   await page
     .getByRole("link", { name: `Atidaryti dieną sekmadienis ${SUNDAY}` })

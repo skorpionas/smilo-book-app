@@ -122,7 +122,8 @@
     "checkFields": "Patikrinkite pažymėtus laukus.",
     "phoneTaken": "Klientas su šiuo telefono numeriu jau yra. Raskite jį paieškoje.",
     "slotTakenUnknown": "Šis laikas jau užimtas.",
-    "workDaysRequired": "Pažymėkite bent vieną darbo dieną."
+    "workDaysRequired": "Pažymėkite bent vieną darbo dieną.",
+    "pastDate": "Praėjusiai dienai registruoti negalima."
   },
   "common": {
     "close": "Uždaryti",
@@ -413,7 +414,20 @@
     "bookingNotes": "Pastabos apie vizitą",
     "petNotes": "Pastabos apie augintinį",
     "blockTitle": "Nedarbo laikas",
-    "groomerOffDay": "{name} šią dieną nedirba pagal savo darbo dienas."
+    "groomerOffDay": "{name} šią dieną nedirba pagal savo darbo dienas.",
+    "reschedule": "Keisti datą ar laiką",
+    "rescheduleTitle": "Keisti datą ir laiką",
+    "rescheduled": "Vizitas perkeltas",
+    "blockRescheduled": "Nedarbo laikas pakeistas",
+    "back": "Atgal",
+    "delete": "Ištrinti",
+    "deleteTitle": "Ištrinti registraciją?",
+    "deleteText": "Registracija bus ištrinta visam laikui ir nebeliks istorijoje. Jei klientas atšaukė vizitą, geriau rinkitės „Atšaukti vizitą“.",
+    "deleteBlockTitle": "Ištrinti nedarbo laiką?",
+    "deleteBlockText": "Laikas vėl bus laisvas registracijoms.",
+    "deleted": "Registracija ištrinta",
+    "blockDeleted": "Nedarbo laikas ištrintas",
+    "pastNote": "Praėjusiai dienai registruoti negalima – pasirinkite šiandieną ar vėlesnę dieną."
   },
   "search": {
     "label": "Ieškoti kliento ar augintinio",

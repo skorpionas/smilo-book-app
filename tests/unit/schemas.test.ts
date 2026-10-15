@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { bookingSchema, sumDurations } from "@/lib/schemas/booking";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { bookingSchema, rescheduleSchema, sumDurations } from "@/lib/schemas/booking";
 import { issuesToFieldErrors } from "@/lib/schemas/common";
 import { clientSchema, groomerSchema, petSchema, serviceSchema } from "@/lib/schemas/entities";
 import lt from "@/messages/lt.json";
@@ -168,6 +168,13 @@ describe("petSchema", () => {
 });
 
 describe("bookingSchema", () => {
+  // "Today" in Vilnius is 2026-10-15 for these tests (no bookings on past days).
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-15T20:30:00Z")); // 23:30 in Vilnius
+  });
+  afterAll(() => vi.useRealTimers());
+
   const valid = {
     groomerId: ID,
     date: "2026-10-20",
@@ -177,6 +184,19 @@ describe("bookingSchema", () => {
     items: [{ pet: { mode: "existing", id: ID2 }, serviceId: SVC, durationMin: 120, plannedPrice: "45" }],
     notes: "",
   } as const;
+
+  it("accepts today, even an earlier hour", () => {
+    expect(bookingSchema.safeParse({ ...valid, date: "2026-10-15", startTime: "08:00" }).success).toBe(true);
+  });
+
+  it("validates a reschedule the same way", () => {
+    const move = { id: ID, groomerId: ID, date: "2026-10-15", startTime: "09:00", durationMin: 90 };
+    expect(rescheduleSchema.parse(move)).toEqual(move);
+    expect(errors(rescheduleSchema.safeParse({ ...move, date: "2026-10-01" }))).toEqual({ date: "pastDate" });
+    expect(errors(rescheduleSchema.safeParse({ ...move, startTime: "09:05" }))).toEqual({
+      startTime: "offGrid",
+    });
+  });
 
   it("accepts an existing client with one pet", () => {
     const r = bookingSchema.parse(valid);
@@ -208,6 +228,7 @@ describe("bookingSchema", () => {
     [{ startTime: "10:10" }, "startTime", "offGrid"],
     [{ startTime: "25:00" }, "startTime", "invalidTime"],
     [{ date: "2026-02-30" }, "date", "invalidDate"],
+    [{ date: "2026-10-14" }, "date", "pastDate"],
     [{ durationMin: 20 }, "durationMin", "invalidDuration"],
     [{ client: undefined }, "client", "required"],
     [{ items: [] }, "items", "itemsRequired"],
