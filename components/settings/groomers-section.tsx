@@ -3,8 +3,8 @@
 import { ArrowDown, ArrowUp, Check, Pencil, Plus, UserRound } from "lucide-react";
 import { useTranslations } from "next-intl";
 import * as React from "react";
-import { useActionState } from "react";
 import { Field } from "@/components/forms/field";
+import { useFormAction } from "@/components/forms/use-form-action";
 import { useOnSaved } from "@/components/forms/use-on-saved";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -156,7 +156,7 @@ function GroomerForm({
 }) {
   const t = useTranslations("settings");
   const tc = useTranslations("common");
-  const [state, action, pending] = useActionState(saveGroomer, null);
+  const [state, onSubmit, pending] = useFormAction(saveGroomer);
   const [color, setColor] = React.useState(groomer?.color ?? defaultColor);
   const [name, setName] = React.useState(groomer?.name ?? "");
   useOnSaved(state, () => {
@@ -167,7 +167,7 @@ function GroomerForm({
   const isPreset = PRESETS.some((p) => p.value === color.toLowerCase());
 
   return (
-    <form action={action} noValidate className="flex min-h-0 flex-1 flex-col">
+    <form onSubmit={onSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
       <SheetHeader>
         <SheetTitle>{groomer ? t("editGroomer") : t("addGroomer")}</SheetTitle>
         <SheetDescription>{t("groomersHint")}</SheetDescription>

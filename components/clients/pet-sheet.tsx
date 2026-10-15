@@ -3,8 +3,8 @@
 import { Archive } from "lucide-react";
 import { useTranslations } from "next-intl";
 import * as React from "react";
-import { useActionState } from "react";
 import { Field } from "@/components/forms/field";
+import { useFormAction } from "@/components/forms/use-form-action";
 import { useOnSaved } from "@/components/forms/use-on-saved";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -72,7 +72,7 @@ function PetForm({
   const t = useTranslations("pets");
   const tc = useTranslations("common");
   const tz = useTranslations("sizes");
-  const [state, action, pending] = useActionState(savePet, null);
+  const [state, onSubmit, pending] = useFormAction(savePet);
   useOnSaved(state, () => {
     toast({ title: t("saved") });
     onSaved();
@@ -80,7 +80,7 @@ function PetForm({
   const fe = state?.fieldErrors ?? {};
 
   return (
-    <form action={action} noValidate className="flex min-h-0 flex-1 flex-col">
+    <form onSubmit={onSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
       <SheetHeader>
         <SheetTitle>{pet ? t("editPet") : t("newPet")}</SheetTitle>
       </SheetHeader>

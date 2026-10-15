@@ -3,9 +3,9 @@
 import { Archive, ArchiveRestore, ChevronDown, Pencil, Plus, Scissors } from "lucide-react";
 import { useTranslations } from "next-intl";
 import * as React from "react";
-import { useActionState } from "react";
 import { ConfirmDialog } from "@/components/forms/confirm-dialog";
 import { Field } from "@/components/forms/field";
+import { useFormAction } from "@/components/forms/use-form-action";
 import { useOnSaved } from "@/components/forms/use-on-saved";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -206,7 +206,7 @@ function ServiceForm({
   const t = useTranslations("settings");
   const tc = useTranslations("common");
   const tu = useTranslations("units");
-  const [state, action, pending] = useActionState(saveService, null);
+  const [state, onSubmit, pending] = useFormAction(saveService);
   useOnSaved(state, () => {
     toast({ title: t("serviceSaved") });
     onSaved();
@@ -214,7 +214,7 @@ function ServiceForm({
   const fe = state?.fieldErrors ?? {};
 
   return (
-    <form action={action} noValidate className="flex min-h-0 flex-1 flex-col">
+    <form onSubmit={onSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
       <SheetHeader>
         <SheetTitle>{title}</SheetTitle>
         <SheetDescription>{t("servicesHint")}</SheetDescription>

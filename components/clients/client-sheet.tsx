@@ -2,8 +2,8 @@
 
 import { useTranslations } from "next-intl";
 import * as React from "react";
-import { useActionState } from "react";
 import { Field } from "@/components/forms/field";
+import { useFormAction } from "@/components/forms/use-form-action";
 import { useOnSaved } from "@/components/forms/use-on-saved";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -65,7 +65,7 @@ function ClientForm({
 }) {
   const t = useTranslations("clients");
   const tc = useTranslations("common");
-  const [state, action, pending] = useActionState(saveClient, null);
+  const [state, onSubmit, pending] = useFormAction(saveClient);
   useOnSaved(state, (s) => {
     toast({ title: t("saved") });
     if (s.id) onSaved(s.id);
@@ -73,7 +73,7 @@ function ClientForm({
   const fe = state?.fieldErrors ?? {};
 
   return (
-    <form action={action} noValidate className="flex min-h-0 flex-1 flex-col">
+    <form onSubmit={onSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
       <SheetHeader>
         <SheetTitle>{client ? t("editClient") : t("newClient")}</SheetTitle>
       </SheetHeader>
