@@ -77,14 +77,19 @@
     "monthCell": "{date}: vizitų {count}",
     "bookOnDay": "Registruoti {date}"
   },
+  "upcoming": {
+    "listLabel": "Artimiausi vizitai pagal dienas",
+    "total": "vizitų: {count}",
+    "tomorrow": "Rytoj",
+    "emptyTitle": "Artimiausių vizitų nėra",
+    "emptyText": "Per artimiausias {days} dienų neužregistruotas nė vienas vizitas."
+  },
   "pages": {
     "upcoming": "Artimiausi vizitai",
     "search": "Paieška",
     "clients": "Klientai",
     "settings": "Nustatymai",
     "comingSoon": "Šis skyrius bus netrukus.",
-    "upcomingEmptyTitle": "Artimiausių vizitų sąrašas",
-    "upcomingEmptyText": "Čia bus 14 dienų vizitai, sugrupuoti pagal datą, su vizitų skaičiumi kiekvienai dienai.",
     "searchEmptyTitle": "Greita paieška",
     "searchEmptyText": "Ieškokite kliento ar augintinio pagal vardą arba telefono numerio dalį.",
     "clientsEmptyTitle": "Klientų dar nėra",

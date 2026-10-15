@@ -27,6 +27,7 @@ export async function saveService(_prev: FormState, formData: FormData): Promise
 
   revalidatePath("/settings");
   revalidatePath("/calendar", "layout");
+  revalidatePath("/upcoming");
   return { ok: true, savedAt: Date.now(), id: data.id };
 }
 
@@ -41,6 +42,7 @@ export async function setServiceArchived(id: string, archived: boolean): Promise
   if (error) return dbFailed(error, "setServiceArchived");
   revalidatePath("/settings");
   revalidatePath("/calendar", "layout");
+  revalidatePath("/upcoming");
   return { ok: true, savedAt: Date.now(), id };
 }
 
@@ -88,6 +90,7 @@ export async function saveGroomer(_prev: FormState, formData: FormData): Promise
 
   revalidatePath("/settings");
   revalidatePath("/calendar", "layout");
+  revalidatePath("/upcoming");
   return { ok: true, savedAt: Date.now(), id: result.data.id };
 }
 
@@ -119,5 +122,6 @@ export async function moveGroomer(id: string, direction: "up" | "down"): Promise
   }
   revalidatePath("/settings");
   revalidatePath("/calendar", "layout");
+  revalidatePath("/upcoming");
   return { ok: true, savedAt: Date.now() };
 }

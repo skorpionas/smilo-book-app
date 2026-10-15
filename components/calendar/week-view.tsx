@@ -182,13 +182,17 @@ function WeekAgenda({
   );
 }
 
-function AgendaRow({
+/** One booking row of an agenda list (week agenda, Artimiausi). */
+export function AgendaRow({
   booking,
   color,
+  groomerName,
   onOpen,
 }: {
   booking: CalendarBooking;
   color: string;
+  /** Shown in the text when the list mixes groomers (colour alone isn't enough). */
+  groomerName?: string;
   onOpen: (b: CalendarBooking) => void;
 }) {
   const t = useTranslations("calendar");
@@ -222,7 +226,12 @@ function AgendaRow({
     <button
       type="button"
       onClick={() => onOpen(booking)}
-      aria-label={t("openBooking", { time: range, pets, client: booking.client?.fullName ?? "" })}
+      aria-label={[
+        t("openBooking", { time: range, pets, client: booking.client?.fullName ?? "" }),
+        groomerName,
+      ]
+        .filter(Boolean)
+        .join(", ")}
       className={cn(
         "hover:bg-surface-muted flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left",
         booking.status === "completed" && "opacity-75",
@@ -236,6 +245,12 @@ function AgendaRow({
           {servicesText}
           {booking.client ? ` · ${booking.client.fullName}` : ""}
         </span>
+        {groomerName ? (
+          <span className="text-muted flex items-center gap-1.5 text-xs">
+            <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: color }} />
+            {groomerName}
+          </span>
+        ) : null}
       </span>
       <StatusIcons booking={booking} hasNotes={hasNotes} />
     </button>
