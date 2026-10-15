@@ -2,8 +2,10 @@
 
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label } from "@/components/ui/input";
+import { FieldError, FieldHint, Label } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { updatePassword } from "@/lib/actions/auth";
 
 export function NewPasswordForm() {
@@ -12,13 +14,12 @@ export function NewPasswordForm() {
   const fieldError = state?.fieldErrors?.password;
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} className="space-y-5">
       <div>
         <Label htmlFor="password">{t("newPassword")}</Label>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           autoComplete="new-password"
           minLength={12}
           required
@@ -28,17 +29,15 @@ export function NewPasswordForm() {
         {fieldError ? (
           <FieldError id="password-error" message={fieldError} />
         ) : (
-          <p id="password-hint" className="text-muted mt-1 text-sm">
-            {t("newPasswordHint")}
-          </p>
+          <FieldHint id="password-hint">{t("newPasswordHint")}</FieldHint>
         )}
       </div>
       {state?.error ? (
-        <p role="alert" className="bg-danger-soft text-danger rounded-xl px-3 py-2 text-sm">
+        <Alert tone="danger" role="alert">
           {state.error}
-        </p>
+        </Alert>
       ) : null}
-      <Button type="submit" size="lg" className="w-full" disabled={pending}>
+      <Button type="submit" size="lg" className="w-full" loading={pending}>
         {t("newPasswordSubmit")}
       </Button>
     </form>

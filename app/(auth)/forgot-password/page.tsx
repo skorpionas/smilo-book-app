@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { Alert } from "@/components/ui/alert";
 import { ForgotPasswordForm } from "./forgot-password-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -12,12 +13,12 @@ export default async function ForgotPasswordPage({ searchParams }: PageProps<"/f
   const t = await getTranslations("auth");
   return (
     <>
-      <h1 className="mb-2 text-xl font-semibold">{t("resetTitle")}</h1>
-      <p className="text-muted mb-5 text-sm">{t("resetIntro")}</p>
+      <h1 className="text-xl font-semibold tracking-tight">{t("resetTitle")}</h1>
+      <p className="text-muted mt-1.5 mb-6 text-base leading-relaxed">{t("resetIntro")}</p>
       {error === "link" ? (
-        <p role="alert" className="bg-danger-soft text-danger mb-4 rounded-xl px-3 py-2 text-sm">
+        <Alert tone="danger" role="alert" className="mb-5">
           {t("linkInvalid")}
-        </p>
+        </Alert>
       ) : null}
       <ForgotPasswordForm />
     </>

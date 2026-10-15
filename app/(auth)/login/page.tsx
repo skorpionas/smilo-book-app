@@ -12,7 +12,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const t = await getTranslations("auth");
   return (
     <>
-      <h1 className="mb-5 text-xl font-semibold">{t("title")}</h1>
+      <h1 className="mb-6 text-xl font-semibold tracking-tight">{t("title")}</h1>
       <LoginForm next={typeof next === "string" ? next : undefined} />
     </>
   );
