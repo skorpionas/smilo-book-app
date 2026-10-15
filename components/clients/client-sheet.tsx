@@ -27,11 +27,14 @@ export function ClientSheet({
   onOpenChange,
   client,
   onSaved,
+  openAfterCreate,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   client?: ClientFormValues | null;
   onSaved?: (id: string) => void;
+  /** After creating, navigate to the new client's page (server-side redirect). */
+  openAfterCreate?: boolean;
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -39,6 +42,7 @@ export function ClientSheet({
         {open ? (
           <ClientForm
             client={client ?? null}
+            openAfterCreate={openAfterCreate}
             onSaved={(id) => {
               onOpenChange(false);
               onSaved?.(id);
@@ -50,7 +54,15 @@ export function ClientSheet({
   );
 }
 
-function ClientForm({ client, onSaved }: { client: ClientFormValues | null; onSaved: (id: string) => void }) {
+function ClientForm({
+  client,
+  onSaved,
+  openAfterCreate,
+}: {
+  client: ClientFormValues | null;
+  onSaved: (id: string) => void;
+  openAfterCreate?: boolean;
+}) {
   const t = useTranslations("clients");
   const tc = useTranslations("common");
   const [state, action, pending] = useActionState(saveClient, null);
@@ -67,6 +79,7 @@ function ClientForm({ client, onSaved }: { client: ClientFormValues | null; onSa
       </SheetHeader>
       <SheetBody className="space-y-5 pb-5">
         {client ? <input type="hidden" name="id" value={client.id} /> : null}
+        {!client && openAfterCreate ? <input type="hidden" name="then" value="open" /> : null}
         {state?.error && !state.fieldErrors ? (
           <Alert tone="danger" role="alert">
             {state.error}

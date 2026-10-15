@@ -2,7 +2,6 @@
 
 import { ChevronRight, Plus, SearchX, Users } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import * as React from "react";
 import { SearchField } from "@/components/search-field";
@@ -24,7 +23,6 @@ export type ClientListRow = {
 /** Clients list (issue #15). Filtering is local: instant, and the query never leaves the phone. */
 export function ClientsList({ clients }: { clients: ClientListRow[] }) {
   const t = useTranslations("clients");
-  const router = useRouter();
   const [query, setQuery] = React.useState("");
   const [creating, setCreating] = React.useState(false);
   const deferred = React.useDeferredValue(query);
@@ -89,11 +87,7 @@ export function ClientsList({ clients }: { clients: ClientListRow[] }) {
         </Card>
       )}
 
-      <ClientSheet
-        open={creating}
-        onOpenChange={setCreating}
-        onSaved={(id) => router.push(`/clients/${id}`)}
-      />
+      <ClientSheet open={creating} onOpenChange={setCreating} openAfterCreate />
     </div>
   );
 }

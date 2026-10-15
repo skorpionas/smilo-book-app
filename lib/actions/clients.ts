@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { dbFailed, formToObject, validationFailed, type FormState } from "@/lib/action-helpers";
 import { requireUser } from "@/lib/auth";
@@ -35,6 +36,9 @@ export async function saveClient(_prev: FormState, formData: FormData): Promise<
   revalidatePath("/clients");
   revalidatePath(`/clients/${data.id}`);
   revalidatePath("/calendar");
+  // Created from the clients list: go straight to the new client's page. A server-side redirect
+  // is reliable; a client-side push right after the action can lose the race with the refresh.
+  if (!id && formData.get("then") === "open") redirect(`/clients/${data.id}`);
   return { ok: true, savedAt: Date.now(), id: data.id };
 }
 
