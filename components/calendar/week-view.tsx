@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import type { CalendarBooking, CalendarGroomer, CalendarLane, CalendarService } from "@/lib/calendar-data";
 import { DAY_CLOSE, DAY_OPEN, GRID_ROWS, SLOT_MINUTES, minutesToTime, type DateStr } from "@/lib/clock";
 import { cn } from "@/lib/utils";
+import { CALENDAR_STICKY_TOP } from "./sticky";
 import { BookingDetailSheet } from "./booking-detail";
 import type { BookingDefaults } from "./booking-form";
 import { CLOSE, GroomerColumn, OPEN, ROW_REM, SLOTS, useNowMinutes } from "./day-view";
@@ -281,7 +282,10 @@ function WeekGrid({
     <div className="hidden pb-8 lg:block">
       {/* Day + lane headers */}
       <div
-        className="border-border bg-background/85 sticky top-[calc(7.5rem+env(safe-area-inset-top))] z-10 grid border-y backdrop-blur-md"
+        className={cn(
+          "border-border bg-background/85 sticky z-10 grid border-y backdrop-blur-md",
+          CALENDAR_STICKY_TOP,
+        )}
         style={{ gridTemplateColumns: template }}
       >
         <span aria-hidden />

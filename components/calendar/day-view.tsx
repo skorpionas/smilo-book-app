@@ -24,6 +24,7 @@ import {
   type DateStr,
 } from "@/lib/clock";
 import { cn } from "@/lib/utils";
+import { CALENDAR_STICKY_TOP } from "./sticky";
 import { BookingDetailSheet } from "./booking-detail";
 import type { BookingDefaults } from "./booking-form";
 import { useBookingDrag, type DropPreview } from "./drag-move";
@@ -175,7 +176,10 @@ export function DayView({
     <>
       {/* Groomer column headers */}
       <div
-        className="border-border bg-background/85 sticky top-[calc(7.5rem+env(safe-area-inset-top))] z-10 grid border-y backdrop-blur-md"
+        className={cn(
+          "border-border bg-background/85 sticky z-10 grid border-y backdrop-blur-md",
+          CALENDAR_STICKY_TOP,
+        )}
         style={{ gridTemplateColumns: gridTemplate }}
         role="group"
         aria-label={t("groomers")}
