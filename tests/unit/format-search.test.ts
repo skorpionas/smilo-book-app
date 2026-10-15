@@ -27,16 +27,21 @@ describe("formatDuration", () => {
 
 describe("pet age", () => {
   it("counts whole months and years", () => {
-    expect(ageParts("2020-05-20", "2026-10-15")).toEqual({ years: 6, months: 76 });
-    expect(ageParts("2026-05-20", "2026-10-15")).toEqual({ years: 0, months: 4 });
-    expect(ageParts("2026-10-20", "2026-10-15")).toBeNull();
-    expect(ageParts("bad", "2026-10-15")).toBeNull();
+    expect(ageParts(2020, 5, "2026-10-15")).toEqual({ years: 6, months: 77 });
+    expect(ageParts(2026, 5, "2026-10-15")).toEqual({ years: 0, months: 5 });
+    expect(ageParts(2020, 11, "2026-10-15")).toEqual({ years: 5, months: 71 });
+    expect(ageParts(2026, 11, "2026-10-15")).toBeNull();
+    expect(ageParts(2020, null, "2026-10-15")).toEqual({ years: 6, months: null });
+    expect(ageParts(2027, null, "2026-10-15")).toBeNull();
+    expect(ageParts(2020, null, "bad")).toBeNull();
   });
 
   it("formats years or months", () => {
-    expect(formatAge(tu, "2020-05-20", "2026-10-15")).toBe("6 m.");
-    expect(formatAge(tu, "2026-05-20", "2026-10-15")).toBe("4 mėn.");
-    expect(formatAge(tu, "2027-01-01", "2026-10-15")).toBe("");
+    expect(formatAge(tu, 2020, 5, "2026-10-15")).toBe("6 m.");
+    expect(formatAge(tu, 2020, null, "2026-10-15")).toBe("6 m.");
+    expect(formatAge(tu, 2026, 5, "2026-10-15")).toBe("5 mėn.");
+    expect(formatAge(tu, 2026, null, "2026-10-15")).toBe("iki 1 m.");
+    expect(formatAge(tu, 2027, 1, "2026-10-15")).toBe("");
   });
 });
 

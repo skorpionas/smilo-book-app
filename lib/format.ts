@@ -18,19 +18,33 @@ export function formatDuration(t: Translate, minutes: number): string {
 /** Durations offered in pickers: 15 min … 10 h in 15-min steps. */
 export const DURATION_OPTIONS = Array.from({ length: 40 }, (_, i) => (i + 1) * 15);
 
-/** Whole years (or months for pets under a year) between a birth date and today, both "YYYY-MM-DD". */
-export function ageParts(birthDate: string, today: string): { years: number; months: number } | null {
-  const b = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthDate);
-  const n = /^(\d{4})-(\d{2})-(\d{2})$/.exec(today);
-  if (!b || !n) return null;
-  let months = (Number(n[1]) - Number(b[1])) * 12 + (Number(n[2]) - Number(b[2]));
-  if (Number(n[3]) < Number(b[3])) months -= 1;
+/**
+ * Age from a birth year (+ optional month) and today "YYYY-MM-DD".
+ * With a month: whole months (the birth month counts as day 1). Without: years only
+ * (calendar-year difference), months = null. Null when the birth is in the future.
+ */
+export function ageParts(
+  birthYear: number,
+  birthMonth: number | null,
+  today: string,
+): { years: number; months: number | null } | null {
+  const n = /^(\d{4})-(\d{2})-\d{2}$/.exec(today);
+  if (!n || !Number.isInteger(birthYear)) return null;
+  const ty = Number(n[1]);
+  const tm = Number(n[2]);
+  if (birthMonth == null) {
+    const years = ty - birthYear;
+    return years < 0 ? null : { years, months: null };
+  }
+  const months = (ty - birthYear) * 12 + (tm - birthMonth);
   if (months < 0) return null;
   return { years: Math.floor(months / 12), months };
 }
 
-export function formatAge(t: Translate, birthDate: string, today: string): string {
-  const age = ageParts(birthDate, today);
+/** "6 m.", "4 mėn.", or "iki 1 m." when only the (current) year is known. */
+export function formatAge(t: Translate, birthYear: number, birthMonth: number | null, today: string): string {
+  const age = ageParts(birthYear, birthMonth, today);
   if (!age) return "";
-  return age.years >= 1 ? t("years", { y: age.years }) : t("months", { mo: age.months });
+  if (age.years >= 1) return t("years", { y: age.years });
+  return age.months == null ? t("underYear") : t("months", { mo: age.months });
 }

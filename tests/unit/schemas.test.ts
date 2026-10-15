@@ -121,19 +121,32 @@ describe("petSchema", () => {
     breed: "",
     size: "",
     weightKg: "",
-    birthDate: "",
+    birthYear: "",
+    birthMonth: "",
     notes: "",
   };
 
   it("parses optional fields as null", () => {
-    expect(petSchema.parse(base)).toMatchObject({ size: null, weightKg: null, birthDate: null });
+    expect(petSchema.parse(base)).toMatchObject({
+      size: null,
+      weightKg: null,
+      birthYear: null,
+      birthMonth: null,
+    });
   });
 
-  it("parses weight with a comma and a valid birth date", () => {
-    expect(petSchema.parse({ ...base, weightKg: "7,55", birthDate: "2020-01-01", size: "m" })).toMatchObject({
+  it("parses weight with a comma and a birth year with optional month", () => {
+    expect(
+      petSchema.parse({ ...base, weightKg: "7,55", birthYear: "2020", birthMonth: "3", size: "m" }),
+    ).toMatchObject({
       weightKg: 7.6,
-      birthDate: "2020-01-01",
+      birthYear: 2020,
+      birthMonth: 3,
       size: "m",
+    });
+    expect(petSchema.parse({ ...base, birthYear: "2020" })).toMatchObject({
+      birthYear: 2020,
+      birthMonth: null,
     });
   });
 
@@ -141,8 +154,12 @@ describe("petSchema", () => {
     [{ species: "rabbit" }, "species", "required"],
     [{ weightKg: "0,2" }, "weightKg", "invalidWeight"],
     [{ weightKg: "abc" }, "weightKg", "invalidWeight"],
-    [{ birthDate: "2999-01-01" }, "birthDate", "futureDate"],
-    [{ birthDate: "01.02.2020" }, "birthDate", "invalidDate"],
+    [{ birthYear: "2999" }, "birthYear", "futureDate"],
+    [{ birthYear: "1980" }, "birthYear", "invalid"],
+    [{ birthYear: "abc" }, "birthYear", "invalid"],
+    [{ birthMonth: "5" }, "birthYear", "required"],
+    [{ birthYear: "2020", birthMonth: "13" }, "birthMonth", "invalid"],
+    [{ birthYear: String(new Date().getFullYear() + 1), birthMonth: "1" }, "birthYear", "futureDate"],
     [{ size: "huge" }, "size", "invalid"],
     [{ clientId: "x" }, "clientId", "invalid"],
   ])("rejects %j", (patch, field, key) => {

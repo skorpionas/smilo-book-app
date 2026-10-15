@@ -222,7 +222,8 @@ export type Database = {
       pets: {
         Row: {
           archived_at: string | null;
-          birth_date: string | null;
+          birth_month: number | null;
+          birth_year: number | null;
           breed: string;
           client_id: string;
           created_at: string;
@@ -237,7 +238,8 @@ export type Database = {
         };
         Insert: {
           archived_at?: string | null;
-          birth_date?: string | null;
+          birth_month?: number | null;
+          birth_year?: number | null;
           breed?: string;
           client_id: string;
           created_at?: string;
@@ -252,7 +254,8 @@ export type Database = {
         };
         Update: {
           archived_at?: string | null;
-          birth_date?: string | null;
+          birth_month?: number | null;
+          birth_year?: number | null;
           breed?: string;
           client_id?: string;
           created_at?: string;

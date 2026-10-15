@@ -37,7 +37,7 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
       .maybeSingle(),
     supabase
       .from("pets")
-      .select("id, name, species, breed, size, weight_kg, birth_date, notes")
+      .select("id, name, species, breed, size, weight_kg, birth_year, birth_month, notes")
       .eq("client_id", id)
       .is("archived_at", null)
       .order("name"),
@@ -153,7 +153,8 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
             breed: p.breed,
             size: p.size,
             weightKg: p.weight_kg === null ? null : Number(p.weight_kg),
-            birthDate: p.birth_date,
+            birthYear: p.birth_year,
+            birthMonth: p.birth_month,
             notes: p.notes,
           }))}
         />

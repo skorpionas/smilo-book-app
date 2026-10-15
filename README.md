@@ -108,3 +108,7 @@ supabase/tests/        pgTAP: overlap constraint, RLS, RPC functions
   lanes on ≥ 1024 px (tap a free slot to book). Month: a Server Component with no client JS — per-groomer
   counts on phones, the first three visits per day on desktop; every day opens the day view.
 - Mutations revalidate `/calendar` as a layout so all three views refresh.
+
+- **Pet birth = year + optional month** (`pets.birth_year`, `pets.birth_month`; no day). Owners rarely know the
+  exact date. Month requires a year; neither may be in the future. Age shows "6 m." / "5 mėn.", or "iki 1 m."
+  when only the current year is known. Existing `birth_date` values were converted (year + month kept).

@@ -105,13 +105,14 @@ with pets(n, client_n, name, species, breed, size, weight, notes) as (
     (29, 19, 'Mila',    'cat', 'Meinkūnas',            null,  7.0, ''),
     (30, 20, 'Bobis',   'dog', 'Kokerspanielis',       'm',  12.5, '')
 )
-insert into public.pets (id, owner_id, client_id, name, species, breed, size, weight_kg, birth_date, notes)
+insert into public.pets (id, owner_id, client_id, name, species, breed, size, weight_kg, birth_year, birth_month, notes)
 select
   ('0d000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
   '0a000000-0000-4000-8000-000000000001',
   ('0c000000-0000-4000-8000-' || lpad(client_n::text, 12, '0'))::uuid,
   name, species::public.pet_species, breed, size::public.pet_size, weight,
-  date '2016-03-01' + (n * 97 % 3000),
+  2016 + (n * 7 % 10),
+  case when n % 3 = 0 then null else (n * 5 % 12) + 1 end,
   notes
 from pets;
 
