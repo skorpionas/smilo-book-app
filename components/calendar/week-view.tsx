@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { BookingDetailSheet } from "./booking-detail";
 import type { BookingDefaults } from "./booking-form";
 import { CLOSE, GroomerColumn, OPEN, ROW_REM, SLOTS, useNowMinutes } from "./day-view";
+import { useBookingDrag } from "./drag-move";
 
 const BookingSheet = dynamic(() => import("./booking-form").then((m) => m.BookingSheet));
 
@@ -49,6 +50,7 @@ export function WeekView({
   const showsToday = days.some((d) => d.date === today);
   const nowMinutes = useNowMinutes(showsToday);
   const colorOf = React.useMemo(() => new Map(groomers.map((g) => [g.id, g.color])), [groomers]);
+  const drag = useBookingDrag(groomers);
 
   const book = (date: DateStr, groomerId?: string, startTime: string = DAY_OPEN) =>
     setNewBooking({ groomerId: groomerId ?? groomers[0].id, date, startTime, client: null });
@@ -60,9 +62,13 @@ export function WeekView({
         days={days}
         today={today}
         nowMinutes={nowMinutes}
-        onOpen={setSelected}
-        onSlot={(date, groomerId, time) => book(date, groomerId, time)}
+        onOpen={drag.guardClick(setSelected)}
+        onSlot={drag.guardClick((date: DateStr, groomerId: string, time: string) =>
+          book(date, groomerId, time),
+        )}
+        drag={drag}
       />
+      {drag.dialog}
 
       <BookingSheet
         defaults={newBooking}
@@ -255,12 +261,14 @@ function WeekGrid({
   nowMinutes,
   onOpen,
   onSlot,
+  drag,
 }: {
   days: WeekDay[];
   today: DateStr;
   nowMinutes: number | null;
   onOpen: (b: CalendarBooking) => void;
   onSlot: (date: DateStr, groomerId: string, time: string) => void;
+  drag: ReturnType<typeof useBookingDrag>;
 }) {
   const t = useTranslations("calendar");
   const template = "3.5rem repeat(7, minmax(0, 1fr))";
@@ -364,6 +372,10 @@ function WeekGrid({
                 <GroomerColumn
                   key={g.id}
                   groomer={g}
+                  date={day.date}
+                  preview={drag.previewFor(g.id, day.date)}
+                  draggingId={drag.draggingId}
+                  onDragStart={drag.startDrag}
                   bookings={day.bookings.filter((b) => b.groomerId === g.id)}
                   onSlot={(time) => onSlot(day.date, g.id, time)}
                   onOpen={onOpen}

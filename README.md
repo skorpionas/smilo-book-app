@@ -118,3 +118,7 @@ supabase/tests/        pgTAP: overlap constraint, RLS, RPC functions
 - **Change, cancel, delete** (US-10) in the booking sheet while a booking is `scheduled`: "Keisti datą ar laiką"
   (groomer, date, start, length; overlap still enforced by the DB), "Atšaukti vizitą" (stays in history and in the
   client's Atšaukta counter), "Ištrinti" (for mistakes, removed completely — A6). Blocks can be moved or deleted.
+- **Drag and drop to move** (day view and desktop week view), always with a "Perkelti vizitą?" confirmation.
+  Mouse: press and drag. Touch: long-press ~0.35 s, then drag (a quick swipe still scrolls). The ghost snaps to
+  15 min, turns red ("užimta") over another card and refuses that drop; past days are not drop targets; the
+  database still checks overlaps. "Keisti datą ar laiką" in the sheet is the keyboard / no-drag alternative.

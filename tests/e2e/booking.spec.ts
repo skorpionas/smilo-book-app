@@ -157,3 +157,33 @@ test("past days offer no booking slots", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("2026-01-05");
   await expect(page.getByRole("button", { name: /^Registruoti: / })).toHaveCount(0);
 });
+
+test("drag a booking to another time, then confirm", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "mouse drag; touch uses long-press");
+  const day = futureSunday(6);
+  const sheet = page.getByRole("dialog").first();
+  await login(page, `/calendar?date=${day}`);
+
+  await page.getByRole("button", { name: "Registruoti: Meistrė A, 09:00" }).click();
+  await sheet.getByPlaceholder("Vardas, augintinis ar telefonas").fill("Petrausk");
+  await sheet.getByRole("button", { name: "Pasirinkti Rasa Petrauskienė" }).click();
+  await sheet.getByLabel("Augintinis", { exact: true }).selectOption({ index: 1 });
+  await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
+  await sheet.getByRole("button", { name: "Išsaugoti" }).click();
+  const card = page.getByRole("button", { name: /^09:00–11:00, .+, Rasa Petrauskienė$/ });
+  await expect(card).toBeVisible();
+
+  // 15 min = 1 rem = 16 px: drag 3 h down (12 rows).
+  const box = (await card.boundingBox())!;
+  await page.mouse.move(box.x + 20, box.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 25, box.y + 30, { steps: 4 });
+  await page.mouse.move(box.x + 20, box.y + 8 + 12 * 16, { steps: 10 });
+  await page.mouse.up();
+
+  const confirm = page.getByRole("dialog", { name: "Perkelti vizitą?" });
+  await expect(confirm).toContainText(`${day} 12:00–14:00, Meistrė A`);
+  await confirm.getByRole("button", { name: "Perkelti" }).click();
+  await expect(page.getByText("Vizitas perkeltas").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /^12:00–14:00, .+, Rasa Petrauskienė$/ })).toBeVisible();
+});

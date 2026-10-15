@@ -427,7 +427,13 @@
     "deleteBlockText": "Laikas vėl bus laisvas registracijoms.",
     "deleted": "Registracija ištrinta",
     "blockDeleted": "Nedarbo laikas ištrintas",
-    "pastNote": "Praėjusiai dienai registruoti negalima – pasirinkite šiandieną ar vėlesnę dieną."
+    "pastNote": "Praėjusiai dienai registruoti negalima – pasirinkite šiandieną ar vėlesnę dieną.",
+    "moveTitle": "Perkelti vizitą?",
+    "moveBlockTitle": "Perkelti nedarbo laiką?",
+    "moveText": "{what}: {from} → {to}",
+    "move": "Perkelti",
+    "busy": "užimta",
+    "slotBusy": "Šis laikas jau užimtas – pasirinkite kitą."
   },
   "search": {
     "label": "Ieškoti kliento ar augintinio",

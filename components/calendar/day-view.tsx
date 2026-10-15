@@ -26,6 +26,7 @@ import {
 import { cn } from "@/lib/utils";
 import { BookingDetailSheet } from "./booking-detail";
 import type { BookingDefaults } from "./booking-form";
+import { useBookingDrag, type DropPreview } from "./drag-move";
 
 // The booking form is only needed after a tap: load it on demand to keep the calendar page light.
 const BookingSheet = dynamic(() => import("./booking-form").then((m) => m.BookingSheet));
@@ -66,6 +67,7 @@ export function DayView({
   const pathname = usePathname();
   const [newBooking, setNewBooking] = React.useState<BookingDefaults | null>(null);
   const [selected, setSelected] = React.useState<CalendarBooking | null>(null);
+  const drag = useBookingDrag(groomers);
   const nowMinutes = useNowMinutes(date === today);
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
@@ -146,6 +148,7 @@ export function DayView({
           if (savedDate !== date) router.push(`/calendar?date=${savedDate}`);
         }}
       />
+      {drag.dialog}
       <BookingDetailSheet booking={selected} groomers={groomers} onClose={() => setSelected(null)} />
     </>
   );
@@ -231,10 +234,16 @@ export function DayView({
             <GroomerColumn
               key={g.id}
               groomer={g}
+              date={date}
               bookings={byGroomer.get(g.id) ?? []}
-              onSlot={(time) => setNewBooking({ groomerId: g.id, date, startTime: time, client: null })}
+              onSlot={drag.guardClick((time: string) =>
+                setNewBooking({ groomerId: g.id, date, startTime: time, client: null }),
+              )}
               readOnly={past}
-              onOpen={setSelected}
+              onOpen={drag.guardClick(setSelected)}
+              preview={drag.previewFor(g.id, date)}
+              draggingId={drag.draggingId}
+              onDragStart={drag.startDrag}
             />
           ))}
 
@@ -260,15 +269,21 @@ export function DayView({
 
 export function GroomerColumn({
   groomer,
+  date,
   bookings,
   onSlot,
   onOpen,
   dateLabel,
   compact = false,
   readOnly = false,
+  preview = null,
+  draggingId = null,
+  onDragStart,
   className,
 }: {
   groomer: CalendarGroomer;
+  /** The lane's date; with the groomer it makes the lane a drop target. */
+  date: DateStr;
   bookings: CalendarBooking[];
   onSlot: (time: string) => void;
   onOpen: (booking: CalendarBooking) => void;
@@ -276,8 +291,12 @@ export function GroomerColumn({
   dateLabel?: string;
   /** Narrow lanes (week view): smaller booking cards. */
   compact?: boolean;
-  /** Past days: no tap-to-book slots. */
+  /** Past days: no tap-to-book slots, not a drop target. */
   readOnly?: boolean;
+  /** Ghost of a booking being dragged over this lane. */
+  preview?: DropPreview | null;
+  draggingId?: string | null;
+  onDragStart?: (e: React.PointerEvent<HTMLElement>, booking: CalendarBooking) => void;
   className?: string;
 }) {
   const t = useTranslations("calendar");
@@ -292,6 +311,9 @@ export function GroomerColumn({
     <div
       className={cn("border-border relative grid border-l", className)}
       style={{ gridTemplateRows: `repeat(${GRID_ROWS}, ${ROW_REM}rem)` }}
+      data-lane-groomer={groomer.id}
+      data-lane-date={date}
+      data-lane-readonly={readOnly ? "true" : undefined}
     >
       {SLOTS.map((time, i) => (
         <div
@@ -330,8 +352,31 @@ export function GroomerColumn({
           span={pos.span}
           narrow={compact}
           onOpen={onOpen}
+          dragging={draggingId === booking.id}
+          onDragStart={onDragStart}
         />
       ))}
+
+      {preview ? (
+        <div
+          aria-hidden
+          className={cn(
+            "pointer-events-none relative z-20 col-start-1 mx-0.5 my-px rounded-md border-2 border-dashed px-1.5 py-0.5 text-xs font-semibold tabular-nums shadow-md",
+            preview.busy && "border-danger bg-danger-soft text-danger-soft-foreground",
+          )}
+          style={{
+            gridRow: `${preview.row + 1} / span ${preview.span}`,
+            ...(preview.busy
+              ? {}
+              : {
+                  borderColor: groomer.color,
+                  backgroundColor: `color-mix(in oklab, ${groomer.color} 24%, var(--surface))`,
+                }),
+          }}
+        >
+          {preview.label}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -343,6 +388,8 @@ function BookingBlock({
   span,
   narrow = false,
   onOpen,
+  dragging = false,
+  onDragStart,
 }: {
   booking: CalendarBooking;
   color: string;
@@ -350,10 +397,20 @@ function BookingBlock({
   span: number;
   narrow?: boolean;
   onOpen: (b: CalendarBooking) => void;
+  dragging?: boolean;
+  onDragStart?: (e: React.PointerEvent<HTMLElement>, booking: CalendarBooking) => void;
 }) {
   const t = useTranslations("calendar");
   const range = `${booking.startTime}–${booking.endTime}`;
   const compact = span <= 3;
+  const movable = Boolean(onDragStart) && booking.status === "scheduled";
+  const dragProps = movable
+    ? {
+        onPointerDown: (e: React.PointerEvent<HTMLElement>) => onDragStart!(e, booking),
+        // No long-press callout / text selection while holding a card to drag it.
+        style: { WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" } as const,
+      }
+    : {};
 
   if (booking.kind === "block") {
     return (
@@ -361,11 +418,18 @@ function BookingBlock({
         type="button"
         onClick={() => onOpen(booking)}
         aria-label={`${t("blockLabel")} ${range}${booking.blockReason ? `, ${booking.blockReason}` : ""}`}
+        onPointerDown={dragProps.onPointerDown}
+        data-booking-id={booking.id}
+        data-row={row}
+        data-span={span}
         className={cn(
-          "border-border text-muted relative z-10 col-start-1 mx-0.5 my-px flex min-w-0 flex-col overflow-hidden rounded-md border py-1 text-left text-xs",
+          "border-border text-muted relative z-10 col-start-1 mx-0.5 my-px flex min-w-0 flex-col overflow-hidden rounded-md border py-1 text-left text-xs select-none",
           narrow ? "px-1" : "px-2",
+          movable && "cursor-grab",
+          dragging && "opacity-40",
         )}
         style={{
+          ...dragProps.style,
           gridRow: `${row + 1} / span ${span}`,
           backgroundImage:
             "repeating-linear-gradient(135deg, var(--surface-muted) 0 6px, transparent 6px 12px)",
@@ -398,8 +462,15 @@ function BookingBlock({
         "border-border bg-surface hover:border-border-strong relative z-10 col-start-1 mx-0.5 my-px flex min-w-0 flex-col overflow-hidden rounded-md border border-l-[3px] py-1 text-left text-xs leading-tight shadow-xs transition-colors",
         narrow ? "px-1" : "px-2",
         booking.status === "completed" && "opacity-75",
+        movable && "cursor-grab select-none",
+        dragging && "opacity-40",
       )}
+      onPointerDown={dragProps.onPointerDown}
+      data-booking-id={booking.id}
+      data-row={row}
+      data-span={span}
       style={{
+        ...dragProps.style,
         gridRow: `${row + 1} / span ${span}`,
         borderLeftColor: color,
         backgroundColor: `color-mix(in oklab, ${color} 16%, var(--surface))`,
