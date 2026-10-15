@@ -59,7 +59,7 @@ export default async function MonthPage({ searchParams }: PageProps<"/calendar/m
         </div>
       ) : null}
 
-      {groomers.length === 0 ? (
+      {failed ? null : groomers.length === 0 ? (
         <EmptyState
           icon={UserRound}
           title={t("noGroomersTitle")}

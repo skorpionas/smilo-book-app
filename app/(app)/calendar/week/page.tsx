@@ -70,7 +70,7 @@ export default async function WeekPage({ searchParams }: PageProps<"/calendar/we
 
       {groomers.length > 0 ? (
         <WeekView days={days} today={today} groomers={groomers} services={services} />
-      ) : (
+      ) : failed ? null : (
         <EmptyState
           icon={UserRound}
           title={t("noGroomersTitle")}

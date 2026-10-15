@@ -70,7 +70,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           openOnLoad={openOnLoad}
           preselectedClient={preselectedClient}
         />
-      ) : (
+      ) : failed ? null : (
         <EmptyState
           icon={UserRound}
           title={t("noGroomersTitle")}
