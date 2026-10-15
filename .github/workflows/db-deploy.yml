@@ -1,7 +1,14 @@
 name: DB migrations
 
-# dev:  every push to main applies new migrations to the dev project (previews use it)
-# prod: manual run, gated by the "production" environment (required reviewer)
+# dev:        every push to main that changes supabase/migrations applies them to the
+#             DEV project (Vercel previews use it).
+# production: runs after dev on the same push, gated by the "production" GitHub
+#             environment (required reviewer approves the run). Can also be started
+#             by hand (Actions → DB migrations → Run workflow → production).
+#
+# Each job reads SUPABASE_PROJECT_REF / SUPABASE_ACCESS_TOKEN / SUPABASE_DB_PASSWORD
+# from ITS OWN GitHub environment, so dev and prod credentials never mix.
+# seed.sql is never pushed to a hosted project (no --include-seed anywhere).
 on:
   push:
     branches: [main]
@@ -14,15 +21,31 @@ on:
         options: [dev, production]
         default: dev
 
+concurrency:
+  group: db-migrations
+  cancel-in-progress: false
+
+# EXPECTED_REF per job = public project ref (docs/environments.md). The guard step
+# refuses to run if an environment's SUPABASE_PROJECT_REF points at the wrong database.
 jobs:
-  migrate:
+  dev:
+    if: github.event_name == 'push' || inputs.target == 'dev'
     runs-on: ubuntu-latest
-    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'dev' }}
+    timeout-minutes: 10
+    environment: dev
     env:
+      EXPECTED_REF: gfnrlbpiqdmlkuyhbwde
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
     steps:
+      - name: Guard - right database, credentials present
+        run: |
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || { echo "::error::Secret SUPABASE_ACCESS_TOKEN missing in this environment"; exit 1; }
+          [ -n "$SUPABASE_DB_PASSWORD" ]  || { echo "::error::Secret SUPABASE_DB_PASSWORD missing in this environment"; exit 1; }
+          [ "$SUPABASE_PROJECT_REF" = "$EXPECTED_REF" ] || {
+            echo "::error::Variable SUPABASE_PROJECT_REF is '$SUPABASE_PROJECT_REF', expected '$EXPECTED_REF'"; exit 1; }
+          echo "Target project: $SUPABASE_PROJECT_REF"
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
@@ -33,5 +56,43 @@ jobs:
       - run: pnpm exec supabase link --project-ref "$SUPABASE_PROJECT_REF"
       - name: Show pending migrations
         run: pnpm exec supabase migration list
-      # Never pushes seed data: seed.sql is for local / CI only.
-      - run: pnpm exec supabase db push
+      - name: Apply migrations (never seeds)
+        run: pnpm exec supabase db push
+
+  production:
+    needs: dev
+    # after dev on a push; on its own when started by hand with target=production
+    if: >-
+      always() &&
+      ((github.event_name == 'push' && needs.dev.result == 'success') ||
+       (github.event_name == 'workflow_dispatch' && inputs.target == 'production'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      EXPECTED_REF: qxfovtpskynncfkygpzg
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+    steps:
+      - name: Guard - right database, credentials present
+        run: |
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || { echo "::error::Secret SUPABASE_ACCESS_TOKEN missing in this environment"; exit 1; }
+          [ -n "$SUPABASE_DB_PASSWORD" ]  || { echo "::error::Secret SUPABASE_DB_PASSWORD missing in this environment"; exit 1; }
+          [ "$SUPABASE_PROJECT_REF" = "$EXPECTED_REF" ] || {
+            echo "::error::Variable SUPABASE_PROJECT_REF is '$SUPABASE_PROJECT_REF', expected '$EXPECTED_REF'"; exit 1; }
+          echo "Target project: $SUPABASE_PROJECT_REF"
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec supabase link --project-ref "$SUPABASE_PROJECT_REF"
+      - name: Show pending migrations
+        run: pnpm exec supabase migration list
+      - name: Dry run
+        run: pnpm exec supabase db push --dry-run
+      - name: Apply migrations (never seeds)
+        run: pnpm exec supabase db push

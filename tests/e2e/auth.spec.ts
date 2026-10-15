@@ -10,6 +10,8 @@ test.describe("US-01 login", () => {
     await expect(page.getByRole("heading", { name: "Prisijungimas" })).toBeVisible();
     // No sign-up link anywhere
     await expect(page.getByText(/registruotis|sukurti paskyrą/i)).toHaveCount(0);
+    // Non-production builds are marked so they are never mistaken for the real app
+    await expect(page.getByTestId("env-badge")).toHaveText("LOCAL");
   });
 
   test("wrong password shows a Lithuanian error", async ({ page }) => {

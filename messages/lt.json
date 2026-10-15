@@ -67,5 +67,11 @@
     "unknown": "Įvyko klaida. Bandykite dar kartą.",
     "notFound": "Puslapis nerastas.",
     "backHome": "Į kalendorių"
+  },
+  "env": {
+    "preview": "DEV",
+    "previewLabel": "Bandomoji versija – dev duomenų bazė, ne tikri duomenys",
+    "local": "LOCAL",
+    "localLabel": "Vietinė kūrimo versija – testiniai duomenys"
   }
 }
