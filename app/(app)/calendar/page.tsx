@@ -1,23 +1,16 @@
-import { CalendarDays, ChevronLeft, ChevronRight, UserRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, UserRound } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { DayView } from "@/components/calendar/day-view";
 import { PageHeader } from "@/components/page-header";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { GroomerChip } from "@/components/ui/groomer-chip";
-import { createClient } from "@/lib/supabase/server";
-import {
-  addDays,
-  DAY_CLOSE,
-  DAY_OPEN,
-  minutesToTime,
-  parseDateParam,
-  timeToMinutes,
-  todayInVilnius,
-  weekdayName,
-} from "@/lib/time";
+import { getClientForBooking } from "@/lib/actions/bookings";
+import { loadDay } from "@/lib/calendar-data";
+import { addDays, parseDateParam, todayInVilnius, weekdayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -25,27 +18,19 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("calendar") };
 }
 
-// Full hours shown in the (decorative) grid preview: 08:00 … 18:00.
-const HOURS = Array.from({ length: (timeToMinutes(DAY_CLOSE) - timeToMinutes(DAY_OPEN)) / 60 }, (_, i) =>
-  minutesToTime(timeToMinutes(DAY_OPEN) + i * 60),
-);
-
 export default async function CalendarPage({ searchParams }: PageProps<"/calendar">) {
-  const { date: dateParam } = await searchParams;
+  const { date: dateParam, client: clientParam, new: newParam } = await searchParams;
   const date = parseDateParam(dateParam);
   const today = todayInVilnius();
   const isToday = date === today;
   const t = await getTranslations("calendar");
+  const ts = await getTranslations("settings");
 
-  const supabase = await createClient();
-  const { data: groomers } = await supabase
-    .from("groomers")
-    .select("id, name, color")
-    .eq("is_active", true)
-    .order("sort_order");
-
-  const columns = groomers ?? [];
-  const gridTemplate = `3.5rem repeat(${Math.max(columns.length, 1)}, minmax(0, 1fr))`;
+  const [{ groomers, services, bookings, failed }, preselectedClient] = await Promise.all([
+    loadDay(date),
+    typeof clientParam === "string" ? getClientForBooking(clientParam) : Promise.resolve(null),
+  ]);
+  const openOnLoad = preselectedClient !== null || newParam === "1";
 
   return (
     <div className="flex min-h-[calc(100dvh-5rem)] flex-col lg:min-h-dvh">
@@ -86,60 +71,49 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
             </Link>
           </Button>
         </div>
+        {groomers.length > 0 ? (
+          <Button asChild className="ml-2 hidden lg:inline-flex">
+            <Link href={`/calendar?date=${date}&new=1`} scroll={false}>
+              <Plus aria-hidden />
+              {t("newBooking")}
+            </Link>
+          </Button>
+        ) : null}
       </PageHeader>
 
-      {columns.length > 0 ? (
-        <>
-          {/* Groomer column headers: name always visible, colour only as dot + tint + stripe. */}
-          <div
-            className="border-border bg-background/85 sticky top-[calc(4rem+env(safe-area-inset-top))] z-10 grid border-b backdrop-blur-md"
-            style={{ gridTemplateColumns: gridTemplate }}
-            aria-label={t("groomers")}
-            role="group"
-          >
-            <span aria-hidden />
-            {columns.map((g) => (
-              <div key={g.id} className="relative flex min-w-0 justify-center px-1 pt-1.5 pb-2.5">
-                <GroomerChip name={g.name} color={g.color} className="max-w-full truncate" />
-                <span
-                  aria-hidden
-                  className="absolute inset-x-1 bottom-0 h-0.5 rounded-full"
-                  style={{ backgroundColor: g.color }}
-                />
-              </div>
-            ))}
-          </div>
+      {failed ? (
+        <div className="px-4 pb-2 sm:px-6">
+          <Alert tone="danger" role="alert">
+            {(await getTranslations("errors"))("unknown")}
+          </Alert>
+        </div>
+      ) : null}
 
-          {/* Week 2 replaces this with the real 15-min grid. The faint rows preview its shape. */}
-          <div className="relative flex-1">
-            <div
-              aria-hidden
-              className="grid pt-3"
-              style={{ gridTemplateColumns: gridTemplate, gridAutoRows: "4rem" }}
-            >
-              {HOURS.map((hour) => (
-                <div key={hour} className="contents">
-                  <div className="text-muted -translate-y-2 pr-2 text-right text-xs tabular-nums">{hour}</div>
-                  {columns.map((g) => (
-                    <div key={g.id} className="border-border border-t border-l" />
-                  ))}
-                </div>
-              ))}
-            </div>
-            <div className="from-background/30 via-background/85 to-background absolute inset-0 flex items-start justify-center bg-gradient-to-b px-4 pt-10 sm:pt-16">
-              <div className="border-border bg-surface w-full max-w-md rounded-xl border shadow-sm">
-                <EmptyState
-                  icon={CalendarDays}
-                  title={t("comingSoonTitle")}
-                  description={t("comingSoonText")}
-                  className="py-8 sm:py-10"
-                />
-              </div>
-            </div>
-          </div>
-        </>
+      {groomers.length > 0 ? (
+        <DayView
+          key={date}
+          date={date}
+          today={today}
+          groomers={groomers}
+          services={services}
+          bookings={bookings}
+          openOnLoad={openOnLoad}
+          preselectedClient={preselectedClient}
+        />
       ) : (
-        <EmptyState icon={UserRound} title={t("noGroomersTitle")} description={t("noGroomersText")} />
+        <EmptyState
+          icon={UserRound}
+          title={t("noGroomersTitle")}
+          description={t("noGroomersText")}
+          action={
+            <Button asChild>
+              <Link href="/settings">
+                <Plus aria-hidden />
+                {ts("addGroomer")}
+              </Link>
+            </Button>
+          }
+        />
       )}
     </div>
   );
