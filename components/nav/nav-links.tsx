@@ -24,16 +24,16 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-/** Bottom tab bar, phones and tablets (< 1024 px). */
+/** Bottom tab bar, phones and tablets (< 1024 px). Active tab = soft pill behind the icon + bold label. */
 export function BottomNav() {
   const t = useTranslations("nav");
   const pathname = usePathname();
   return (
     <nav
       aria-label={t("mainNavigation")}
-      className="pb-safe border-border bg-surface/95 fixed inset-x-0 bottom-0 z-30 border-t backdrop-blur lg:hidden"
+      className="pb-safe border-border bg-surface/90 supports-[backdrop-filter]:bg-surface/80 fixed inset-x-0 bottom-0 z-30 border-t backdrop-blur-md lg:hidden"
     >
-      <ul className="mx-auto grid max-w-xl grid-cols-5">
+      <ul className="mx-auto grid max-w-xl grid-cols-5 px-1">
         {NAV_ITEMS.map(({ href, key, icon: Icon }) => {
           const active = isActive(pathname, href);
           return (
@@ -42,12 +42,19 @@ export function BottomNav() {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-medium",
-                  active ? "text-primary" : "text-muted hover:text-foreground",
+                  "group flex min-h-16 flex-col items-center justify-center gap-1 rounded-md px-0.5 text-xs transition-colors",
+                  active ? "text-foreground font-semibold" : "text-muted hover:text-foreground font-medium",
                 )}
               >
-                <Icon className="size-6" aria-hidden strokeWidth={active ? 2.4 : 1.8} />
-                <span>{t(key)}</span>
+                <span
+                  className={cn(
+                    "flex h-8 w-14 items-center justify-center rounded-full transition-colors duration-200",
+                    active ? "bg-primary-soft text-primary-soft-foreground" : "group-hover:bg-surface-muted",
+                  )}
+                >
+                  <Icon className="size-[1.375rem]" aria-hidden strokeWidth={active ? 2.25 : 1.75} />
+                </span>
+                <span className="max-w-full truncate">{t(key)}</span>
               </Link>
             </li>
           );
@@ -63,7 +70,7 @@ export function SideNav() {
   const pathname = usePathname();
   return (
     <nav aria-label={t("mainNavigation")}>
-      <ul className="space-y-1">
+      <ul className="space-y-0.5">
         {NAV_ITEMS.map(({ href, key, icon: Icon }) => {
           const active = isActive(pathname, href);
           return (
@@ -72,11 +79,17 @@ export function SideNav() {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium",
-                  active ? "bg-primary-soft text-primary" : "text-foreground hover:bg-stone-100",
+                  "flex min-h-11 items-center gap-3 rounded-md px-3 text-[0.9375rem] transition-colors",
+                  active
+                    ? "bg-surface text-foreground ring-border font-semibold shadow-xs ring-1"
+                    : "text-foreground-soft hover:bg-surface-muted hover:text-foreground font-medium",
                 )}
               >
-                <Icon className="size-5" aria-hidden />
+                <Icon
+                  className={cn("size-5", active ? "text-primary" : "text-muted")}
+                  aria-hidden
+                  strokeWidth={active ? 2.25 : 1.75}
+                />
                 {t(key)}
               </Link>
             </li>

@@ -3,17 +3,23 @@ import { getTranslations } from "next-intl/server";
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
   const t = await getTranslations("app");
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center px-4 py-10">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-3 text-center">
+    <main className="pt-safe pb-safe flex min-h-dvh flex-col items-center px-4 py-10 sm:justify-center sm:py-16">
+      <div className="motion-safe:animate-fade-in w-full max-w-sm">
+        <div className="mt-6 mb-8 flex flex-col items-center gap-4 text-center sm:mt-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/icon-192.png" alt="" width={64} height={64} className="rounded-2xl" />
+          <img
+            src="/icons/icon-192.png"
+            alt=""
+            width={56}
+            height={56}
+            className="ring-border rounded-xl shadow-sm ring-1"
+          />
           <div>
-            <p className="text-2xl font-semibold tracking-tight">{t("name")}</p>
-            <p className="text-muted text-sm">{t("description")}</p>
+            <p className="font-display text-3xl font-semibold tracking-tight">{t("name")}</p>
+            <p className="text-muted mt-1 text-sm">{t("description")}</p>
           </div>
         </div>
-        <div className="border-border bg-surface rounded-2xl border p-6 shadow-sm">{children}</div>
+        <div className="border-border bg-surface rounded-xl border p-5 shadow-sm sm:p-7">{children}</div>
       </div>
     </main>
   );
