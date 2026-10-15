@@ -16,7 +16,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#0f766e",
+  // Browser chrome blends into the page (ivory / warm charcoal), like the app itself.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#faf9f5" },
+    { media: "(prefers-color-scheme: dark)", color: "#21201e" },
+  ],
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
