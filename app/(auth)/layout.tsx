@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { EnvBadge } from "@/components/env-badge";
 
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
   const t = await getTranslations("app");
@@ -15,7 +16,10 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
             className="ring-border rounded-xl shadow-sm ring-1"
           />
           <div>
-            <p className="font-display text-3xl font-semibold tracking-tight">{t("name")}</p>
+            <p className="font-display flex items-center justify-center gap-2 text-3xl font-semibold tracking-tight">
+              {t("name")}
+              <EnvBadge />
+            </p>
             <p className="text-muted mt-1 text-sm">{t("description")}</p>
           </div>
         </div>
