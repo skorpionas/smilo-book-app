@@ -80,3 +80,17 @@ supabase/tests/        pgTAP: overlap constraint, RLS, RPC functions
 - **Search escapes `%` and `_`** typed by the user.
 - **Self-hosted fonts only.** Inter (UI) and Source Serif 4 (titles) are served from `app/fonts/` (SIL OFL,
   Latin + Latin Extended); nothing is requested from Google. Design system: `docs/design.md`, live at `/styleguide`.
+
+## Decisions made while building (week 2)
+
+- **No personal data in URLs.** The clients list filters locally in the browser; the Search tab and the booking
+  sheet's client picker call Server Actions (POST). Client pages don't put the name in the tab title.
+- **Heavy libraries stay on the server.** zod, libphonenumber and date-fns are not shipped to the browser: the
+  server sends display-ready values (times, grid rows, formatted phones) and Client Components use the
+  dependency-free `lib/clock.ts`. The booking form loads on first tap (`next/dynamic`). Calendar page ≈ 195 KB gzip.
+- **One validation schema per form** in `lib/schemas/`, error messages are keys in `messages/lt.json` → `errors.*`.
+- **Booking = one RPC call** (`create_booking_with_items`): optional new client + new pets + booking + items in one
+  transaction. Overlap (23P01) is turned into "Šis laikas jau užimtas: 10:00–12:00, Maksas" by looking up the
+  conflicting booking; a duplicate phone (23505) is shown on the phone field.
+- **Groomer order** = calendar column order; reordering renumbers `sort_order` 1…n.
+- **Archive, never delete** for services, clients and pets (requirements §13). Archived services can be restored.

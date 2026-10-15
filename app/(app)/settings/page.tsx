@@ -1,11 +1,13 @@
-import { ChevronRight, KeyRound, LogOut, Palette, Scissors } from "lucide-react";
+import { ChevronRight, KeyRound, LogOut, Palette } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { PageBody, PageHeader } from "@/components/page-header";
 import { Card } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
+import { GroomersSection } from "@/components/settings/groomers-section";
+import { ServicesSection } from "@/components/settings/services-section";
 import { signOut } from "@/lib/actions/auth";
+import { createClient } from "@/lib/supabase/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pages");
@@ -17,18 +19,37 @@ const rowClass =
 
 export default async function Page() {
   const t = await getTranslations();
+  const supabase = await createClient();
+  const [{ data: services }, { data: groomers }] = await Promise.all([
+    supabase
+      .from("services")
+      .select("id, name, default_duration_min, default_price, archived_at")
+      .order("name"),
+    supabase.from("groomers").select("id, name, color, is_active, sort_order").order("sort_order"),
+  ]);
+
   return (
     <>
       <PageHeader title={t("pages.settings")} />
       <PageBody className="max-w-2xl space-y-8">
-        <Card>
-          <EmptyState
-            icon={Scissors}
-            title={t("pages.settingsServicesTitle")}
-            description={t("pages.settingsServicesText")}
-            className="py-10 sm:py-12"
-          />
-        </Card>
+        <ServicesSection
+          services={(services ?? []).map((s) => ({
+            id: s.id,
+            name: s.name,
+            defaultDurationMin: s.default_duration_min,
+            defaultPrice: Number(s.default_price),
+            archived: s.archived_at !== null,
+          }))}
+        />
+
+        <GroomersSection
+          groomers={(groomers ?? []).map((g) => ({
+            id: g.id,
+            name: g.name,
+            color: g.color,
+            isActive: g.is_active,
+          }))}
+        />
 
         <section aria-labelledby="account-heading">
           <h2

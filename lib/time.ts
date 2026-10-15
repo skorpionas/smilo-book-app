@@ -10,17 +10,35 @@
 import { tz } from "@date-fns/tz";
 import { addDays as dfAddDays, format, isValid, parse, startOfISOWeek } from "date-fns";
 
-export const TIME_ZONE = "Europe/Vilnius";
-export const SLOT_MINUTES = 15;
-export const DAY_OPEN: TimeStr = "08:00";
-export const DAY_CLOSE: TimeStr = "19:00";
+import {
+  DAY_CLOSE,
+  DAY_OPEN,
+  SLOT_MINUTES,
+  TIME_ZONE,
+  minutesToTime,
+  snapMinutes,
+  timeToMinutes,
+  type DateStr,
+  type TimeStr,
+} from "./clock";
 
-export type DateStr = string;
-export type TimeStr = string;
+export {
+  DAY_CLOSE,
+  DAY_OPEN,
+  GRID_ROWS,
+  SLOT_MINUTES,
+  TIME_ZONE,
+  isTimeStr,
+  minutesToTime,
+  snapMinutes,
+  timeToMinutes,
+  vilniusClock,
+  type DateStr,
+  type TimeStr,
+} from "./clock";
 
 const inVilnius = tz(TIME_ZONE);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 // ---------------------------------------------------------------------------
 // Parsing / validation
@@ -30,26 +48,6 @@ export function isDateStr(value: unknown): value is DateStr {
   if (typeof value !== "string" || !DATE_RE.test(value)) return false;
   const d = parse(value, "yyyy-MM-dd", new Date(2000, 0, 1));
   return isValid(d) && format(d, "yyyy-MM-dd") === value;
-}
-
-export function isTimeStr(value: unknown): value is TimeStr {
-  return typeof value === "string" && TIME_RE.test(value);
-}
-
-/** Minutes since local midnight for an "HH:mm" string. */
-export function timeToMinutes(time: TimeStr): number {
-  const m = TIME_RE.exec(time);
-  if (!m) throw new Error(`Invalid time: ${time}`);
-  return Number(m[1]) * 60 + Number(m[2]);
-}
-
-export function minutesToTime(minutes: number): TimeStr {
-  if (!Number.isInteger(minutes) || minutes < 0 || minutes >= 24 * 60) {
-    throw new Error(`Minutes out of range: ${minutes}`);
-  }
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -173,12 +171,6 @@ export function parseDateParam(value: unknown, now: Date = new Date()): DateStr 
 // 15-minute grid
 // ---------------------------------------------------------------------------
 
-/** Round minutes to the nearest slot (default) or down. */
-export function snapMinutes(minutes: number, mode: "nearest" | "floor" | "ceil" = "nearest"): number {
-  const f = mode === "floor" ? Math.floor : mode === "ceil" ? Math.ceil : Math.round;
-  return f(minutes / SLOT_MINUTES) * SLOT_MINUTES;
-}
-
 export function snapTime(time: TimeStr, mode: "nearest" | "floor" | "ceil" = "nearest"): TimeStr {
   return minutesToTime(Math.min(snapMinutes(timeToMinutes(time), mode), 24 * 60 - SLOT_MINUTES));
 }
@@ -191,9 +183,6 @@ export function isOnGrid(instant: Date | string): boolean {
 export function isValidDuration(minutes: number): boolean {
   return Number.isInteger(minutes) && minutes >= 15 && minutes <= 600 && minutes % SLOT_MINUTES === 0;
 }
-
-/** Number of grid rows between opening and closing (08:00–19:00 → 44). */
-export const GRID_ROWS = (timeToMinutes(DAY_CLOSE) - timeToMinutes(DAY_OPEN)) / SLOT_MINUTES;
 
 /**
  * Position of a booking in the day grid, in rows from DAY_OPEN, clipped to the
