@@ -1,10 +1,19 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { assertEnv } from "./lib/app-env";
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 const isDev = process.env.NODE_ENV !== "production";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+
+// Fail fast: a production build against the dev database (or a preview build
+// against prod) stops here, before anything is deployed. See docs/environments.md.
+const appEnv = assertEnv({
+  appEnv: process.env.NEXT_PUBLIC_APP_ENV,
+  vercelEnv: process.env.VERCEL_ENV,
+  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+});
 
 // Strict-ish CSP. 'unsafe-inline' for styles is needed by Next/Tailwind runtime
 // style tags; scripts stay without 'unsafe-eval' outside dev.
@@ -25,6 +34,8 @@ const nextConfig: NextConfig = {
   // We deliberately keep the previous (request-time) rendering model and do not
   // cache personal data on the server. See README → "Decisions".
   cacheComponents: false,
+  // Inline the resolved value so the "DEV" badge works even if the variable is unset on Vercel.
+  env: { NEXT_PUBLIC_APP_ENV: appEnv },
   turbopack: {
     rules: {
       "*.css": {

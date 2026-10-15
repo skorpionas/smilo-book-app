@@ -173,5 +173,11 @@
     "emptyText": "Palieskite laisvą laiką, kad užregistruotumėte klientą.",
     "petsOf": "Rasa Petrauskienė",
     "skeleton": "Įkeliamas turinys"
+  },
+  "env": {
+    "preview": "DEV",
+    "previewLabel": "Bandomoji versija – dev duomenų bazė, ne tikri duomenys",
+    "local": "LOCAL",
+    "localLabel": "Vietinė kūrimo versija – testiniai duomenys"
   }
 }

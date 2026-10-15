@@ -31,15 +31,21 @@ Local login (seed data, local only): `owner@smilo.local` / `smilo-dev-password`.
 
 ## Environments
 
-| Env        | Branch           | Database                                              | Deploy                        |
-| ---------- | ---------------- | ----------------------------------------------------- | ----------------------------- |
-| Local      | feature branches | `supabase start` + `seed.sql`                         | `pnpm dev`                    |
-| Preview    | every PR         | **dev** project `gfnrlbpiqdmlkuyhbwde` (eu-central-1) | Vercel preview (to set up)    |
-| Production | `main`           | **prod** project (not created yet)                    | Vercel production (to set up) |
+Full runbook (Vercel, Supabase Auth, DNS, GitHub secrets, backups): [`docs/environments.md`](docs/environments.md).
 
-Migrations: `supabase migration new <name>` → commit → `db-deploy.yml` pushes them to dev on merge to `main`;
-production is a manual run gated by the `production` GitHub environment. Never edit an applied migration.
-`seed.sql` is never pushed to a hosted project.
+| Env        | Branch / trigger | Supabase project                                        | App URL                                                            | Badge   |
+| ---------- | ---------------- | ------------------------------------------------------- | ------------------------------------------------------------------ | ------- |
+| Local      | any              | `supabase start` (Docker) + `seed.sql`                  | http://localhost:3000                                              | `LOCAL` |
+| Preview    | every PR/branch  | **dev** `smilo-book-app-dev` · `gfnrlbpiqdmlkuyhbwde`   | `smilo-book-app-git-<branch>-zbignevs-projects.vercel.app`         | `DEV`   |
+| Production | `main`           | **prod** `smilo-book-app-prod` · `qxfovtpskynncfkygpzg` | https://app.smilo.lt (once DNS is set) · smilo-book-app.vercel.app | none    |
+
+All projects are in eu-central-1 (Frankfurt); Vercel functions run in `fra1`.
+`next.config.ts` fails the build when a production build points at anything but the prod project, or a
+preview/local build points at prod (`lib/app-env.ts`).
+
+Migrations: `supabase migration new <name>` → commit → on merge to `main`, `db-deploy.yml` pushes them to dev,
+then to production after the `production` environment's reviewer approves. Never edit an applied migration.
+`seed.sql` is never pushed to a hosted project. `db-backup.yml` makes a weekly `age`-encrypted dump of prod.
 
 ## Where things are
 
