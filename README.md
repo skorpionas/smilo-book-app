@@ -72,4 +72,5 @@ supabase/tests/        pgTAP: overlap constraint, RLS, RPC functions
 - **Anonymisation** clears the client's name, phone, e-mail, notes, pet notes and booking notes; keeps visit
   dates, services, prices and per-pet visit notes.
 - **Search escapes `%` and `_`** typed by the user.
-- **No web fonts.** System font stack: nothing to download, nothing sent to Google.
+- **Self-hosted fonts only.** Inter (UI) and Source Serif 4 (titles) are served from `app/fonts/` (SIL OFL,
+  Latin + Latin Extended); nothing is requested from Google. Design system: `docs/design.md`, live at `/styleguide`.
