@@ -55,7 +55,27 @@
     "blockLabel": "Nedarbo laikas",
     "dayGrid": "Dienos tvarkaraštis",
     "bookingsCount": "Vizitų: {count}",
-    "openBooking": "{time}, {pets}, {client}"
+    "openBooking": "{time}, {pets}, {client}",
+    "month": "Mėnuo",
+    "viewSwitch": "Kalendoriaus vaizdas",
+    "previousMonth": "Ankstesnis mėnuo",
+    "nextMonth": "Kitas mėnuo",
+    "weekNavigation": "Savaitės pasirinkimas",
+    "monthNavigation": "Mėnesio pasirinkimas",
+    "weekNumber": "{week} savaitė",
+    "offDay": "Ne darbo diena",
+    "nobodyWorksTitle": "Šią dieną niekas nedirba",
+    "nobodyWorksText": "Pagal meistrių darbo dienas ši diena laisva. Registruoti vis tiek galite mygtuku „+“, o darbo dienas pakeisti nustatymuose.",
+    "workDaysSettings": "Darbo dienos",
+    "closed": "Nedirbama",
+    "free": "Laisva",
+    "openDay": "Atidaryti dieną {date}",
+    "moreBookings": "dar {count}",
+    "weekGrid": "Savaitės tvarkaraštis",
+    "monthGrid": "Mėnesio kalendorius",
+    "slotLabelDate": "Registruoti: {date}, {groomer}, {time}",
+    "monthCell": "{date}: vizitų {count}",
+    "bookOnDay": "Registruoti {date}"
   },
   "pages": {
     "upcoming": "Artimiausi vizitai",
@@ -101,7 +121,9 @@
     "itemsRequired": "Pridėkite bent vieną augintinį.",
     "checkFields": "Patikrinkite pažymėtus laukus.",
     "phoneTaken": "Klientas su šiuo telefono numeriu jau yra. Raskite jį paieškoje.",
-    "slotTakenUnknown": "Šis laikas jau užimtas."
+    "slotTakenUnknown": "Šis laikas jau užimtas.",
+    "workDaysRequired": "Pažymėkite bent vieną darbo dieną.",
+    "pastDate": "Praėjusiai dienai registruoti negalima."
   },
   "common": {
     "close": "Uždaryti",
@@ -202,7 +224,8 @@
     "hoursMinutes": "{h} val. {m} min.",
     "years": "{y} m.",
     "months": "{mo} mėn.",
-    "kg": "{kg} kg"
+    "kg": "{kg} kg",
+    "underYear": "iki 1 m."
   },
   "species": {
     "dog": "Šuo",
@@ -237,7 +260,7 @@
     "archiveServiceTitle": "Archyvuoti paslaugą?",
     "archiveServiceText": "Paslauga nebus siūloma registruojant, bet liks ankstesniuose vizituose.",
     "groomers": "Meistrės",
-    "groomersHint": "Kiekviena aktyvi meistrė turi savo stulpelį kalendoriuje.",
+    "groomersHint": "Kiekviena aktyvi meistrė turi savo stulpelį kalendoriuje savo darbo dienomis.",
     "addGroomer": "Nauja meistrė",
     "editGroomer": "Redaguoti meistrę",
     "editGroomerNamed": "Redaguoti: {name}",
@@ -262,7 +285,10 @@
       "green": "Žalia",
       "orange": "Oranžinė",
       "slate": "Pilka"
-    }
+    },
+    "workDays": "Darbo dienos",
+    "workDaysHint": "Kalendoriuje meistrės stulpelis rodomas tik šiomis dienomis.",
+    "everyDay": "Kasdien"
   },
   "clients": {
     "add": "Naujas klientas",
@@ -322,8 +348,6 @@
     "sizeNone": "Nenurodytas",
     "weight": "Svoris, kg",
     "weightPlaceholder": "Pvz. 7,5",
-    "birthDate": "Gimimo data",
-    "birthDateHint": "Jei tiksli nežinoma, užtenka metų, pvz. 2020-01-01.",
     "notes": "Pastabos",
     "notesHint": "Elgesys, alergijos, kailio būklė – kalendoriuje bus paryškinta.",
     "notesPlaceholder": "Pvz. kanda kerpant letenas, alergija šampūnui",
@@ -331,7 +355,13 @@
     "archive": "Archyvuoti augintinį",
     "archiveTitle": "Archyvuoti augintinį?",
     "archiveText": "Augintinis nebus siūlomas registruojant. Vizitų istorija liks.",
-    "archived": "Augintinis archyvuotas"
+    "archived": "Augintinis archyvuotas",
+    "birth": "Gimimo metai ir mėnuo",
+    "birthHint": "Užtenka metų – mėnuo neprivalomas.",
+    "birthYear": "Gimimo metai",
+    "birthMonth": "Gimimo mėnuo",
+    "yearUnknown": "Nežinomi",
+    "monthUnknown": "Nežinomas"
   },
   "booking": {
     "title": "Nauja registracija",
@@ -383,7 +413,27 @@
     "cancelled": "Vizitas atšauktas",
     "bookingNotes": "Pastabos apie vizitą",
     "petNotes": "Pastabos apie augintinį",
-    "blockTitle": "Nedarbo laikas"
+    "blockTitle": "Nedarbo laikas",
+    "groomerOffDay": "{name} šią dieną nedirba pagal savo darbo dienas.",
+    "reschedule": "Keisti datą ar laiką",
+    "rescheduleTitle": "Keisti datą ir laiką",
+    "rescheduled": "Vizitas perkeltas",
+    "blockRescheduled": "Nedarbo laikas pakeistas",
+    "back": "Atgal",
+    "delete": "Ištrinti",
+    "deleteTitle": "Ištrinti registraciją?",
+    "deleteText": "Registracija bus ištrinta visam laikui ir nebeliks istorijoje. Jei klientas atšaukė vizitą, geriau rinkitės „Atšaukti vizitą“.",
+    "deleteBlockTitle": "Ištrinti nedarbo laiką?",
+    "deleteBlockText": "Laikas vėl bus laisvas registracijoms.",
+    "deleted": "Registracija ištrinta",
+    "blockDeleted": "Nedarbo laikas ištrintas",
+    "pastNote": "Praėjusiai dienai registruoti negalima – pasirinkite šiandieną ar vėlesnę dieną.",
+    "moveTitle": "Perkelti vizitą?",
+    "moveBlockTitle": "Perkelti nedarbo laiką?",
+    "moveText": "{what}: {from} → {to}",
+    "move": "Perkelti",
+    "busy": "užimta",
+    "slotBusy": "Šis laikas jau užimtas – pasirinkite kitą."
   },
   "search": {
     "label": "Ieškoti kliento ar augintinio",
@@ -394,5 +444,39 @@
     "noResultsTitle": "Nieko nerasta",
     "noResultsText": "Pabandykite kitą vardą ar telefono numerio dalį.",
     "petOwner": "Šeimininkas: {client}"
+  },
+  "weekdays": {
+    "short": {
+      "1": "Pr",
+      "2": "An",
+      "3": "Tr",
+      "4": "Kt",
+      "5": "Pn",
+      "6": "Št",
+      "7": "Sk"
+    },
+    "long": {
+      "1": "pirmadienis",
+      "2": "antradienis",
+      "3": "trečiadienis",
+      "4": "ketvirtadienis",
+      "5": "penktadienis",
+      "6": "šeštadienis",
+      "7": "sekmadienis"
+    }
+  },
+  "months": {
+    "1": "sausis",
+    "2": "vasaris",
+    "3": "kovas",
+    "4": "balandis",
+    "5": "gegužė",
+    "6": "birželis",
+    "7": "liepa",
+    "8": "rugpjūtis",
+    "9": "rugsėjis",
+    "10": "spalis",
+    "11": "lapkritis",
+    "12": "gruodis"
   }
 }

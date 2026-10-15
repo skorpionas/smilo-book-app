@@ -3,6 +3,17 @@ import { expect, test, type Page } from "@playwright/test";
 // Week 2 flows against the seeded local stack (supabase/seed.sql).
 const OWNER = { email: "owner@smilo.local", password: "smilo-dev-password" };
 
+/**
+ * A Sunday `weeks` weeks after the coming one (YYYY-MM-DD). Sundays have no seeded bookings and
+ * only Meistrė A works then; bookings must be today or later, so dates are relative to now.
+ */
+function futureSunday(weeks: number): string {
+  const d = new Date();
+  d.setUTCHours(12, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() + ((7 - d.getUTCDay()) % 7 || 7) + weeks * 7);
+  return d.toISOString().slice(0, 10);
+}
+
 async function login(page: Page, next: string) {
   await page.goto(`/login?next=${encodeURIComponent(next)}`);
   await page.getByLabel("El. paštas").fill(OWNER.email);
@@ -51,7 +62,7 @@ test("add a client and a pet (issues #15, #16)", async ({ page }) => {
 
 test("book an existing client, then hit the overlap rule (US-05, US-09)", async ({ page }, testInfo) => {
   // Sundays have no seeded bookings. Each project / retry gets its own day so runs never collide.
-  const day = testInfo.project.name === "mobile" ? "2026-11-01" : "2026-11-08";
+  const day = futureSunday(testInfo.project.name === "mobile" ? 2 : 3);
   const hour = 9 + testInfo.retry * 4; // 09:00, then 13:00 on a retry
   const start = `${String(hour).padStart(2, "0")}:00`;
   const end = `${String(hour + 2).padStart(2, "0")}:00`;
@@ -88,4 +99,91 @@ test("book an existing client, then hit the overlap rule (US-05, US-09)", async 
   await sheet.getByLabel("Meistrė").selectOption({ label: "Meistrė B" });
   await sheet.getByRole("button", { name: "Išsaugoti" }).click();
   await expect(page.getByText("Registracija išsaugota").first()).toBeVisible();
+});
+
+test("change the time, cancel and delete a booking (US-10)", async ({ page }, testInfo) => {
+  const day = futureSunday(testInfo.project.name === "mobile" ? 4 : 5);
+  const sheet = page.getByRole("dialog").first();
+
+  async function book(start: string) {
+    await page.getByRole("button", { name: `Registruoti: Meistrė A, ${start}` }).click();
+    await sheet.getByPlaceholder("Vardas, augintinis ar telefonas").fill("Petrausk");
+    await sheet.getByRole("button", { name: "Pasirinkti Rasa Petrauskienė" }).click();
+    await sheet.getByLabel("Augintinis", { exact: true }).selectOption({ index: 1 });
+    await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
+    await sheet.getByRole("button", { name: "Išsaugoti" }).click();
+    await expect(page.getByText("Registracija išsaugota").first()).toBeVisible();
+  }
+  const visit = (range: string) =>
+    page.getByRole("button", { name: new RegExp(`^${range}, .+, Rasa Petrauskienė$`) });
+
+  await login(page, `/calendar?date=${day}`);
+  await book("09:00");
+
+  // Move 09:00–11:00 → 12:00, 1 h 30 min.
+  await visit("09:00–11:00").click();
+  await sheet.getByRole("button", { name: "Keisti datą ar laiką" }).click();
+  await sheet.getByLabel("Pradžia").selectOption("12:00");
+  await sheet.getByLabel("Visa trukmė").selectOption("90");
+  await sheet.getByRole("button", { name: "Išsaugoti" }).click();
+  await expect(page.getByText("Vizitas perkeltas").first()).toBeVisible();
+  await expect(visit("12:00–13:30")).toBeVisible();
+  await expect(visit("09:00–11:00")).toHaveCount(0);
+
+  // Cancel: gone from the grid (stays in history).
+  await visit("12:00–13:30").click();
+  await sheet.getByRole("button", { name: "Atšaukti vizitą" }).click();
+  await page
+    .getByRole("dialog", { name: "Atšaukti vizitą?" })
+    .getByRole("button", { name: "Atšaukti vizitą" })
+    .click();
+  await expect(page.getByText("Vizitas atšauktas").first()).toBeVisible();
+  await expect(visit("12:00–13:30")).toHaveCount(0);
+
+  // Delete a booking made by mistake.
+  await book("15:00");
+  await visit("15:00–17:00").click();
+  await sheet.getByRole("button", { name: "Ištrinti" }).click();
+  await page
+    .getByRole("dialog", { name: "Ištrinti registraciją?" })
+    .getByRole("button", { name: "Ištrinti" })
+    .click();
+  await expect(page.getByText("Registracija ištrinta").first()).toBeVisible();
+  await expect(visit("15:00–17:00")).toHaveCount(0);
+});
+
+test("past days offer no booking slots", async ({ page }) => {
+  await login(page, "/calendar?date=2026-01-05");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("2026-01-05");
+  await expect(page.getByRole("button", { name: /^Registruoti: / })).toHaveCount(0);
+});
+
+test("drag a booking to another time, then confirm", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "mouse drag; touch uses long-press");
+  const day = futureSunday(6);
+  const sheet = page.getByRole("dialog").first();
+  await login(page, `/calendar?date=${day}`);
+
+  await page.getByRole("button", { name: "Registruoti: Meistrė A, 09:00" }).click();
+  await sheet.getByPlaceholder("Vardas, augintinis ar telefonas").fill("Petrausk");
+  await sheet.getByRole("button", { name: "Pasirinkti Rasa Petrauskienė" }).click();
+  await sheet.getByLabel("Augintinis", { exact: true }).selectOption({ index: 1 });
+  await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
+  await sheet.getByRole("button", { name: "Išsaugoti" }).click();
+  const card = page.getByRole("button", { name: /^09:00–11:00, .+, Rasa Petrauskienė$/ });
+  await expect(card).toBeVisible();
+
+  // 15 min = 1 rem = 16 px: drag 3 h down (12 rows).
+  const box = (await card.boundingBox())!;
+  await page.mouse.move(box.x + 20, box.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 25, box.y + 30, { steps: 4 });
+  await page.mouse.move(box.x + 20, box.y + 8 + 12 * 16, { steps: 10 });
+  await page.mouse.up();
+
+  const confirm = page.getByRole("dialog", { name: "Perkelti vizitą?" });
+  await expect(confirm).toContainText(`${day} 12:00–14:00, Meistrė A`);
+  await confirm.getByRole("button", { name: "Perkelti" }).click();
+  await expect(page.getByText("Vizitas perkeltas").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /^12:00–14:00, .+, Rasa Petrauskienė$/ })).toBeVisible();
 });

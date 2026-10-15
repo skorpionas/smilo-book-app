@@ -8,7 +8,7 @@ import { useFormAction } from "@/components/forms/use-form-action";
 import { useOnSaved } from "@/components/forms/use-on-saved";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input, Select, Textarea } from "@/components/ui/input";
+import { FieldHint, Input, Select, Textarea } from "@/components/ui/input";
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/toast";
 import { savePet } from "@/lib/actions/clients";
@@ -23,7 +23,8 @@ export type PetFormValues = {
   breed: string;
   size: (typeof SIZES)[number] | null;
   weightKg: number | null;
-  birthDate: string | null;
+  birthYear: number | null;
+  birthMonth: number | null;
   notes: string;
 };
 
@@ -72,6 +73,14 @@ function PetForm({
   const t = useTranslations("pets");
   const tc = useTranslations("common");
   const tz = useTranslations("sizes");
+  const tm = useTranslations("months");
+  const [birthYear, setBirthYear] = React.useState(pet?.birthYear != null ? String(pet.birthYear) : "");
+  const [birthMonth, setBirthMonth] = React.useState(pet?.birthMonth != null ? String(pet.birthMonth) : "");
+  const now = vilniusClock().date;
+  const thisYear = Number(now.slice(0, 4));
+  const thisMonth = Number(now.slice(5, 7));
+  const years = Array.from({ length: thisYear - 1990 + 1 }, (_, i) => thisYear - i);
+  const maxMonth = Number(birthYear) === thisYear ? thisMonth : 12;
   const [state, onSubmit, pending] = useFormAction(savePet);
   useOnSaved(state, () => {
     toast({ title: t("saved") });
@@ -158,16 +167,64 @@ function PetForm({
           </Field>
         </div>
 
-        <Field
-          id="pet-birth"
-          name="birthDate"
-          label={t("birthDate")}
-          hint={t("birthDateHint")}
-          optional={tc("optional")}
-          error={fe.birthDate}
-        >
-          {(p) => <Input {...p} type="date" max={vilniusClock().date} defaultValue={pet?.birthDate ?? ""} />}
-        </Field>
+        <fieldset aria-describedby="pet-birth-hint">
+          <legend className="text-foreground mb-1.5 text-sm font-medium">
+            {t("birth")}
+            <span className="text-muted ml-1 font-normal">({tc("optional")})</span>
+          </legend>
+          <div className="grid grid-cols-2 gap-3">
+            <Field
+              id="pet-birth-year"
+              name="birthYear"
+              label={<span className="sr-only">{t("birthYear")}</span>}
+              error={fe.birthYear}
+            >
+              {(p) => (
+                <Select
+                  {...p}
+                  value={birthYear}
+                  onChange={(e) => {
+                    setBirthYear(e.target.value);
+                    if (!e.target.value) setBirthMonth("");
+                    else if (Number(e.target.value) === thisYear && Number(birthMonth) > thisMonth)
+                      setBirthMonth("");
+                  }}
+                  className="tabular-nums"
+                >
+                  <option value="">{t("yearUnknown")}</option>
+                  {years.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+            <Field
+              id="pet-birth-month"
+              name="birthMonth"
+              label={<span className="sr-only">{t("birthMonth")}</span>}
+              error={fe.birthMonth}
+            >
+              {(p) => (
+                <Select
+                  {...p}
+                  value={birthMonth}
+                  onChange={(e) => setBirthMonth(e.target.value)}
+                  disabled={!birthYear}
+                >
+                  <option value="">{t("monthUnknown")}</option>
+                  {Array.from({ length: maxMonth }, (_, i) => i + 1).map((m) => (
+                    <option key={m} value={m}>
+                      {tm(String(m) as "1")}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+          </div>
+          <FieldHint id="pet-birth-hint">{t("birthHint")}</FieldHint>
+        </fieldset>
 
         <Field
           id="pet-notes"

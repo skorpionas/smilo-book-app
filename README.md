@@ -94,3 +94,31 @@ supabase/tests/        pgTAP: overlap constraint, RLS, RPC functions
   conflicting booking; a duplicate phone (23505) is shown on the phone field.
 - **Groomer order** = calendar column order; reordering renumbers `sort_order` 1…n.
 - **Archive, never delete** for services, clients and pets (requirements §13). Archived services can be restored.
+
+## Decisions: working days, week and month views
+
+- **Working days live on the groomer** (`groomers.work_days`, ISO weekdays 1 = Monday … 7 = Sunday, default
+  Monday–Saturday, at least one day). The calendar shows a groomer's lane only on those days
+  (`lib/schedule.ts`). If something is already booked for her on a day off, the lane still appears and is
+  marked "Ne darbo diena" — a booking never disappears from the calendar.
+- **Days off warn, they don't block.** The booking form shows a note when the chosen groomer doesn't work
+  that day, but saving is allowed (an extra Saturday happens). The database doesn't enforce working days.
+- **Three views, one header:** `/calendar` (day), `/calendar/week`, `/calendar/month`, with a Diena · Savaitė ·
+  Mėnuo switcher that keeps the date. Week: agenda list on phones/tablets, 7 day columns split into groomer
+  lanes on ≥ 1024 px (tap a free slot to book). Month: a Server Component with no client JS — per-groomer
+  counts on phones, the first three visits per day on desktop; every day opens the day view.
+- Mutations revalidate `/calendar` as a layout so all three views refresh.
+
+- **Pet birth = year + optional month** (`pets.birth_year`, `pets.birth_month`; no day). Owners rarely know the
+  exact date. Month requires a year; neither may be in the future. Age shows "6 m." / "5 mėn.", or "iki 1 m."
+  when only the current year is known. Existing `birth_date` values were converted (year + month kept).
+- **No bookings on past days.** Today (any hour) or later only — checked by the shared zod schema on the server
+  (`pastDate`), the date pickers start at today, and past days in the day / week views offer no slots ("+" books
+  today). Not a DB constraint, so completing or editing old visits keeps working.
+- **Change, cancel, delete** (US-10) in the booking sheet while a booking is `scheduled`: "Keisti datą ar laiką"
+  (groomer, date, start, length; overlap still enforced by the DB), "Atšaukti vizitą" (stays in history and in the
+  client's Atšaukta counter), "Ištrinti" (for mistakes, removed completely — A6). Blocks can be moved or deleted.
+- **Drag and drop to move** (day view and desktop week view), always with a "Perkelti vizitą?" confirmation.
+  Mouse: press and drag. Touch: long-press ~0.35 s, then drag (a quick swipe still scrolls). The ghost snaps to
+  15 min, turns red ("užimta") over another card and refuses that drop; past days are not drop targets; the
+  database still checks overlaps. "Keisti datą ar laiką" in the sheet is the keyboard / no-drag alternative.

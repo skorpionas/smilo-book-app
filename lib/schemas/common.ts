@@ -21,6 +21,8 @@ export type ErrorKey =
   | "futureDate"
   | "invalidColor"
   | "itemsRequired"
+  | "workDaysRequired"
+  | "pastDate"
   | "invalid";
 
 const err = (key: ErrorKey) => ({ error: key });
@@ -109,9 +111,29 @@ const KNOWN = new Set<string>([
   "futureDate",
   "invalidColor",
   "itemsRequired",
+  "workDaysRequired",
+  "pastDate",
   "invalid",
 ]);
 
 function toErrorKey(message: string): ErrorKey {
   return KNOWN.has(message) ? (message as ErrorKey) : "invalid";
 }
+
+/** ISO weekdays as a comma list ("1,3,5") -> sorted unique numbers 1–7, at least one. */
+export const workDays = str.transform((value, ctx) => {
+  const parts = value
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const days = [...new Set(parts.map(Number))].sort((a, b) => a - b);
+  if (days.some((d) => !Number.isInteger(d) || d < 1 || d > 7)) {
+    ctx.addIssue({ code: "custom", message: "invalid" });
+    return z.NEVER;
+  }
+  if (days.length === 0) {
+    ctx.addIssue({ code: "custom", message: "workDaysRequired" });
+    return z.NEVER;
+  }
+  return days;
+});

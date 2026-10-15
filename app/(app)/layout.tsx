@@ -1,6 +1,7 @@
 import { LogOut } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { EnvBadge } from "@/components/env-badge";
 import { BottomNav, SideNav } from "@/components/nav/nav-links";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toast";
@@ -25,6 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/icons/icon-64.png" alt="" width={32} height={32} className="rounded-lg" />
           <span className="font-display text-xl font-semibold tracking-tight">{t("app.name")}</span>
+          <EnvBadge />
         </Link>
         <SideNav />
         <form action={signOut} className="border-border mt-auto border-t pt-3">
@@ -42,6 +44,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {/* bottom padding leaves room for the phone tab bar + home indicator */}
       <main className="min-w-0 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">{children}</main>
       <BottomNav />
+      {/* Phones have no "Smilo" name on screen: small floating marker instead. */}
+      <EnvBadge variant="floating" className="lg:hidden" />
       <Toaster />
     </div>
   );

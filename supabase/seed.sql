@@ -34,9 +34,11 @@ values (
 -- ---------------------------------------------------------------------------
 -- Groomers and services
 -- ---------------------------------------------------------------------------
-insert into public.groomers (id, owner_id, name, color, sort_order) values
-  ('0b000000-0000-4000-8000-00000000000a', '0a000000-0000-4000-8000-000000000001', 'Meistrė A', '#0d9488', 1),
-  ('0b000000-0000-4000-8000-00000000000b', '0a000000-0000-4000-8000-000000000001', 'Meistrė B', '#d97706', 2);
+-- Working days: A every day (so Sundays show a single lane and E2E can book on
+-- empty Sundays), B Monday–Saturday (the default).
+insert into public.groomers (id, owner_id, name, color, sort_order, work_days) values
+  ('0b000000-0000-4000-8000-00000000000a', '0a000000-0000-4000-8000-000000000001', 'Meistrė A', '#0d9488', 1, '{1,2,3,4,5,6,7}'),
+  ('0b000000-0000-4000-8000-00000000000b', '0a000000-0000-4000-8000-000000000001', 'Meistrė B', '#d97706', 2, '{1,2,3,4,5,6}');
 
 insert into public.services (owner_id, name, default_duration_min, default_price) values
   ('0a000000-0000-4000-8000-000000000001', 'Pilnas kirpimas',          120, 40.00),
@@ -103,13 +105,14 @@ with pets(n, client_n, name, species, breed, size, weight, notes) as (
     (29, 19, 'Mila',    'cat', 'Meinkūnas',            null,  7.0, ''),
     (30, 20, 'Bobis',   'dog', 'Kokerspanielis',       'm',  12.5, '')
 )
-insert into public.pets (id, owner_id, client_id, name, species, breed, size, weight_kg, birth_date, notes)
+insert into public.pets (id, owner_id, client_id, name, species, breed, size, weight_kg, birth_year, birth_month, notes)
 select
   ('0d000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
   '0a000000-0000-4000-8000-000000000001',
   ('0c000000-0000-4000-8000-' || lpad(client_n::text, 12, '0'))::uuid,
   name, species::public.pet_species, breed, size::public.pet_size, weight,
-  date '2016-03-01' + (n * 97 % 3000),
+  2016 + (n * 7 % 10),
+  case when n % 3 = 0 then null else (n * 5 % 12) + 1 end,
   notes
 from pets;
 

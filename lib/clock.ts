@@ -58,3 +58,33 @@ export function vilniusClock(instant: Date = new Date()): { date: DateStr; minut
   for (const part of clockFormatter.formatToParts(instant)) p[part.type] = part.value;
   return { date: `${p.year}-${p.month}-${p.day}`, minutes: Number(p.hour) * 60 + Number(p.minute) };
 }
+
+/** ISO weekdays 1 = Monday … 7 = Sunday. */
+export type IsoDay = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export const ISO_WEEKDAYS: readonly IsoDay[] = [1, 2, 3, 4, 5, 6, 7];
+export const DEFAULT_WORK_DAYS: readonly number[] = [1, 2, 3, 4, 5, 6];
+
+/**
+ * Compact label for a set of weekdays using the given short names:
+ * [1..6] -> "Pr–Št", [1,3,5] -> "Pr, Tr, Pn", [1,2,4,5] -> "Pr–An, Kt–Pn".
+ * Runs of three or more days become ranges.
+ */
+export function formatWorkDays(days: readonly number[], shortName: (day: number) => string): string {
+  const sorted = [...new Set(days)].filter((d) => d >= 1 && d <= 7).sort((a, b) => a - b);
+  const runs: number[][] = [];
+  for (const d of sorted) {
+    const last = runs.at(-1);
+    if (last && last.at(-1) === d - 1) last.push(d);
+    else runs.push([d]);
+  }
+  return runs
+    .flatMap((run) =>
+      run.length >= 3 ? [`${shortName(run[0])}–${shortName(run.at(-1)!)}`] : run.map(shortName),
+    )
+    .join(", ");
+}
+
+/** Start times offered in booking forms: 06:00–21:45 (outside 08:00–19:00 shows a warning, not a block). */
+export const BOOKING_START_TIMES: readonly TimeStr[] = Array.from({ length: 64 }, (_, i) =>
+  minutesToTime(6 * 60 + i * SLOT_MINUTES),
+);

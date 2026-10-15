@@ -123,7 +123,7 @@ export function PetsSection({
               pet.breed,
               pet.size ? tz(pet.size) : null,
               pet.weightKg != null ? tu("kg", { kg: String(pet.weightKg).replace(".", ",") }) : null,
-              pet.birthDate ? formatAge(tu, pet.birthDate, today) : null,
+              pet.birthYear != null ? formatAge(tu, pet.birthYear, pet.birthMonth, today) : null,
             ].filter(Boolean);
             return (
               <li key={pet.id}>

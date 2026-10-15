@@ -25,7 +25,7 @@ export default async function Page() {
       .from("services")
       .select("id, name, default_duration_min, default_price, archived_at")
       .order("name"),
-    supabase.from("groomers").select("id, name, color, is_active, sort_order").order("sort_order"),
+    supabase.from("groomers").select("id, name, color, is_active, sort_order, work_days").order("sort_order"),
   ]);
 
   return (
@@ -48,6 +48,7 @@ export default async function Page() {
             name: g.name,
             color: g.color,
             isActive: g.is_active,
+            workDays: g.work_days,
           }))}
         />
 

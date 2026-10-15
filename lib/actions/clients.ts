@@ -35,7 +35,7 @@ export async function saveClient(_prev: FormState, formData: FormData): Promise<
 
   revalidatePath("/clients");
   revalidatePath(`/clients/${data.id}`);
-  revalidatePath("/calendar");
+  revalidatePath("/calendar", "layout");
   // Created from the clients list: go straight to the new client's page. A server-side redirect
   // is reliable; a client-side push right after the action can lose the race with the refresh.
   if (!id && formData.get("then") === "open") redirect(`/clients/${data.id}`);
@@ -66,14 +66,15 @@ export async function savePet(_prev: FormState, formData: FormData): Promise<For
   const parsed = petSchema.safeParse(formToObject(formData));
   if (!parsed.success) return validationFailed(parsed.error.issues);
 
-  const { id, clientId, name, species, breed, size, weightKg, birthDate, notes } = parsed.data;
+  const { id, clientId, name, species, breed, size, weightKg, birthYear, birthMonth, notes } = parsed.data;
   const row = {
     name,
     species,
     breed,
     size,
     weight_kg: weightKg,
-    birth_date: birthDate,
+    birth_year: birthYear,
+    birth_month: birthMonth,
     notes,
   };
   const supabase = await createClient();
@@ -88,7 +89,7 @@ export async function savePet(_prev: FormState, formData: FormData): Promise<For
 
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/clients");
-  revalidatePath("/calendar");
+  revalidatePath("/calendar", "layout");
   return { ok: true, savedAt: Date.now(), id: data.id };
 }
 

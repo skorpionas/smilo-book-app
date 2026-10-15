@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { dbFailed, validationFailed, type ActionState } from "@/lib/action-helpers";
 import { requireUser } from "@/lib/auth";
-import { bookingSchema, type BookingInput } from "@/lib/schemas/booking";
+import {
+  bookingSchema,
+  rescheduleSchema,
+  type BookingInput,
+  type RescheduleInput,
+} from "@/lib/schemas/booking";
 import { uuid } from "@/lib/schemas/common";
 import { formatPhone } from "@/lib/phone";
 import { createClient } from "@/lib/supabase/server";
@@ -131,17 +136,22 @@ export async function createBooking(input: BookingInput): Promise<CreateBookingR
     return dbFailed(error, "createBooking");
   }
 
-  revalidatePath("/calendar");
+  revalidatePath("/calendar", "layout");
   revalidatePath("/clients", "layout");
   const range = `${toVilniusTime(start)}–${toVilniusTime(end)}`;
   return { ok: true, savedAt: Date.now(), id: bookingId, summary: { range } };
 }
 
 /** "Šis laikas jau užimtas: 10:00–12:00, Maksas" — names the booking (or block) in the way (US-09). */
-async function describeConflict(groomerId: string, start: Date, end: Date): Promise<string> {
+async function describeConflict(
+  groomerId: string,
+  start: Date,
+  end: Date,
+  excludeId?: string,
+): Promise<string> {
   const t = await getTranslations("errors");
   const supabase = await createClient();
-  const { data } = await supabase
+  let query = supabase
     .from("bookings")
     .select("kind, start_at, end_at, block_reason, booking_items(position, pets(name))")
     .eq("groomer_id", groomerId)
@@ -149,8 +159,9 @@ async function describeConflict(groomerId: string, start: Date, end: Date): Prom
     .lt("start_at", end.toISOString())
     .gt("end_at", start.toISOString())
     .order("start_at")
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+  if (excludeId) query = query.neq("id", excludeId);
+  const { data } = await query.maybeSingle();
 
   if (!data) return t("slotTakenUnknown");
   const range = `${toVilniusTime(data.start_at)}–${toVilniusTime(data.end_at)}`;
@@ -178,7 +189,66 @@ export async function cancelBooking(id: string): Promise<ActionState> {
   if (error) return dbFailed(error, "cancelBooking");
   if (!data) return dbFailed({ code: "P0002" }, "cancelBooking");
 
-  revalidatePath("/calendar");
+  revalidatePath("/calendar", "layout");
+  if (data.client_id) revalidatePath(`/clients/${data.client_id}`);
+  return { ok: true, savedAt: Date.now(), id };
+}
+
+/**
+ * US-10 (reschedule): new groomer / date / start / duration for a scheduled booking or a block.
+ * Same rules as creating: not on a past day, 15-min grid, overlap checked by the database.
+ */
+export async function rescheduleBooking(input: RescheduleInput): Promise<CreateBookingResult> {
+  await requireUser();
+  const parsed = rescheduleSchema.safeParse(input);
+  if (!parsed.success) return validationFailed(parsed.error.issues);
+
+  const { id, groomerId, date, startTime, durationMin } = parsed.data;
+  const start = vilniusToUtc(date, startTime);
+  const end = new Date(start.getTime() + durationMin * 60_000);
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .update({ groomer_id: groomerId, start_at: start.toISOString(), end_at: end.toISOString() })
+    .eq("id", id)
+    .eq("status", "scheduled")
+    .select("id, client_id")
+    .maybeSingle();
+
+  if (error) {
+    if (error.code === "23P01") {
+      return { ok: false, error: await describeConflict(groomerId, start, end, id) };
+    }
+    return dbFailed(error, "rescheduleBooking");
+  }
+  if (!data) return dbFailed({ code: "P0002" }, "rescheduleBooking");
+
+  revalidatePath("/calendar", "layout");
+  if (data.client_id) revalidatePath(`/clients/${data.client_id}`);
+  const range = `${toVilniusTime(start)}–${toVilniusTime(end)}`;
+  return { ok: true, savedAt: Date.now(), id, summary: { range } };
+}
+
+/**
+ * Delete a booking made by mistake, or a block (requirements A6): only while still
+ * `scheduled`, items go with it (on delete cascade). A real cancellation should use
+ * cancelBooking so it stays in history and in the client's "Atšaukta" counter.
+ */
+export async function deleteBooking(id: string): Promise<ActionState> {
+  await requireUser();
+  if (!uuid.safeParse(id).success) return dbFailed({ code: "22023" }, "deleteBooking");
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .delete()
+    .eq("id", id)
+    .eq("status", "scheduled")
+    .select("id, client_id")
+    .maybeSingle();
+  if (error) return dbFailed(error, "deleteBooking");
+  if (!data) return dbFailed({ code: "P0002" }, "deleteBooking");
+
+  revalidatePath("/calendar", "layout");
   if (data.client_id) revalidatePath(`/clients/${data.client_id}`);
   return { ok: true, savedAt: Date.now(), id };
 }

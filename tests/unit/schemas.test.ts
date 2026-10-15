@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { bookingSchema, sumDurations } from "@/lib/schemas/booking";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { bookingSchema, rescheduleSchema, sumDurations } from "@/lib/schemas/booking";
 import { issuesToFieldErrors } from "@/lib/schemas/common";
 import { clientSchema, groomerSchema, petSchema, serviceSchema } from "@/lib/schemas/entities";
 import lt from "@/messages/lt.json";
@@ -55,11 +55,32 @@ describe("serviceSchema", () => {
 
 describe("groomerSchema", () => {
   it("lower-cases the colour and reads the checkbox", () => {
-    expect(groomerSchema.parse({ name: "Rasa", color: "#0D9488", isActive: "on" })).toMatchObject({
+    expect(
+      groomerSchema.parse({ name: "Rasa", color: "#0D9488", isActive: "on", workDays: "1,2,3,4,5,6" }),
+    ).toMatchObject({
       color: "#0d9488",
       isActive: true,
+      workDays: [1, 2, 3, 4, 5, 6],
     });
-    expect(groomerSchema.parse({ name: "Rasa", color: "#0d9488" }).isActive).toBe(false);
+    expect(groomerSchema.parse({ name: "Rasa", color: "#0d9488", workDays: "1" }).isActive).toBe(false);
+  });
+
+  it("normalises working days and requires at least one", () => {
+    expect(groomerSchema.parse({ name: "Rasa", color: "#0d9488", workDays: "5, 1,3,1" }).workDays).toEqual([
+      1, 3, 5,
+    ]);
+    expect(errors(groomerSchema.safeParse({ name: "Rasa", color: "#0d9488", workDays: "" }))).toEqual({
+      workDays: "workDaysRequired",
+    });
+    expect(errors(groomerSchema.safeParse({ name: "Rasa", color: "#0d9488" }))).toEqual({
+      workDays: "workDaysRequired",
+    });
+    expect(errors(groomerSchema.safeParse({ name: "Rasa", color: "#0d9488", workDays: "0,8" }))).toEqual({
+      workDays: "invalid",
+    });
+    expect(errors(groomerSchema.safeParse({ name: "Rasa", color: "#0d9488", workDays: "1,x" }))).toEqual({
+      workDays: "invalid",
+    });
   });
 
   it("rejects a bad colour", () => {
@@ -100,19 +121,32 @@ describe("petSchema", () => {
     breed: "",
     size: "",
     weightKg: "",
-    birthDate: "",
+    birthYear: "",
+    birthMonth: "",
     notes: "",
   };
 
   it("parses optional fields as null", () => {
-    expect(petSchema.parse(base)).toMatchObject({ size: null, weightKg: null, birthDate: null });
+    expect(petSchema.parse(base)).toMatchObject({
+      size: null,
+      weightKg: null,
+      birthYear: null,
+      birthMonth: null,
+    });
   });
 
-  it("parses weight with a comma and a valid birth date", () => {
-    expect(petSchema.parse({ ...base, weightKg: "7,55", birthDate: "2020-01-01", size: "m" })).toMatchObject({
+  it("parses weight with a comma and a birth year with optional month", () => {
+    expect(
+      petSchema.parse({ ...base, weightKg: "7,55", birthYear: "2020", birthMonth: "3", size: "m" }),
+    ).toMatchObject({
       weightKg: 7.6,
-      birthDate: "2020-01-01",
+      birthYear: 2020,
+      birthMonth: 3,
       size: "m",
+    });
+    expect(petSchema.parse({ ...base, birthYear: "2020" })).toMatchObject({
+      birthYear: 2020,
+      birthMonth: null,
     });
   });
 
@@ -120,8 +154,12 @@ describe("petSchema", () => {
     [{ species: "rabbit" }, "species", "required"],
     [{ weightKg: "0,2" }, "weightKg", "invalidWeight"],
     [{ weightKg: "abc" }, "weightKg", "invalidWeight"],
-    [{ birthDate: "2999-01-01" }, "birthDate", "futureDate"],
-    [{ birthDate: "01.02.2020" }, "birthDate", "invalidDate"],
+    [{ birthYear: "2999" }, "birthYear", "futureDate"],
+    [{ birthYear: "1980" }, "birthYear", "invalid"],
+    [{ birthYear: "abc" }, "birthYear", "invalid"],
+    [{ birthMonth: "5" }, "birthYear", "required"],
+    [{ birthYear: "2020", birthMonth: "13" }, "birthMonth", "invalid"],
+    [{ birthYear: String(new Date().getFullYear() + 1), birthMonth: "1" }, "birthYear", "futureDate"],
     [{ size: "huge" }, "size", "invalid"],
     [{ clientId: "x" }, "clientId", "invalid"],
   ])("rejects %j", (patch, field, key) => {
@@ -130,6 +168,13 @@ describe("petSchema", () => {
 });
 
 describe("bookingSchema", () => {
+  // "Today" in Vilnius is 2026-10-15 for these tests (no bookings on past days).
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-15T20:30:00Z")); // 23:30 in Vilnius
+  });
+  afterAll(() => vi.useRealTimers());
+
   const valid = {
     groomerId: ID,
     date: "2026-10-20",
@@ -139,6 +184,19 @@ describe("bookingSchema", () => {
     items: [{ pet: { mode: "existing", id: ID2 }, serviceId: SVC, durationMin: 120, plannedPrice: "45" }],
     notes: "",
   } as const;
+
+  it("accepts today, even an earlier hour", () => {
+    expect(bookingSchema.safeParse({ ...valid, date: "2026-10-15", startTime: "08:00" }).success).toBe(true);
+  });
+
+  it("validates a reschedule the same way", () => {
+    const move = { id: ID, groomerId: ID, date: "2026-10-15", startTime: "09:00", durationMin: 90 };
+    expect(rescheduleSchema.parse(move)).toEqual(move);
+    expect(errors(rescheduleSchema.safeParse({ ...move, date: "2026-10-01" }))).toEqual({ date: "pastDate" });
+    expect(errors(rescheduleSchema.safeParse({ ...move, startTime: "09:05" }))).toEqual({
+      startTime: "offGrid",
+    });
+  });
 
   it("accepts an existing client with one pet", () => {
     const r = bookingSchema.parse(valid);
@@ -170,6 +228,7 @@ describe("bookingSchema", () => {
     [{ startTime: "10:10" }, "startTime", "offGrid"],
     [{ startTime: "25:00" }, "startTime", "invalidTime"],
     [{ date: "2026-02-30" }, "date", "invalidDate"],
+    [{ date: "2026-10-14" }, "date", "pastDate"],
     [{ durationMin: 20 }, "durationMin", "invalidDuration"],
     [{ client: undefined }, "client", "required"],
     [{ items: [] }, "items", "itemsRequired"],

@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { EnvBadge } from "@/components/env-badge";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -32,7 +31,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="lt">
       <body className="min-h-dvh antialiased">
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
-        <EnvBadge />
       </body>
     </html>
   );

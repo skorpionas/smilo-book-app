@@ -7,7 +7,14 @@ export default defineConfig({
     environment: "node",
     coverage: {
       provider: "v8",
-      include: ["lib/time.ts", "lib/schemas/**", "lib/phone.ts", "lib/money.ts", "lib/app-env.ts"],
+      include: [
+        "lib/time.ts",
+        "lib/schedule.ts",
+        "lib/schemas/**",
+        "lib/phone.ts",
+        "lib/money.ts",
+        "lib/app-env.ts",
+      ],
       thresholds: { lines: 90, functions: 90, branches: 85, statements: 90 },
     },
   },
