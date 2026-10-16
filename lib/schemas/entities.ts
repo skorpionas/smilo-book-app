@@ -5,8 +5,10 @@ import {
   checkbox,
   duration,
   optionalEmail,
+  optionalName,
   optionalPhone,
   optionalText,
+  requireContact,
   price,
   requiredText,
   uuid,
@@ -44,13 +46,16 @@ export type GroomerInput = z.output<typeof groomerSchema>;
 // ---------------------------------------------------------------------------
 // Clients (issue #15)
 // ---------------------------------------------------------------------------
-export const clientSchema = z.object({
-  id: optionalId,
-  fullName: requiredText(100, 2),
-  phone: optionalPhone,
-  email: optionalEmail,
-  notes: optionalText(2000),
-});
+/** Client = contact card: name, phone and e-mail each optional, at least one required. */
+export const clientSchema = z
+  .object({
+    id: optionalId,
+    fullName: optionalName(100),
+    phone: optionalPhone,
+    email: optionalEmail,
+    notes: optionalText(2000),
+  })
+  .superRefine((v, ctx) => requireContact(v, ctx));
 export type ClientInput = z.output<typeof clientSchema>;
 
 // ---------------------------------------------------------------------------
@@ -63,7 +68,12 @@ const emptyToNull = (v: unknown) => (v === "" || v === null || v === undefined ?
 export const petSchema = z
   .object({
     id: optionalId,
-    clientId: uuid,
+    /** Owner is optional (pet first). */
+    clientId: optionalId,
+    /** New pet only: an optional contact created together with it (any of the three). */
+    ownerName: optionalName(100),
+    ownerPhone: optionalPhone,
+    ownerEmail: optionalEmail,
     name: requiredText(50),
     species: z.enum(SPECIES, { error: "required" }),
     breed: optionalText(80),
@@ -124,3 +134,8 @@ export const petServiceSchema = z.object({
   price,
 });
 export type PetServiceInput = z.output<typeof petServiceSchema>;
+
+/** A new owner / contact for an existing pet: at least one of name, phone, e-mail. */
+export const petOwnerContactSchema = z
+  .object({ fullName: optionalName(100), phone: optionalPhone, email: optionalEmail })
+  .superRefine((v, ctx) => requireContact(v, ctx));

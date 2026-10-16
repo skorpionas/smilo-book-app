@@ -64,7 +64,7 @@ export function SearchPanel() {
                     icon={h.species === "cat" ? <Cat aria-hidden /> : <Dog aria-hidden />}
                   />
                 ),
-                subtitle: t("petOwner", { client: h.subtitle }),
+                subtitle: h.subtitle ? t("petOwner", { client: h.subtitle }) : t("noOwner"),
               })}
             />
           ) : null}

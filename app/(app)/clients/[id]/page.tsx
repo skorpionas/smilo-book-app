@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card";
 import { GroomerDot } from "@/components/ui/groomer-chip";
 import { uuid } from "@/lib/schemas/common";
 import { formatEur } from "@/lib/money";
-import { formatPhone, phoneDigits } from "@/lib/phone";
+import { contactLabel, formatPhone, phoneDigits } from "@/lib/phone";
 import { createClient } from "@/lib/supabase/server";
 import { todayInVilnius, toVilniusDate, toVilniusTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -61,7 +61,7 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
   return (
     <>
       <PageHeader
-        title={client.full_name}
+        title={contactLabel(client)}
         eyebrow={
           <Link href="/clients?view=owners" className="hover:text-foreground inline-flex items-center gap-1">
             <ArrowLeft aria-hidden className="size-4" />
@@ -74,7 +74,7 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
             archived={client.archived_at !== null}
             client={{
               id: client.id,
-              fullName: client.full_name,
+              fullName: client.full_name ?? "",
               phone: formatPhone(client.phone_e164),
               email: client.email,
               notes: client.notes,
@@ -86,7 +86,7 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
       <PageBody className="max-w-3xl space-y-8">
         <Card className="space-y-4 p-4 sm:p-5">
           <div className="flex items-center gap-3">
-            <Avatar name={client.full_name} size="lg" />
+            <Avatar name={contactLabel(client)} size="lg" />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap gap-1.5">
                 {client.anonymized_at ? <Badge tone="neutral">{t("anonymizedBadge")}</Badge> : null}

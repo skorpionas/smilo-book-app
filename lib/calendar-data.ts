@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { formatPhone } from "@/lib/phone";
+import { contactLabel, formatPhone } from "@/lib/phone";
 import { lanesForDate } from "@/lib/schedule";
 import {
   addDays,
@@ -70,7 +70,7 @@ export async function loadRange(from: DateStr, to: DateStr, gridDate?: DateStr) 
     supabase
       .from("bookings")
       .select(
-        "id, kind, groomer_id, start_at, end_at, status, notes, block_reason, clients(id, full_name, phone_e164), booking_items(id, position, duration_min, planned_price, actual_price, pets(id, name, species, notes), services(name))",
+        "id, kind, groomer_id, start_at, end_at, status, notes, block_reason, clients(id, full_name, phone_e164, email), booking_items(id, position, duration_min, planned_price, actual_price, pets(id, name, species, notes), services(name))",
       )
       .neq("status", "cancelled")
       .lt("start_at", end.toISOString())
@@ -112,7 +112,7 @@ export async function loadRange(from: DateStr, to: DateStr, gridDate?: DateStr) 
         client: b.clients
           ? {
               id: b.clients.id,
-              fullName: b.clients.full_name,
+              fullName: contactLabel(b.clients),
               phone: b.clients.phone_e164,
               phoneDisplay: formatPhone(b.clients.phone_e164),
             }

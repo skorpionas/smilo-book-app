@@ -23,6 +23,7 @@ export type ErrorKey =
   | "itemsRequired"
   | "workDaysRequired"
   | "pastDate"
+  | "contactRequired"
   | "invalid";
 
 const err = (key: ErrorKey) => ({ error: key });
@@ -36,6 +37,21 @@ export const requiredText = (max: number, min = 1) =>
 export const optionalText = (max: number) => str.pipe(z.string().trim().max(max, err("tooLong")));
 
 export const uuid = z.uuid(err("invalid"));
+
+/** Optional name: "" -> null. */
+export const optionalName = (max: number) => optionalText(max).transform((v) => v || null);
+
+/**
+ * A contact card (client) needs at least one of name / phone / e-mail; all three are
+ * optional on their own. The error is shown on the name field.
+ */
+export function requireContact(
+  v: { fullName: string | null; phone: string | null; email: string | null },
+  ctx: z.core.$RefinementCtx,
+  path: (string | number)[] = ["fullName"],
+) {
+  if (!v.fullName && !v.phone && !v.email) ctx.addIssue({ code: "custom", message: "contactRequired", path });
+}
 
 /** "" -> null, otherwise normalised to E.164 (default country LT). */
 export const optionalPhone = str.transform((value, ctx) => {
@@ -113,6 +129,7 @@ const KNOWN = new Set<string>([
   "itemsRequired",
   "workDaysRequired",
   "pastDate",
+  "contactRequired",
   "invalid",
 ]);
 

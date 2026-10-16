@@ -8,7 +8,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getClientForBooking } from "@/lib/actions/bookings";
+import { getClientForBooking, getPetForBooking } from "@/lib/actions/bookings";
 import { lanesFor, loadDay } from "@/lib/calendar-data";
 import { addDays, parseDateParam, todayInVilnius, weekdayName } from "@/lib/time";
 
@@ -27,7 +27,12 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
 
   const [{ groomers, services, bookings, failed }, preselectedClient] = await Promise.all([
     loadDay(date),
-    typeof clientParam === "string" ? getClientForBooking(clientParam) : Promise.resolve(null),
+    typeof clientParam === "string"
+      ? getClientForBooking(clientParam)
+      : // pet first: ?pet=<id> alone opens the sheet with that pet (and its owner, if any)
+        typeof petParam === "string" && petParam !== "all"
+        ? getPetForBooking(petParam)
+        : Promise.resolve(null),
   ]);
   const lanes = lanesFor(groomers, date, bookings);
   const openOnLoad = preselectedClient !== null || newParam === "1";

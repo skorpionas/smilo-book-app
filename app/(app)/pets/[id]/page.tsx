@@ -6,6 +6,7 @@ import { getTranslations } from "next-intl/server";
 import { PetNotes } from "@/components/clients/client-detail";
 import { PageBody, PageHeader } from "@/components/page-header";
 import { PetActions } from "@/components/pets/pet-actions";
+import { PetOwnerButton } from "@/components/pets/pet-owner-sheet";
 import { PetServicesSection } from "@/components/pets/pet-services-section";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, StatusBadge } from "@/components/ui/badge";
@@ -14,7 +15,7 @@ import { Card } from "@/components/ui/card";
 import { GroomerDot } from "@/components/ui/groomer-chip";
 import { formatAge } from "@/lib/format";
 import { formatEur } from "@/lib/money";
-import { formatPhone, phoneDigits } from "@/lib/phone";
+import { contactLabel, formatPhone, phoneDigits } from "@/lib/phone";
 import { uuid } from "@/lib/schemas/common";
 import { createClient } from "@/lib/supabase/server";
 import { todayInVilnius, toVilniusDate, toVilniusTime } from "@/lib/time";
@@ -42,7 +43,7 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
     supabase
       .from("pets")
       .select(
-        "id, name, species, breed, size, weight_kg, birth_year, birth_month, notes, archived_at, client_id, clients(id, full_name, phone_e164, archived_at, anonymized_at, pets(id, name, species, archived_at))",
+        "id, name, species, breed, size, weight_kg, birth_year, birth_month, notes, archived_at, client_id, clients(id, full_name, phone_e164, email, archived_at, anonymized_at, pets(id, name, species, archived_at))",
       )
       .eq("id", id)
       .maybeSingle(),
@@ -67,12 +68,15 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
       .eq("pet_id", id)
       .limit(300),
   ]);
-  if (!pet || !pet.clients) notFound();
+  if (!pet) notFound();
 
+  // Pet first: the owner (contact card) is optional
   const client = pet.clients;
   const today = todayInVilnius();
-  const readOnly = pet.archived_at !== null || client.archived_at !== null || client.anonymized_at !== null;
-  const siblings = client.pets.filter((p) => p.id !== pet.id && !p.archived_at);
+  const readOnly =
+    pet.archived_at !== null ||
+    (client !== null && (client.archived_at !== null || client.anonymized_at !== null));
+  const siblings = client ? client.pets.filter((p) => p.id !== pet.id && !p.archived_at) : [];
   const facts = [
     ts(pet.species),
     pet.breed,
@@ -97,9 +101,9 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
           </Link>
         }
       >
-        {client.anonymized_at ? null : (
+        {client?.anonymized_at ? null : (
           <PetActions
-            clientId={client.id}
+            clientId={client?.id ?? null}
             archived={pet.archived_at !== null}
             pet={{
               id: pet.id,
@@ -140,12 +144,12 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
             {!readOnly ? (
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <Button asChild size="lg" className="w-full sm:w-auto">
-                  <Link href={`/calendar?client=${client.id}&pet=${pet.id}`}>
+                  <Link href={`/calendar?pet=${pet.id}`}>
                     <CalendarPlus aria-hidden />
                     {t("book", { name: pet.name })}
                   </Link>
                 </Button>
-                {siblings.length > 0 ? (
+                {client && siblings.length > 0 ? (
                   // Pets that always come together: one booking, one row per pet, each with its own price
                   <Button asChild size="lg" variant="secondary" className="w-full sm:w-auto">
                     <Link href={`/calendar?client=${client.id}&pet=all`}>
@@ -191,34 +195,47 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
             <h2 id="owner-heading" className="text-muted px-1 text-xs font-semibold tracking-wider uppercase">
               {t("owner")}
             </h2>
-            <Card className="overflow-hidden">
-              <Link
-                href={`/clients/${client.id}`}
-                className="hover:bg-surface-muted flex min-h-16 items-center gap-3 px-4 py-3 transition-colors"
-              >
-                <Avatar name={client.full_name} />
-                <span className="min-w-0 flex-1">
-                  <span className="block font-medium">{client.full_name}</span>
-                  <span className="text-muted block truncate text-sm tabular-nums">
-                    {client.phone_e164 ? formatPhone(client.phone_e164) : t("noPhone")}
+            {client ? (
+              <Card className="overflow-hidden">
+                <Link
+                  href={`/clients/${client.id}`}
+                  className="hover:bg-surface-muted flex min-h-16 items-center gap-3 px-4 py-3 transition-colors"
+                >
+                  <Avatar name={contactLabel(client)} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium">{contactLabel(client)}</span>
+                    <span className="text-muted block truncate text-sm tabular-nums">
+                      {client.full_name
+                        ? client.phone_e164
+                          ? formatPhone(client.phone_e164)
+                          : client.email || t("noPhone")
+                        : client.phone_e164
+                          ? client.email
+                          : null}
+                    </span>
                   </span>
-                </span>
-                <ChevronRight aria-hidden className="text-muted size-5 shrink-0" />
-              </Link>
-              {client.phone_e164 ? (
-                <div className="border-border border-t p-3">
-                  <Button asChild variant="secondary" className="w-full">
-                    <a
-                      href={`tel:+${phoneDigits(client.phone_e164)}`}
-                      aria-label={t("callNamed", { phone: formatPhone(client.phone_e164) })}
-                    >
-                      <Phone aria-hidden />
-                      {t("call")}
-                    </a>
-                  </Button>
-                </div>
-              ) : null}
-            </Card>
+                  <ChevronRight aria-hidden className="text-muted size-5 shrink-0" />
+                </Link>
+                {client.phone_e164 ? (
+                  <div className="border-border border-t p-3">
+                    <Button asChild variant="secondary" className="w-full">
+                      <a
+                        href={`tel:+${phoneDigits(client.phone_e164)}`}
+                        aria-label={t("callNamed", { phone: formatPhone(client.phone_e164) })}
+                      >
+                        <Phone aria-hidden />
+                        {t("call")}
+                      </a>
+                    </Button>
+                  </div>
+                ) : null}
+              </Card>
+            ) : (
+              <Card className="text-muted p-4 text-sm">{t("noOwner")}</Card>
+            )}
+            {!readOnly ? (
+              <PetOwnerButton petId={pet.id} petName={pet.name} hasOwner={client !== null} />
+            ) : null}
           </section>
 
           {siblings.length > 0 ? (

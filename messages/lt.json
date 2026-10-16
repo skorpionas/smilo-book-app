@@ -75,7 +75,8 @@
     "monthGrid": "Mėnesio kalendorius",
     "slotLabelDate": "Registruoti: {date}, {groomer}, {time}",
     "monthCell": "{date}: vizitų {count}",
-    "bookOnDay": "Registruoti {date}"
+    "bookOnDay": "Registruoti {date}",
+    "openBookingNoClient": "{time}, {pets}"
   },
   "upcoming": {
     "listLabel": "Artimiausi vizitai pagal dienas",
@@ -129,7 +130,8 @@
     "phoneTaken": "Klientas su šiuo telefono numeriu jau yra. Raskite jį paieškoje.",
     "slotTakenUnknown": "Šis laikas jau užimtas.",
     "workDaysRequired": "Pažymėkite bent vieną darbo dieną.",
-    "pastDate": "Praėjusiai dienai registruoti negalima."
+    "pastDate": "Praėjusiai dienai registruoti negalima.",
+    "contactRequired": "Įrašykite bent vieną: vardą, telefoną arba el. paštą."
   },
   "common": {
     "close": "Uždaryti",
@@ -339,7 +341,8 @@
     "book": "Registruoti vizitą",
     "back": "Šeimininkai",
     "noPetsShort": "be augintinių",
-    "openPet": "Atidaryti {name}"
+    "openPet": "Atidaryti {name}",
+    "contactHint": "Užtenka vieno: vardo, telefono arba el. pašto."
   },
   "pets": {
     "add": "Pridėti augintinį",
@@ -372,19 +375,21 @@
     "editShort": "Redaguoti",
     "restore": "Grąžinti augintinį",
     "restored": "Augintinis grąžintas",
-    "archivedBadge": "Archyvuotas"
+    "archivedBadge": "Archyvuotas",
+    "ownerContact": "Šeimininko kontaktai",
+    "ownerContactHint": "Galite palikti tuščią arba įrašyti tik telefoną ar el. paštą. Šeimininką galėsite pridėti ir vėliau."
   },
   "booking": {
     "title": "Nauja registracija",
-    "description": "Laikas, klientas ir augintiniai.",
+    "description": "Laikas, augintiniai ir paslaugos.",
     "groomer": "Meistrė",
     "date": "Data",
     "start": "Pradžia",
-    "client": "Klientas",
-    "clientSearchPlaceholder": "Vardas, augintinis ar telefonas",
+    "client": "Augintinis ar šeimininkas",
+    "clientSearchPlaceholder": "Augintinis, šeimininkas ar telefonas",
     "clientSearchHint": "Įveskite bent 2 simbolius.",
     "searching": "Ieškoma…",
-    "noClients": "Klientas nerastas.",
+    "noClients": "Nerasta – pridėkite naują augintinį.",
     "newClient": "Naujas klientas",
     "newClientTitle": "Naujas klientas",
     "changeClient": "Keisti",
@@ -396,7 +401,7 @@
     "choosePet": "Pasirinkite augintinį",
     "newPetOption": "+ Naujas augintinis",
     "newPetName": "Augintinio vardas",
-    "pickClientFirst": "Pirmiausia pasirinkite klientą.",
+    "pickClientFirst": "Pirmiausia raskite augintinį arba pridėkite naują.",
     "service": "Paslauga",
     "chooseService": "Pasirinkite paslaugą",
     "duration": "Trukmė",
@@ -452,7 +457,11 @@
     "allPetsTogether": "Kartu: {pets}",
     "selectAllPets": "Pasirinkti visus kartu: {pets} ({client})",
     "quickAddLabel": "Pridėti kitą šio kliento augintinį",
-    "addNamedPet": "{name}"
+    "addNamedPet": "{name}",
+    "noOwner": "Be šeimininko",
+    "ownerContact": "Šeimininko kontaktai",
+    "ownerContactHint": "Galite palikti tuščią arba įrašyti tik telefoną ar el. paštą.",
+    "newPet": "Naujas augintinis"
   },
   "search": {
     "label": "Ieškoti kliento ar augintinio",
@@ -462,7 +471,8 @@
     "petsHeading": "Augintiniai",
     "noResultsTitle": "Nieko nerasta",
     "noResultsText": "Pabandykite kitą vardą ar telefono numerio dalį.",
-    "petOwner": "Šeimininkas: {client}"
+    "petOwner": "Šeimininkas: {client}",
+    "noOwner": "Be šeimininko"
   },
   "weekdays": {
     "short": {
@@ -515,7 +525,8 @@
     "withoutPets": "Klientai be augintinių",
     "addPetHint": "Pridėkite augintinį",
     "emptyTitle": "Augintinių dar nėra",
-    "emptyText": "Pridėkite klientą ir jo šunį ar katę – arba registruokite vizitą kalendoriuje."
+    "emptyText": "Pridėkite šunį ar katę – šeimininko kontaktai neprivalomi. Arba registruokite vizitą kalendoriuje.",
+    "noOwner": "be šeimininko"
   },
   "petPage": {
     "back": "Augintiniai",
@@ -531,7 +542,8 @@
     "noUpcoming": "Suplanuotų vizitų nėra.",
     "history": "Vizitų istorija",
     "noHistory": "Ankstesnių vizitų dar nėra.",
-    "bookTogether": "Registruoti kartu su {names}"
+    "bookTogether": "Registruoti kartu su {names}",
+    "noOwner": "Šeimininkas nenurodytas. Jį – ar tik telefoną / el. paštą – galite pridėti bet kada."
   },
   "petServices": {
     "title": "Paslaugos ir kainos",
@@ -554,5 +566,24 @@
     "removeTitle": "Pašalinti savą kainą?",
     "removeText": "Registruojant bus siūloma paskutinė arba įprasta paslaugos kaina.",
     "removed": "Paslauga pašalinta"
+  },
+  "petOwner": {
+    "add": "Pridėti šeimininką",
+    "change": "Keisti šeimininką",
+    "addTitle": "Pridėti šeimininką",
+    "changeTitle": "Keisti šeimininką",
+    "description": "Šeimininkas – {name} kontaktai. Užtenka vardo, telefono ar el. pašto.",
+    "how": "Kaip pridėti",
+    "existing": "Esamas klientas",
+    "newContact": "Nauji kontaktai",
+    "newContactHint": "Įrašykite bent vieną: vardą, telefoną arba el. paštą.",
+    "searchLabel": "Ieškoti kliento",
+    "searchPlaceholder": "Vardas, telefonas ar el. paštas",
+    "searchHint": "Įveskite bent 2 simbolius.",
+    "noneFound": "Klientas nerastas – įrašykite naujus kontaktus.",
+    "choose": "Pasirinkti {name}",
+    "saved": "Šeimininkas išsaugotas",
+    "remove": "Pašalinti šeimininką",
+    "removed": "Šeimininkas pašalintas"
   }
 }

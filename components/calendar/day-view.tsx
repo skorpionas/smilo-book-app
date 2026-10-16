@@ -475,7 +475,11 @@ function BookingBlock({
     <button
       type="button"
       onClick={() => onOpen(booking)}
-      aria-label={t("openBooking", { time: range, pets, client: booking.client?.fullName ?? "" })}
+      aria-label={
+        booking.client
+          ? t("openBooking", { time: range, pets, client: booking.client.fullName })
+          : t("openBookingNoClient", { time: range, pets })
+      }
       className={cn(
         "border-border bg-surface hover:border-border-strong relative z-10 col-start-1 mx-0.5 my-px flex min-w-0 flex-col overflow-hidden rounded-md border border-l-[3px] py-1 text-left text-xs leading-tight shadow-xs transition-colors",
         narrow ? "px-1" : "px-2",

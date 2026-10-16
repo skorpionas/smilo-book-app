@@ -75,11 +75,11 @@ select throws_ok(
            values (%L, %L, %L, '2026-10-21 10:05 Europe/Vilnius', '2026-10-21 11:00 Europe/Vilnius')$$, :o1, :gA, :c1),
   '23514', null, 'start time off the 15-minute grid is rejected');
 
--- 12. a booking needs a client
-select throws_ok(
+-- 12. a booking may have no client (pet first, client optional)
+select lives_ok(
   format($$insert into bookings (owner_id, groomer_id, start_at, end_at)
-           values (%L, %L, '2026-10-21 10:00 Europe/Vilnius', '2026-10-21 11:00 Europe/Vilnius')$$, :o1, :gA),
-  '23514', null, 'a booking without a client is rejected');
+           values (%L, %L, '2026-10-21 18:00 Europe/Vilnius', '2026-10-21 18:30 Europe/Vilnius')$$, :o1, :gA),
+  'a booking without a client is allowed');
 
 -- 13. a block must not have a client
 select throws_ok(

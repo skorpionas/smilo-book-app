@@ -30,3 +30,15 @@ export function formatPhone(e164: string | null | undefined): string {
 export function phoneDigits(input: string): string {
   return input.replace(/\D/g, "");
 }
+
+/**
+ * How a client (contact card) is shown: the name, else the phone, else the e-mail.
+ * Name, phone and e-mail are each optional, but a card always has one of them.
+ */
+export function contactLabel(c: {
+  full_name?: string | null;
+  phone_e164?: string | null;
+  email?: string | null;
+}): string {
+  return c.full_name?.trim() || formatPhone(c.phone_e164) || c.email?.trim() || "";
+}

@@ -105,11 +105,40 @@ describe("clientSchema", () => {
   });
 
   it.each([
-    [{ fullName: "R", phone: "", email: "" }, "fullName", "required"],
+    [{ fullName: "", phone: "", email: "" }, "fullName", "contactRequired"],
     [{ fullName: "Rasa", phone: "123", email: "" }, "phone", "invalidPhone"],
     [{ fullName: "Rasa", phone: "", email: "rasa@" }, "email", "invalidEmail"],
   ])("rejects %j", (input, field, key) => {
     expect(errors(clientSchema.safeParse(input))[field]).toBe(key);
+  });
+
+  it("accepts a contact card with only a phone or only an e-mail (pet first)", () => {
+    expect(clientSchema.parse({ fullName: "", phone: "861234567", email: "", notes: "" })).toMatchObject({
+      fullName: null,
+      phone: "+37061234567",
+    });
+    expect(clientSchema.parse({ fullName: "", phone: "", email: "a@b.lt", notes: "" })).toMatchObject({
+      fullName: null,
+      email: "a@b.lt",
+    });
+  });
+});
+
+describe("petSchema owner", () => {
+  it("a pet needs no owner", () => {
+    const r = petSchema.parse({
+      name: "Rudis",
+      species: "dog",
+      breed: "",
+      size: "",
+      weightKg: "",
+      birthYear: "",
+      birthMonth: "",
+      notes: "",
+    });
+    expect(r.clientId).toBeUndefined();
+    expect(r.ownerName).toBeNull();
+    expect(r.ownerPhone).toBeNull();
   });
 });
 
@@ -201,6 +230,35 @@ describe("bookingSchema", () => {
   it("accepts an existing client with one pet", () => {
     const r = bookingSchema.parse(valid);
     expect(r.items[0].plannedPrice).toBe(45);
+  });
+
+  it("accepts a booking with no client at all (pet first)", () => {
+    const r = bookingSchema.parse({
+      ...valid,
+      client: { mode: "none" },
+      items: [
+        {
+          pet: { mode: "new", name: "Rudis", species: "dog", breed: "" },
+          serviceId: SVC,
+          durationMin: 60,
+          plannedPrice: 30,
+        },
+      ],
+    });
+    expect(r.client).toEqual({ mode: "none" });
+  });
+
+  it("a new contact needs one of name / phone / e-mail; phone alone is enough", () => {
+    const base = { ...valid, items: valid.items };
+    expect(
+      bookingSchema.parse({ ...base, client: { mode: "new", fullName: "", phone: "861234567", email: "" } })
+        .client,
+    ).toMatchObject({ fullName: null, phone: "+37061234567" });
+    expect(
+      errors(
+        bookingSchema.safeParse({ ...base, client: { mode: "new", fullName: "", phone: "", email: "" } }),
+      ),
+    ).toEqual({ "client.fullName": "contactRequired" });
   });
 
   it("accepts a new client with a new pet", () => {

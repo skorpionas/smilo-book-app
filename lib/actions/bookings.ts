@@ -11,7 +11,7 @@ import {
   type RescheduleInput,
 } from "@/lib/schemas/booking";
 import { uuid } from "@/lib/schemas/common";
-import { formatPhone } from "@/lib/phone";
+import { contactLabel, formatPhone } from "@/lib/phone";
 import { createClient } from "@/lib/supabase/server";
 import { toVilniusTime, vilniusToUtc } from "@/lib/time";
 
@@ -26,8 +26,12 @@ export type BookingPetOption = {
   services: PetServiceOption[];
 };
 
+/**
+ * A client with its pets — or, for a pet without an owner (pet first), `id: null`
+ * with just that one pet. `fullName` is the display label (name, else phone / e-mail).
+ */
 export type BookingClientOption = {
-  id: string;
+  id: string | null;
   fullName: string;
   phone: string | null;
   phoneDisplay: string;
@@ -50,12 +54,89 @@ export async function findClientsForBooking(query: string): Promise<BookingClien
     console.error("[action] findClientsForBooking failed", { code: error.code });
     return [];
   }
-  const ids = [...new Set(hits.map((h) => h.client_id))].slice(0, 10);
+  const ids = [...new Set(hits.map((h) => h.client_id).filter((id): id is string => Boolean(id)))].slice(
+    0,
+    10,
+  );
+  const orphanIds = hits
+    .filter((h) => h.kind === "pet" && !h.client_id)
+    .map((h) => h.id)
+    .slice(0, 10);
   const matched = new Set(hits.filter((h) => h.kind === "pet").map((h) => h.id));
-  const options = await loadClientOptions(ids);
-  return options.map((o) => ({
-    ...o,
-    matchedPetIds: o.pets.filter((p) => matched.has(p.id)).map((p) => p.id),
+  const [options, orphans] = await Promise.all([loadClientOptions(ids), loadOwnerlessPets(orphanIds)]);
+  return [
+    ...orphans.map((o) => ({ ...o, matchedPetIds: o.pets.map((p) => p.id) })),
+    ...options.map((o) => ({
+      ...o,
+      matchedPetIds: o.pets.filter((p) => matched.has(p.id)).map((p) => p.id),
+    })),
+  ];
+}
+
+/** A pet for the booking sheet (from a pet page): its owner with all pets, or the pet alone. */
+export async function getPetForBooking(petId: string): Promise<BookingClientOption | null> {
+  await requireUser();
+  if (!uuid.safeParse(petId).success) return null;
+  const supabase = await createClient();
+  const { data } = await supabase.from("pets").select("client_id").eq("id", petId).maybeSingle();
+  if (!data) return null;
+  if (data.client_id) return (await loadClientOptions([data.client_id]))[0] ?? null;
+  return (await loadOwnerlessPets([petId]))[0] ?? null;
+}
+
+const PET_FIELDS =
+  "id, name, species, breed, archived_at, pet_services(service_id, duration_min, price, position, created_at, services(archived_at))";
+
+type PetRow = {
+  id: string;
+  name: string;
+  species: "dog" | "cat";
+  breed: string;
+  archived_at: string | null;
+  pet_services: {
+    service_id: string;
+    duration_min: number;
+    price: number;
+    position: number;
+    created_at: string;
+    services: { archived_at: string | null } | null;
+  }[];
+};
+
+function toPetOption(p: PetRow): BookingPetOption {
+  return {
+    id: p.id,
+    name: p.name,
+    species: p.species,
+    breed: p.breed,
+    services: [...p.pet_services]
+      .filter((ps) => !ps.services?.archived_at)
+      .sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at))
+      .map((ps) => ({ serviceId: ps.service_id, durationMin: ps.duration_min, price: Number(ps.price) })),
+  };
+}
+
+/** Pets without an owner, each as its own option (id null). */
+async function loadOwnerlessPets(ids: string[]): Promise<BookingClientOption[]> {
+  if (ids.length === 0) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("pets")
+    .select(PET_FIELDS)
+    .in("id", ids)
+    .is("client_id", null)
+    .is("archived_at", null)
+    .order("name");
+  if (error) {
+    console.error("[action] loadOwnerlessPets failed", { code: error.code });
+    return [];
+  }
+  return (data as PetRow[]).map((p) => ({
+    id: null,
+    fullName: "",
+    phone: null,
+    phoneDisplay: "",
+    pets: [toPetOption(p)],
   }));
 }
 
@@ -73,7 +154,7 @@ async function loadClientOptions(ids: string[]): Promise<BookingClientOption[]> 
   const { data, error } = await supabase
     .from("clients")
     .select(
-      "id, full_name, phone_e164, pets(id, name, species, breed, archived_at, pet_services(service_id, duration_min, price, position, created_at, services(archived_at)))",
+      "id, full_name, phone_e164, email, pets(id, name, species, breed, archived_at, pet_services(service_id, duration_min, price, position, created_at, services(archived_at)))",
     )
     .in("id", ids)
     .is("archived_at", null)
@@ -85,22 +166,13 @@ async function loadClientOptions(ids: string[]): Promise<BookingClientOption[]> 
   }
   return data.map((c) => ({
     id: c.id,
-    fullName: c.full_name,
+    fullName: contactLabel(c),
     phone: c.phone_e164,
     phoneDisplay: formatPhone(c.phone_e164),
-    pets: c.pets
+    pets: (c.pets as PetRow[])
       .filter((p) => !p.archived_at)
       .sort((a, b) => a.name.localeCompare(b.name, "lt"))
-      .map((p) => ({
-        id: p.id,
-        name: p.name,
-        species: p.species,
-        breed: p.breed,
-        services: [...p.pet_services]
-          .filter((ps) => !ps.services?.archived_at)
-          .sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at))
-          .map((ps) => ({ serviceId: ps.service_id, durationMin: ps.duration_min, price: Number(ps.price) })),
-      })),
+      .map(toPetOption),
   }));
 }
 
@@ -147,6 +219,7 @@ export async function createBooking(input: BookingInput): Promise<CreateBookingR
     p_start_at: start.toISOString(),
     p_end_at: end.toISOString(),
     p_items: items,
+    // "none": no client — the database takes the owner of an existing pet, if it has one
     p_client_id: b.client.mode === "existing" ? b.client.id : undefined,
     p_new_client:
       b.client.mode === "new"

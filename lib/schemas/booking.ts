@@ -4,9 +4,11 @@ import {
   duration,
   gridTime,
   optionalEmail,
+  optionalName,
   optionalPhone,
   optionalText,
   price,
+  requireContact,
   requiredText,
   uuid,
 } from "./common";
@@ -21,12 +23,17 @@ export const bookingDate = dateStr.refine((d) => d >= todayInVilnius(), { error:
  * booking sheet; the same schema validates on the server.
  */
 const existingClient = z.object({ mode: z.literal("existing"), id: uuid });
-const newClient = z.object({
-  mode: z.literal("new"),
-  fullName: requiredText(100, 2),
-  phone: optionalPhone,
-  email: optionalEmail,
-});
+/** New contact card: name, phone, e-mail each optional, at least one (else use "none"). */
+const newClient = z
+  .object({
+    mode: z.literal("new"),
+    fullName: optionalName(100),
+    phone: optionalPhone,
+    email: optionalEmail,
+  })
+  .superRefine((v, ctx) => requireContact(v, ctx));
+/** Pet first: a booking can have no client at all. */
+const noClient = z.object({ mode: z.literal("none") });
 
 const existingPet = z.object({ mode: z.literal("existing"), id: uuid });
 const newPet = z.object({
@@ -51,7 +58,7 @@ export const bookingSchema = z
     date: bookingDate,
     startTime: gridTime,
     durationMin: duration,
-    client: z.discriminatedUnion("mode", [existingClient, newClient], { error: "required" }),
+    client: z.discriminatedUnion("mode", [existingClient, newClient, noClient], { error: "required" }),
     items: z.array(bookingItemSchema).min(1, { error: "itemsRequired" }).max(6, { error: "invalid" }),
     notes: optionalText(2000),
   })

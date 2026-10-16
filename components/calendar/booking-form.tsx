@@ -1,6 +1,6 @@
 "use client";
 
-import { Cat, Dog, PawPrint, Phone, Plus, Search, Settings, Trash2, UserPlus, X } from "lucide-react";
+import { Cat, Dog, PawPrint, Phone, Plus, Search, Settings, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import * as React from "react";
@@ -175,9 +175,22 @@ function BookingForm({
   const offDay = Boolean(groomer && /^\d{4}-\d{2}-\d{2}$/.test(date) && !worksOn(groomer, date));
   const totalPrice = items.reduce((s, i) => s + (parseEur(i.price) ?? 0), 0);
 
-  function chooseClient(next: ClientState, petId?: string | null) {
+  function chooseClient(next: ClientState, petId?: string | null, newPetName?: string) {
     setClient(next);
     setFieldErrors({});
+    if (next.mode === "new") {
+      // New pet first; its owner's contact is optional (below the pet)
+      setItems((prev) =>
+        prev.map((item, index) => ({
+          ...item,
+          petId: NEW_PET,
+          newPetName: index === 0 && newPetName !== undefined ? newPetName : item.newPetName,
+          priceSource: null,
+          remember: false,
+        })),
+      );
+      return;
+    }
     const option = next.mode === "existing" ? next.option : null;
     if (option && petId === ALL_PETS && option.pets.length > 0) {
       setItems(familyItems(option, services, nextKey.current));
@@ -281,11 +294,17 @@ function BookingForm({
       date,
       startTime,
       durationMin: totalDuration,
+      // Pet first: the client is optional. An owner-less pet → "none"; a new pet with
+      // no contact typed → "none"; any of name / phone / e-mail → a new contact card.
       client:
         client.mode === "existing"
-          ? { mode: "existing", id: client.option.id }
+          ? client.option.id
+            ? { mode: "existing", id: client.option.id }
+            : { mode: "none" }
           : client.mode === "new"
-            ? { mode: "new", fullName: client.fullName, phone: client.phone, email: client.email }
+            ? client.fullName.trim() || client.phone.trim() || client.email.trim()
+              ? { mode: "new", fullName: client.fullName, phone: client.phone, email: client.email }
+              : { mode: "none" }
             : (undefined as unknown as BookingInput["client"]),
       items: items.map((i) => ({
         pet:
@@ -321,6 +340,12 @@ function BookingForm({
   }
 
   const fe = fieldErrors;
+  const pickerErrors = {
+    client: fe.client,
+    fullName: fe["client.fullName"],
+    phone: fe["client.phone"],
+    email: fe["client.email"],
+  };
 
   return (
     <form onSubmit={submit} noValidate className="flex min-h-0 flex-1 flex-col">
@@ -385,16 +410,9 @@ function BookingForm({
           </Alert>
         ) : null}
 
-        <ClientPicker
-          client={client}
-          onChange={chooseClient}
-          errors={{
-            client: fe.client,
-            fullName: fe["client.fullName"],
-            phone: fe["client.phone"],
-            email: fe["client.email"],
-          }}
-        />
+        {client.mode !== "new" ? (
+          <ClientPicker client={client} onChange={chooseClient} errors={pickerErrors} />
+        ) : null}
 
         <FormSection title={t("pets")}>
           {fe.items ? (
@@ -582,6 +600,10 @@ function BookingForm({
           ) : null}
         </FormSection>
 
+        {client.mode === "new" ? (
+          <ClientPicker client={client} onChange={chooseClient} errors={pickerErrors} />
+        ) : null}
+
         <div className="space-y-4">
           <Field
             id="booking-duration"
@@ -640,7 +662,7 @@ function ClientPicker({
   errors,
 }: {
   client: ClientState;
-  onChange: (c: ClientState, petId?: string | null) => void;
+  onChange: (c: ClientState, petId?: string | null, newPetName?: string) => void;
   errors: { client?: string; fullName?: string; phone?: string; email?: string };
 }) {
   const t = useTranslations("booking");
@@ -671,9 +693,16 @@ function ClientPicker({
     return (
       <FormSection title={t("client")}>
         <div className="border-border bg-surface-muted/50 flex items-center gap-3 rounded-lg border p-3">
-          <Avatar name={c.fullName} />
+          {c.id ? (
+            <Avatar name={c.fullName} />
+          ) : (
+            <Avatar
+              name={c.pets[0]?.name ?? ""}
+              icon={<SpeciesIcon species={c.pets[0]?.species ?? "dog"} />}
+            />
+          )}
           <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold">{c.fullName}</p>
+            <p className="truncate font-semibold">{c.id ? c.fullName : t("noOwner")}</p>
             <p className="text-muted flex flex-wrap items-center gap-x-2 text-sm">
               {c.phoneDisplay ? <span className="tabular-nums">{c.phoneDisplay}</span> : null}
               {c.pets.map((p) => (
@@ -695,7 +724,7 @@ function ClientPicker({
   if (client.mode === "new") {
     return (
       <FormSection
-        title={t("newClientTitle")}
+        title={`${t("ownerContact")} (${tc("optional")})`}
         action={
           <Button type="button" variant="ghost" size="sm" onClick={() => onChange({ mode: "none" })}>
             <Search aria-hidden />
@@ -703,7 +732,8 @@ function ClientPicker({
           </Button>
         }
       >
-        <Field id="new-client-name" label={tcl("fullName")} error={errors.fullName}>
+        <p className="text-muted -mt-2 text-sm">{t("ownerContactHint")}</p>
+        <Field id="new-client-name" label={tcl("fullName")} optional={tc("optional")} error={errors.fullName}>
           {(p) => (
             <Input
               {...p}
@@ -713,7 +743,6 @@ function ClientPicker({
               autoComplete="off"
               autoCapitalize="words"
               maxLength={100}
-              autoFocus
             />
           )}
         </Field>
@@ -884,16 +913,16 @@ function ClientPicker({
         variant={showResults && results.list.length === 0 ? "primary" : "secondary"}
         className="w-full"
         onClick={() =>
-          onChange({
-            mode: "new",
-            fullName: looksLikePhone ? "" : q,
-            phone: looksLikePhone ? q : "",
-            email: "",
-          })
+          // Pet first: typed text becomes the new pet's name (or the owner's phone)
+          onChange(
+            { mode: "new", fullName: "", phone: looksLikePhone ? q : "", email: "" },
+            null,
+            looksLikePhone ? "" : q,
+          )
         }
       >
-        <UserPlus aria-hidden />
-        {t("newClient")}
+        <Plus aria-hidden />
+        {t("newPet")}
       </Button>
     </FormSection>
   );

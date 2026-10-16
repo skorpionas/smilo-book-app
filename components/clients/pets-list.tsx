@@ -22,7 +22,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { phoneDigits } from "@/lib/phone";
 import { matchesClient } from "@/lib/search";
 import { cn } from "@/lib/utils";
-import { ClientSheet } from "./client-sheet";
+import { PetSheet } from "./pet-sheet";
 
 export type PetListRow = {
   id: string;
@@ -30,7 +30,8 @@ export type PetListRow = {
   species: "dog" | "cat";
   breed: string;
   hasNotes: boolean;
-  clientId: string;
+  /** null = no owner yet (pet first). */
+  clientId: string | null;
   clientName: string;
   phone: string | null;
   phoneDisplay: string;
@@ -51,6 +52,7 @@ export function PetsList({
 }) {
   const t = useTranslations("directory");
   const tc = useTranslations("clients");
+  const tp = useTranslations("pets");
   const [query, setQuery] = React.useState("");
   const [filter, setFilter] = React.useState<Filter>("all");
   const [creating, setCreating] = React.useState(false);
@@ -94,9 +96,9 @@ export function PetsList({
           onChange={setQuery}
           className="flex-1"
         />
-        <Button onClick={() => setCreating(true)} className="shrink-0" aria-label={tc("add")}>
+        <Button onClick={() => setCreating(true)} className="shrink-0" aria-label={tp("newPet")}>
           <Plus aria-hidden />
-          <span className="hidden sm:inline">{tc("add")}</span>
+          <span className="hidden sm:inline">{tp("newPet")}</span>
         </Button>
       </div>
 
@@ -138,7 +140,7 @@ export function PetsList({
             action={
               <Button onClick={() => setCreating(true)}>
                 <Plus aria-hidden />
-                {tc("add")}
+                {tp("newPet")}
               </Button>
             }
           />
@@ -175,7 +177,7 @@ export function PetsList({
                         </span>
                         {/* breed and owner on the second line, so the name is never the part that gets cut */}
                         <span className="text-muted block truncate text-sm">
-                          {[p.breed, p.clientName].filter(Boolean).join(" · ")}
+                          {[p.breed, p.clientName || t("noOwner")].filter(Boolean).join(" · ")}
                         </span>
                       </span>
                     </Link>
@@ -230,7 +232,8 @@ export function PetsList({
         </>
       )}
 
-      <ClientSheet open={creating} onOpenChange={setCreating} openAfterCreate />
+      {/* Pet first: a new pet needs no owner; contact details are optional in the form */}
+      <PetSheet open={creating} onOpenChange={setCreating} clientId={null} pet={null} openAfterCreate />
     </div>
   );
 }

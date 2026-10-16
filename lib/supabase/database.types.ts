@@ -150,7 +150,7 @@ export type Database = {
           archived_at: string | null;
           created_at: string;
           email: string | null;
-          full_name: string;
+          full_name: string | null;
           id: string;
           notes: string;
           owner_id: string;
@@ -162,7 +162,7 @@ export type Database = {
           archived_at?: string | null;
           created_at?: string;
           email?: string | null;
-          full_name: string;
+          full_name?: string | null;
           id?: string;
           notes?: string;
           owner_id?: string;
@@ -174,7 +174,7 @@ export type Database = {
           archived_at?: string | null;
           created_at?: string;
           email?: string | null;
-          full_name?: string;
+          full_name?: string | null;
           id?: string;
           notes?: string;
           owner_id?: string;
@@ -276,7 +276,7 @@ export type Database = {
           birth_month: number | null;
           birth_year: number | null;
           breed: string;
-          client_id: string;
+          client_id: string | null;
           created_at: string;
           id: string;
           name: string;
@@ -292,7 +292,7 @@ export type Database = {
           birth_month?: number | null;
           birth_year?: number | null;
           breed?: string;
-          client_id: string;
+          client_id?: string | null;
           created_at?: string;
           id?: string;
           name: string;
@@ -308,7 +308,7 @@ export type Database = {
           birth_month?: number | null;
           birth_year?: number | null;
           breed?: string;
-          client_id?: string;
+          client_id?: string | null;
           created_at?: string;
           id?: string;
           name?: string;
@@ -385,6 +385,10 @@ export type Database = {
       get_price_prefill: {
         Args: { p_pet_id: string; p_service_id: string };
         Returns: number;
+      };
+      set_pet_owner: {
+        Args: { p_client_id?: string; p_new_client?: Json; p_pet_id: string };
+        Returns: string;
       };
       search_directory: {
         Args: { p_limit?: number; p_query: string };

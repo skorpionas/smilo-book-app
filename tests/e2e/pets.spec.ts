@@ -81,7 +81,7 @@ test("remember a custom price while booking", async ({ page }, testInfo) => {
   await login(page, `/calendar?date=${day}`);
   await page.getByRole("button", { name: `Registruoti: Meistrė A, ${start}` }).click();
   const sheet = page.getByRole("dialog");
-  await sheet.getByPlaceholder("Vardas, augintinis ar telefonas").fill(p.remember);
+  await sheet.getByPlaceholder("Augintinis, šeimininkas ar telefonas").fill(p.remember);
   await sheet.getByRole("button", { name: new RegExp(`^Pasirinkti ${p.remember} \\(`) }).click();
   await sheet.getByLabel("Paslauga").selectOption({ label: "Maudymas ir džiovinimas" });
   await sheet.getByLabel("Kaina, €").fill("33");
@@ -116,7 +116,7 @@ test("book two pets that always come together in one tap", async ({ page }, test
   await login(page, `/calendar?date=${day}`);
   await page.getByRole("button", { name: `Registruoti: Meistrė A, ${start}` }).click();
   const sheet = page.getByRole("dialog");
-  await sheet.getByPlaceholder("Vardas, augintinis ar telefonas").fill(f.client);
+  await sheet.getByPlaceholder("Augintinis, šeimininkas ar telefonas").fill(f.client);
   await sheet
     .getByRole("button", { name: `Pasirinkti visus kartu: ${f.pets.join(", ")} (${f.client})` })
     .click();
@@ -155,4 +155,50 @@ test("pet page books the whole family together", async ({ page }) => {
   await expect(sheet.getByLabel("Visa trukmė")).toHaveValue("270");
   await expect(sheet.getByLabel("Kaina, €").nth(0)).toHaveValue("25,00");
   await expect(sheet.getByLabel("Kaina, €").nth(1)).toHaveValue("75,00");
+});
+
+// Pet first, client optional (owner feedback 2026-10-16)
+const WEEKS_NO_CLIENT: Record<string, number> = { mobile: 15, tablet: 16, desktop: 17 };
+
+test("a new pet needs no owner; a phone-only owner can be added later", async ({ page }) => {
+  const name = `Testukas${Date.now().toString().slice(-6)}`;
+  const phone = `86${String(Date.now()).slice(-7)}`;
+  await login(page, "/clients");
+  await page.getByRole("button", { name: "Naujas augintinis" }).first().click();
+  const sheet = page.getByRole("dialog");
+  await sheet.getByLabel("Vardas", { exact: true }).fill(name);
+  await sheet.getByRole("button", { name: "Išsaugoti" }).click();
+
+  await expect(page).toHaveURL(/\/pets\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+  await expect(page.getByText(/Šeimininkas nenurodytas/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Pridėti šeimininką" }).click();
+  const owner = page.getByRole("dialog");
+  await owner.getByRole("button", { name: "Nauji kontaktai" }).click();
+  await owner.getByRole("button", { name: "Išsaugoti" }).click();
+  await expect(
+    owner.getByText("Įrašykite bent vieną: vardą, telefoną arba el. paštą.").first(),
+  ).toBeVisible();
+  await owner.getByLabel("Telefonas").fill(phone);
+  await owner.getByRole("button", { name: "Išsaugoti" }).click();
+  await expect(page.getByText("Šeimininkas išsaugotas").first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /\+370 6/ }).first()).toBeVisible();
+});
+
+test("book a brand-new pet with no contact details at all", async ({ page }, testInfo) => {
+  const day = futureSunday(WEEKS_NO_CLIENT[testInfo.project.name] ?? 17);
+  const start = `${String(9 + testInfo.retry * 4).padStart(2, "0")}:00`;
+  const end = `${String(11 + testInfo.retry * 4).padStart(2, "0")}:00`;
+  const name = `Naujokas${Date.now().toString().slice(-6)}`;
+  await login(page, `/calendar?date=${day}`);
+  await page.getByRole("button", { name: `Registruoti: Meistrė A, ${start}` }).click();
+  const sheet = page.getByRole("dialog");
+  await sheet.getByPlaceholder("Augintinis, šeimininkas ar telefonas").fill(name);
+  await sheet.getByRole("button", { name: "Naujas augintinis" }).click();
+  await expect(sheet.getByLabel("Augintinio vardas")).toHaveValue(name);
+  await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
+  await sheet.getByRole("button", { name: "Išsaugoti" }).click();
+  await expect(page.getByText("Registracija išsaugota").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: `${start}–${end}, ${name}` })).toBeVisible();
 });

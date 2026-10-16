@@ -4,7 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { ClientsList } from "@/components/clients/clients-list";
 import { PetsList } from "@/components/clients/pets-list";
 import { PageBody, PageHeader } from "@/components/page-header";
-import { formatPhone } from "@/lib/phone";
+import { contactLabel, formatPhone } from "@/lib/phone";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -25,14 +25,25 @@ export default async function Page({ searchParams }: PageProps<"/clients">) {
   const supabase = await createClient();
 
   // A two-groomer salon has hundreds of clients, not tens of thousands: load them all and filter on the device.
-  const { data } = await supabase
-    .from("clients")
-    .select("id, full_name, phone_e164, pets(id, name, species, breed, notes, archived_at)")
-    .is("archived_at", null)
-    .is("anonymized_at", null)
-    .order("full_name")
-    .limit(2000);
-  const rows = data ?? [];
+  const [{ data }, { data: ownerless }] = await Promise.all([
+    supabase
+      .from("clients")
+      .select("id, full_name, phone_e164, email, pets(id, name, species, breed, notes, archived_at)")
+      .is("archived_at", null)
+      .is("anonymized_at", null)
+      .order("full_name")
+      .limit(2000),
+    // Pet first: pets without an owner are first-class rows too
+    owners
+      ? Promise.resolve({ data: [] })
+      : supabase
+          .from("pets")
+          .select("id, name, species, breed, notes")
+          .is("client_id", null)
+          .is("archived_at", null)
+          .limit(2000),
+  ]);
+  const rows = (data ?? []).map((c) => ({ ...c, label: contactLabel(c) }));
 
   return (
     <>
@@ -61,7 +72,7 @@ export default async function Page({ searchParams }: PageProps<"/clients">) {
           <ClientsList
             clients={rows.map((c) => ({
               id: c.id,
-              fullName: c.full_name,
+              fullName: c.label,
               phone: c.phone_e164,
               phoneDisplay: formatPhone(c.phone_e164),
               pets: c.pets
@@ -82,16 +93,29 @@ export default async function Page({ searchParams }: PageProps<"/clients">) {
                     species: p.species,
                     breed: p.breed,
                     hasNotes: p.notes.trim().length > 0,
-                    clientId: c.id,
-                    clientName: c.full_name,
+                    clientId: c.id as string | null,
+                    clientName: c.label,
                     phone: c.phone_e164,
                     phoneDisplay: formatPhone(c.phone_e164),
                   })),
               )
+              .concat(
+                (ownerless ?? []).map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  species: p.species,
+                  breed: p.breed,
+                  hasNotes: p.notes.trim().length > 0,
+                  clientId: null,
+                  clientName: "",
+                  phone: null,
+                  phoneDisplay: "",
+                })),
+              )
               .sort((a, b) => a.name.localeCompare(b.name, "lt"))}
             clientsWithoutPets={rows
               .filter((c) => c.pets.every((p) => p.archived_at))
-              .map((c) => ({ id: c.id, fullName: c.full_name, phoneDisplay: formatPhone(c.phone_e164) }))}
+              .map((c) => ({ id: c.id, fullName: c.label, phoneDisplay: formatPhone(c.phone_e164) }))}
           />
         )}
       </PageBody>

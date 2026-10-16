@@ -83,7 +83,7 @@ export function PetsSection({
   const [archiving, setArchiving] = React.useState<PetFormValues | null>(null);
 
   async function archive(pet: PetFormValues) {
-    const res = await setPetArchived(pet.id, clientId, true);
+    const res = await setPetArchived(pet.id, true, clientId);
     if (res?.ok) {
       toast({ title: tp("archived"), description: pet.name });
       return true;

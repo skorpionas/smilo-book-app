@@ -17,7 +17,7 @@ export function PetActions({
   archived,
 }: {
   pet: PetFormValues;
-  clientId: string;
+  clientId: string | null;
   archived: boolean;
 }) {
   const t = useTranslations("pets");
@@ -26,7 +26,7 @@ export function PetActions({
   const [confirming, setConfirming] = React.useState(false);
 
   async function setArchived(value: boolean) {
-    const res = await setPetArchived(pet.id, clientId, value);
+    const res = await setPetArchived(pet.id, value, clientId);
     if (res?.ok) {
       toast({ title: value ? t("archived") : t("restored"), description: pet.name });
       router.refresh();
