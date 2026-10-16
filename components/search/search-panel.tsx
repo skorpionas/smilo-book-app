@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Dog, Search, SearchX } from "lucide-react";
+import { Cat, ChevronRight, Dog, Search, SearchX } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import * as React from "react";
@@ -53,21 +53,26 @@ export function SearchPanel() {
         <EmptyState icon={SearchX} title={t("noResultsTitle")} description={t("noResultsText")} />
       ) : (
         <div className="space-y-6" aria-live="polite">
-          {clients.length > 0 ? (
-            <HitList
-              title={t("clientsHeading")}
-              hits={clients}
-              render={(h) => ({ avatar: <Avatar name={h.title} />, subtitle: h.subtitle })}
-            />
-          ) : null}
           {pets.length > 0 ? (
             <HitList
               title={t("petsHeading")}
               hits={pets}
               render={(h) => ({
-                avatar: <Avatar name={h.title} icon={<Dog aria-hidden />} />,
+                avatar: (
+                  <Avatar
+                    name={h.title}
+                    icon={h.species === "cat" ? <Cat aria-hidden /> : <Dog aria-hidden />}
+                  />
+                ),
                 subtitle: t("petOwner", { client: h.subtitle }),
               })}
+            />
+          ) : null}
+          {clients.length > 0 ? (
+            <HitList
+              title={t("clientsHeading")}
+              hits={clients}
+              render={(h) => ({ avatar: <Avatar name={h.title} />, subtitle: h.subtitle })}
             />
           ) : null}
         </div>
@@ -95,7 +100,7 @@ function HitList({
             return (
               <li key={`${h.kind}-${h.id}`}>
                 <Link
-                  href={`/clients/${h.clientId}`}
+                  href={h.kind === "pet" ? `/pets/${h.id}` : `/clients/${h.clientId}`}
                   className="hover:bg-surface-muted flex min-h-16 items-center gap-3 px-4 py-2.5 transition-colors"
                 >
                   {avatar}

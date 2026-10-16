@@ -17,15 +17,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const t = await getTranslations();
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[16rem_1fr]">
-      <aside className="border-border bg-sidebar sticky top-0 hidden h-dvh flex-col border-r px-3 py-4 lg:flex">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[5.5rem_1fr] xl:grid-cols-[16rem_1fr]">
+      <aside className="border-border bg-sidebar sticky top-0 hidden h-dvh flex-col border-r px-2 py-4 lg:flex xl:px-3">
         <Link
           href="/calendar"
-          className="hover:bg-surface-muted mb-6 flex min-h-11 items-center gap-2.5 rounded-md px-2 transition-colors"
+          aria-label={t("app.name")}
+          className="hover:bg-surface-muted mb-6 flex min-h-11 flex-col items-center gap-1 rounded-md px-2 transition-colors xl:flex-row xl:gap-2.5"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/icons/icon-64.png" alt="" width={32} height={32} className="rounded-lg" />
-          <span className="font-display text-xl font-semibold tracking-tight">{t("app.name")}</span>
+          <span className="font-display hidden text-xl font-semibold tracking-tight xl:inline">
+            {t("app.name")}
+          </span>
           <EnvBadge />
         </Link>
         <SideNav />
@@ -33,10 +36,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Button
             type="submit"
             variant="ghost"
-            className="text-foreground-soft [&_svg]:text-muted w-full justify-start gap-3 px-3 text-[0.9375rem]"
+            aria-label={t("nav.logout")}
+            className="text-foreground-soft [&_svg]:text-muted w-full justify-center gap-3 px-3 text-[0.9375rem] xl:justify-start"
           >
             <LogOut aria-hidden />
-            {t("nav.logout")}
+            <span className="hidden xl:inline">{t("nav.logout")}</span>
           </Button>
         </form>
       </aside>

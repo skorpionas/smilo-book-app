@@ -86,7 +86,6 @@ export default async function Page({ searchParams }: PageProps<"/clients">) {
                     clientName: c.full_name,
                     phone: c.phone_e164,
                     phoneDisplay: formatPhone(c.phone_e164),
-                    familySize: c.pets.filter((x) => !x.archived_at).length,
                   })),
               )
               .sort((a, b) => a.name.localeCompare(b.name, "lt"))}

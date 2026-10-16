@@ -116,7 +116,7 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
         )}
       </PageHeader>
 
-      <PageBody className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-8">
+      <PageBody className="grid gap-6 md:grid-cols-[minmax(0,1fr)_16rem] md:items-start lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-8">
         {/* Main column: profile, own services, visits */}
         <div className="min-w-0 space-y-8">
           <Card className="space-y-4 p-4 sm:p-5">
@@ -175,7 +175,7 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
         </div>
 
         {/* Side column (stacks under on phones): owner and the rest of the family */}
-        <aside className="space-y-6 lg:sticky lg:top-24">
+        <aside className="space-y-6 md:sticky md:top-24">
           <section aria-labelledby="owner-heading" className="space-y-2">
             <h2 id="owner-heading" className="text-muted px-1 text-xs font-semibold tracking-wider uppercase">
               {t("owner")}

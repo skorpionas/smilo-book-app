@@ -162,6 +162,56 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
+-- search_directory, pet-first: pets carry their species, and a pet is also found
+-- by its owner's phone digits (the caller's number shows their dogs and cats).
+-- The return type changes, so the function is dropped and created again.
+-- ---------------------------------------------------------------------------
+drop function public.search_directory(text, int);
+
+create function public.search_directory(p_query text, p_limit int default 20)
+returns table (kind text, id uuid, client_id uuid, title text, subtitle text, species text)
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  with q as (
+    select
+      -- escape LIKE wildcards in user input (backslash is the default escape)
+      replace(replace(replace(public.f_search_norm(trim(p_query)), '\', '\\'), '%', '\%'), '_', '\_') as norm,
+      regexp_replace(coalesce(p_query, ''), '\D', '', 'g') as digits
+  )
+  select * from (
+    select 'client'::text, c.id, c.id, c.full_name, coalesce(c.phone_e164, ''), null::text
+    from public.clients c, q
+    where c.archived_at is null
+      and c.anonymized_at is null
+      and char_length(q.norm) >= 2
+      and (
+        public.f_search_norm(c.full_name) like '%' || q.norm || '%'
+        or (char_length(q.digits) >= 2 and c.phone_e164 like '%' || q.digits || '%')
+      )
+    union all
+    select 'pet'::text, p.id, p.client_id, p.name, c.full_name, p.species::text
+    from public.pets p
+    join public.clients c on c.id = p.client_id, q
+    where p.archived_at is null
+      and c.archived_at is null
+      and c.anonymized_at is null
+      and char_length(q.norm) >= 2
+      and (
+        public.f_search_norm(p.name) like '%' || q.norm || '%'
+        or (char_length(q.digits) >= 3 and trim(p_query) ~ '^[0-9 +()-]+$' and c.phone_e164 like '%' || q.digits || '%')
+      )
+  ) r(kind, id, client_id, title, subtitle, species)
+  order by kind desc, title
+  limit least(greatest(coalesce(p_limit, 20), 1), 50)
+$$;
+
+revoke execute on function public.search_directory(text, int) from public, anon;
+grant  execute on function public.search_directory(text, int) to authenticated;
+
+-- ---------------------------------------------------------------------------
 -- Hygiene (security review 2026-10-16): no function is callable by anon.
 -- Trigger and helper functions were executable by PUBLIC by default; they leak
 -- nothing, but the API surface for a logged-out visitor should be empty.

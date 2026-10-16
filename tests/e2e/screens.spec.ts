@@ -9,6 +9,9 @@ const OWNER = { email: "owner@smilo.local", password: "smilo-dev-password" };
 const DAY = "2026-10-20";
 const MAKSAS = "0d000000-0000-4000-8000-000000000001";
 const RASA = "0c000000-0000-4000-8000-000000000001";
+// Reksas has his own services in seed.sql: the booking sheet shows the pre-fill
+const JONAS = "0c000000-0000-4000-8000-000000000002";
+const REKSAS = "0d000000-0000-4000-8000-000000000003";
 
 async function shot(page: Page, project: string, name: string, fullPage = true) {
   await page.waitForLoadState("networkidle");
@@ -51,6 +54,8 @@ test("capture main screens", async ({ page }, testInfo) => {
     await shot(page, p, "07-client");
     await page.goto(`/pets/${MAKSAS}`);
     await shot(page, p, "08-pet");
+    await page.goto(`/pets/${REKSAS}`);
+    await shot(page, p, "08b-pet-own-services");
     await page.goto("/search");
     await page.getByRole("searchbox").first().fill("ma");
     await page.waitForTimeout(800);
@@ -58,8 +63,8 @@ test("capture main screens", async ({ page }, testInfo) => {
     await page.goto("/settings");
     await shot(page, p, "10-settings");
 
-    // booking sheet opened from the pet page (pet pre-selected)
-    await page.goto(`/calendar?client=${RASA}&pet=${MAKSAS}`);
+    // booking sheet opened from a pet page (pet pre-selected, own service filled in)
+    await page.goto(`/calendar?client=${JONAS}&pet=${REKSAS}`);
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.waitForTimeout(400);
     await shot(page, p, "11-booking-sheet", false);

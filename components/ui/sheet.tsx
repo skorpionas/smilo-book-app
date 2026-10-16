@@ -30,20 +30,20 @@ export function SheetContent({
           // phone: bottom sheet
           "border-border inset-x-0 bottom-0 max-h-[92dvh] rounded-t-xl border-t",
           "data-[state=closed]:animate-sheet-down data-[state=open]:animate-sheet-up",
-          // laptop: side panel
-          "lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:max-h-none lg:w-[28rem] lg:rounded-none lg:border-t-0 lg:border-l",
-          "lg:data-[state=closed]:animate-sheet-right lg:data-[state=open]:animate-sheet-left",
+          // tablet and laptop: side panel (iPad portrait too — a 820 px wide bottom sheet stretches every field)
+          "md:inset-y-0 md:right-0 md:left-auto md:h-dvh md:max-h-none md:w-[28rem] md:rounded-none md:border-t-0 md:border-l",
+          "md:data-[state=closed]:animate-sheet-right md:data-[state=open]:animate-sheet-left",
           className,
         )}
         {...props}
       >
-        <div aria-hidden className="flex justify-center pt-2.5 pb-1 lg:hidden">
+        <div aria-hidden className="flex justify-center pt-2.5 pb-1 md:hidden">
           <span className="bg-border-strong h-1.5 w-10 rounded-full" />
         </div>
         {children}
         <SheetPrimitive.Close
           aria-label={t("close")}
-          className="text-muted hover:bg-surface-muted hover:text-foreground absolute top-2 right-2 flex size-11 items-center justify-center rounded-full transition-colors lg:top-3 lg:right-3"
+          className="text-muted hover:bg-surface-muted hover:text-foreground absolute top-2 right-2 flex size-11 items-center justify-center rounded-full transition-colors md:top-3 md:right-3"
         >
           <X aria-hidden className="size-5" />
         </SheetPrimitive.Close>
@@ -53,7 +53,7 @@ export function SheetContent({
 }
 
 export function SheetHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("flex flex-col gap-1 px-5 pt-2 pr-14 pb-3 lg:pt-5", className)} {...props} />;
+  return <div className={cn("flex flex-col gap-1 px-5 pt-2 pr-14 pb-3 md:pt-5", className)} {...props} />;
 }
 
 export function SheetTitle({ className, ...props }: React.ComponentProps<typeof SheetPrimitive.Title>) {

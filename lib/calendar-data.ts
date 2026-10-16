@@ -34,6 +34,7 @@ export type CalendarBooking = {
   client: { id: string; fullName: string; phone: string | null; phoneDisplay: string } | null;
   items: {
     id: string;
+    petId: string;
     petName: string;
     species: "dog" | "cat";
     petNotes: string;
@@ -69,7 +70,7 @@ export async function loadRange(from: DateStr, to: DateStr, gridDate?: DateStr) 
     supabase
       .from("bookings")
       .select(
-        "id, kind, groomer_id, start_at, end_at, status, notes, block_reason, clients(id, full_name, phone_e164), booking_items(id, position, duration_min, planned_price, actual_price, pets(name, species, notes), services(name))",
+        "id, kind, groomer_id, start_at, end_at, status, notes, block_reason, clients(id, full_name, phone_e164), booking_items(id, position, duration_min, planned_price, actual_price, pets(id, name, species, notes), services(name))",
       )
       .neq("status", "cancelled")
       .lt("start_at", end.toISOString())
@@ -120,6 +121,7 @@ export async function loadRange(from: DateStr, to: DateStr, gridDate?: DateStr) 
           .sort((x, y) => x.position - y.position)
           .map((i) => ({
             id: i.id,
+            petId: i.pets?.id ?? "",
             petName: i.pets?.name ?? "",
             species: i.pets?.species ?? "dog",
             petNotes: i.pets?.notes ?? "",

@@ -34,8 +34,6 @@ export type PetListRow = {
   clientName: string;
   phone: string | null;
   phoneDisplay: string;
-  /** Active pets of this client, incl. this one. */
-  familySize: number;
 };
 
 type Filter = "all" | "dog" | "cat";
@@ -174,11 +172,10 @@ export function PetsList({
                               className="text-warning-foreground size-4 shrink-0"
                             />
                           ) : null}
-                          {p.breed ? <span className="text-muted truncate text-sm">· {p.breed}</span> : null}
                         </span>
+                        {/* breed and owner on the second line, so the name is never the part that gets cut */}
                         <span className="text-muted block truncate text-sm">
-                          {p.clientName}
-                          {p.familySize > 1 ? ` · ${t("familyOf", { count: p.familySize })}` : ""}
+                          {[p.breed, p.clientName].filter(Boolean).join(" · ")}
                         </span>
                       </span>
                     </Link>

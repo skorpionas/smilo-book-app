@@ -66,13 +66,17 @@ export function BottomNav() {
   );
 }
 
-/** Left sidebar, laptops (≥ 1024 px). */
+/**
+ * Left navigation from 1024 px. iPad landscape and small laptops (1024–1279 px) get a
+ * compact rail (icon + short label) so the week grid keeps its width; the full
+ * sidebar with labels beside the icons starts at 1280 px.
+ */
 export function SideNav() {
   const t = useTranslations("nav");
   const pathname = usePathname();
   return (
     <nav aria-label={t("mainNavigation")}>
-      <ul className="space-y-0.5">
+      <ul className="space-y-1 xl:space-y-0.5">
         {NAV_ITEMS.map(({ href, key, icon: Icon }) => {
           const active = isActive(pathname, href);
           return (
@@ -81,7 +85,8 @@ export function SideNav() {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-h-11 items-center gap-3 rounded-md px-3 text-[0.9375rem] transition-colors",
+                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-md px-1 text-[0.6875rem] leading-tight transition-colors",
+                  "xl:min-h-11 xl:flex-row xl:justify-start xl:gap-3 xl:px-3 xl:text-[0.9375rem]",
                   active
                     ? "bg-surface text-foreground ring-border font-semibold shadow-xs ring-1"
                     : "text-foreground-soft hover:bg-surface-muted hover:text-foreground font-medium",
@@ -92,7 +97,7 @@ export function SideNav() {
                   aria-hidden
                   strokeWidth={active ? 2.25 : 1.75}
                 />
-                {t(key)}
+                <span className="max-w-full truncate">{t(key)}</span>
               </Link>
             </li>
           );

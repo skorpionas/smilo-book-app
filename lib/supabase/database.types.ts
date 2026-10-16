@@ -392,6 +392,7 @@ export type Database = {
           client_id: string;
           id: string;
           kind: string;
+          species: string;
           subtitle: string;
           title: string;
         }[];

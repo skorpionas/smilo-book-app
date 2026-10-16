@@ -11,7 +11,6 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
 import { Input, Select } from "@/components/ui/input";
 import {
   Sheet,
@@ -104,22 +103,12 @@ export function PetServicesSection({
       </div>
 
       {rows.length === 0 ? (
-        <Card>
-          <EmptyState
-            icon={Scissors}
-            title={t("emptyTitle")}
-            description={t("emptyText", { name: petName })}
-            className="py-8"
-            headingLevel={3}
-            action={
-              !readOnly && services.length > 0 ? (
-                <Button variant="secondary" onClick={() => setEditing("new")}>
-                  <Plus aria-hidden />
-                  {t("add")}
-                </Button>
-              ) : undefined
-            }
-          />
+        // Compact on purpose: most pets use the standard price, so this must not push the visits down.
+        <Card className="flex items-center gap-3 p-4">
+          <span className="bg-primary-soft text-primary-soft-foreground flex size-10 shrink-0 items-center justify-center rounded-full">
+            <Scissors aria-hidden className="size-5" />
+          </span>
+          <p className="text-muted min-w-0 flex-1 text-sm">{t("emptyText", { name: petName })}</p>
         </Card>
       ) : (
         <Card className="overflow-hidden">

@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(14);
+select plan(17);
 
 \ir fixture.psql
 
@@ -76,6 +76,12 @@ select isnt(
   ), null, 'plain booking');
 select is((select count(*)::int from public.pet_services where pet_id = 'd3000000-0000-4000-8000-000000000003'),
   0, 'no remember, no custom row');
+
+-- pet-first search: species on pet hits, pets found by the owner's phone, pets listed first
+select is((select species from public.search_directory('maks') where kind = 'pet' limit 1), 'dog', 'pet hit carries species');
+select is((select count(*)::int from public.search_directory('612 345') where kind = 'pet'), 3,
+  'owner phone finds all her pets (Maksas, Žuikis, Pūkas)');
+select is((select kind from public.search_directory('612 345') limit 1), 'pet', 'pets come first');
 
 -- second owner sees none of it
 set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';

@@ -106,7 +106,10 @@ function WeekAgenda({
   const t = useTranslations("calendar");
 
   return (
-    <ol className="space-y-3 px-4 pt-1 pb-28 sm:px-6 lg:hidden" aria-label={t("weekGrid")}>
+    <ol
+      className="space-y-3 px-4 pt-1 pb-28 sm:px-6 md:grid md:grid-cols-2 md:items-start md:gap-3 md:space-y-0 lg:hidden"
+      aria-label={t("weekGrid")}
+    >
       {days.map((day) => {
         const visible = day.bookings
           .filter((b) => b.status !== "cancelled")

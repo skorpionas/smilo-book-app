@@ -57,7 +57,10 @@ export function UpcomingList({
 
   return (
     <>
-      <ol className="space-y-3 pb-28 lg:pb-8" aria-label={tu("listLabel")}>
+      <ol
+        className="space-y-3 pb-28 md:grid md:grid-cols-2 md:items-start md:gap-3 md:space-y-0 lg:pb-8 xl:grid-cols-3"
+        aria-label={tu("listLabel")}
+      >
         {days.map((day) => {
           const count = day.bookings.length;
           return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, CalendarClock, Phone, Trash2, UserRound } from "lucide-react";
+import { Ban, CalendarClock, Cat, ChevronRight, Dog, Phone, Trash2, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import * as React from "react";
@@ -125,6 +125,45 @@ export function BookingDetailSheet({
                   </div>
                 ) : (
                   <>
+                    <section className="space-y-3">
+                      <h3 className="text-muted text-xs font-semibold tracking-wider uppercase">
+                        {t("pets")}
+                      </h3>
+                      <ul className="space-y-3">
+                        {b.items.map((item) => (
+                          <li key={item.id} className="border-border space-y-2 rounded-lg border p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                {item.petId ? (
+                                  <Link
+                                    href={`/pets/${item.petId}`}
+                                    className="hover:text-primary -my-1 inline-flex min-h-11 items-center gap-1.5 font-semibold"
+                                  >
+                                    {item.species === "cat" ? (
+                                      <Cat aria-hidden className="text-muted size-4" />
+                                    ) : (
+                                      <Dog aria-hidden className="text-muted size-4" />
+                                    )}
+                                    {item.petName}
+                                    <ChevronRight aria-hidden className="text-muted size-4" />
+                                  </Link>
+                                ) : (
+                                  <p className="font-semibold">{item.petName}</p>
+                                )}
+                                <p className="text-muted text-sm">
+                                  {item.serviceName} · {formatDuration(tu, item.durationMin)}
+                                </p>
+                              </div>
+                              <p className="font-medium tabular-nums">
+                                {formatEur(item.actualPrice ?? item.plannedPrice)}
+                              </p>
+                            </div>
+                            {item.petNotes ? <PetNotes notes={item.petNotes} label={tp("notes")} /> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+
                     {b.client ? (
                       <section className="space-y-2">
                         <h3 className="text-muted text-xs font-semibold tracking-wider uppercase">
@@ -152,30 +191,6 @@ export function BookingDetailSheet({
                         </div>
                       </section>
                     ) : null}
-
-                    <section className="space-y-3">
-                      <h3 className="text-muted text-xs font-semibold tracking-wider uppercase">
-                        {t("pets")}
-                      </h3>
-                      <ul className="space-y-3">
-                        {b.items.map((item) => (
-                          <li key={item.id} className="border-border space-y-2 rounded-lg border p-3">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="font-semibold">{item.petName}</p>
-                                <p className="text-muted text-sm">
-                                  {item.serviceName} · {formatDuration(tu, item.durationMin)}
-                                </p>
-                              </div>
-                              <p className="font-medium tabular-nums">
-                                {formatEur(item.actualPrice ?? item.plannedPrice)}
-                              </p>
-                            </div>
-                            {item.petNotes ? <PetNotes notes={item.petNotes} label={tp("notes")} /> : null}
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
 
                     {b.notes ? (
                       <section className="space-y-1">

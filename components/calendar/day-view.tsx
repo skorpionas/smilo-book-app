@@ -511,14 +511,18 @@ function BookingBlock({
       </span>
       {narrow ? (
         // Week view lanes are ~60 px wide: stack the pet names under the time.
+        // One pet per line, cut with an ellipsis — never split a name mid-word ("Maksa|s").
         span >= 3 ? (
-          <span
-            className={cn(
-              "text-foreground font-semibold break-words",
-              span >= 6 ? "line-clamp-3" : "line-clamp-1",
-            )}
-          >
-            {pets}
+          <span className="text-foreground flex min-w-0 flex-col font-semibold">
+            {booking.items
+              .map((i) => i.petName)
+              .filter((n, idx, all) => all.indexOf(n) === idx)
+              .slice(0, span >= 6 ? 3 : 1)
+              .map((name) => (
+                <span key={name} className="truncate">
+                  {name}
+                </span>
+              ))}
           </span>
         ) : null
       ) : !compact ? (

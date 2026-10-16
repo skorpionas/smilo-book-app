@@ -10,6 +10,7 @@ export type SearchHit = {
   clientId: string;
   title: string;
   subtitle: string;
+  species: "dog" | "cat" | null;
 };
 
 /** US-14: clients and pets by accent-free name or phone digits. A POST, so the query never lands in a URL. */
@@ -31,5 +32,6 @@ export async function searchDirectory(query: string): Promise<SearchHit[]> {
     clientId: r.client_id,
     title: r.title,
     subtitle: r.kind === "pet" ? r.subtitle : formatPhone(r.subtitle),
+    species: r.species === "cat" ? "cat" : r.species === "dog" ? "dog" : null,
   }));
 }
