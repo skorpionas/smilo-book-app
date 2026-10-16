@@ -32,7 +32,7 @@ test("settings lists the seeded services and both groomers", async ({ page }) =>
 
 test("add a client and a pet (issues #15, #16)", async ({ page }) => {
   const name = `Testas Klientas ${Date.now().toString().slice(-6)}`;
-  await login(page, "/clients");
+  await login(page, "/clients?view=owners");
   await page.getByRole("button", { name: "Naujas klientas" }).first().click();
   const sheet = page.getByRole("dialog");
   await sheet.getByLabel("Vardas ir pavardė").fill(name);
@@ -47,22 +47,30 @@ test("add a client and a pet (issues #15, #16)", async ({ page }) => {
 
   await page.getByRole("button", { name: "Pridėti augintinį" }).click();
   const petSheet = page.getByRole("dialog");
-  await petSheet.getByLabel("Vardas").fill("Žuikis");
-  await petSheet.getByText("Katė", { exact: true }).click();
+  await petSheet.getByLabel("Augintinio 1 vardas").fill("Žuikis");
+  await petSheet.getByRole("button", { name: "Katė" }).click();
+  await petSheet.getByRole("button", { name: "Išsaugoti" }).click();
+  await expect(page.getByRole("heading", { level: 3, name: "Žuikis" })).toBeVisible();
+  // details later, on the full pet form
+  await page.getByRole("button", { name: "Redaguoti Žuikis" }).click();
   await petSheet.getByLabel("Pastabos").fill("Kanda kerpant letenas");
   await petSheet.getByRole("button", { name: "Išsaugoti" }).click();
   await expect(page.getByRole("heading", { level: 3, name: "Žuikis" })).toBeVisible();
   await expect(page.getByText("Kanda kerpant letenas")).toBeVisible();
 
-  // local, accent-insensitive filter on the list
+  // pet-first list: local, accent-insensitive filter finds the pet with its owner
   await page.goto("/clients");
-  await page.getByLabel("Ieškoti klientų").fill("zuikis");
+  await page.getByLabel("Ieškoti augintinio ar kliento").fill("zuikis");
+  await expect(page.getByRole("link", { name: new RegExp(`Žuikis.*${name}`) })).toBeVisible();
+  // owners view still lists the client
+  await page.goto("/clients?view=owners");
+  await page.getByLabel("Ieškoti kliento").fill("zuikis");
   await expect(page.getByRole("link", { name: new RegExp(name) })).toBeVisible();
 });
 
 test("book an existing client, then hit the overlap rule (US-05, US-09)", async ({ page }, testInfo) => {
   // Sundays have no seeded bookings. Each project / retry gets its own day so runs never collide.
-  const day = futureSunday(testInfo.project.name === "mobile" ? 2 : 3);
+  const day = futureSunday({ mobile: 2, desktop: 3, tablet: 10 }[testInfo.project.name] ?? 3);
   const hour = 9 + testInfo.retry * 4; // 09:00, then 13:00 on a retry
   const start = `${String(hour).padStart(2, "0")}:00`;
   const end = `${String(hour + 2).padStart(2, "0")}:00`;
@@ -73,8 +81,8 @@ test("book an existing client, then hit the overlap rule (US-05, US-09)", async 
 
   const sheet = page.getByRole("dialog");
   await expect(sheet.getByRole("heading", { name: "Nauja registracija" })).toBeVisible();
-  await sheet.getByPlaceholder("Vardas, augintinis ar telefonas").fill("Petrausk");
-  await sheet.getByRole("button", { name: "Pasirinkti Rasa Petrauskienė" }).click();
+  await sheet.getByPlaceholder("Augintinis, klientas ar telefonas").fill("Petrausk");
+  await sheet.getByRole("button", { name: "Pasirinkti Maksas (Rasa Petrauskienė)" }).click();
   await sheet.getByLabel("Augintinis", { exact: true }).selectOption({ index: 1 });
   await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
   await expect(sheet.getByLabel("Visa trukmė")).toHaveValue("120");
@@ -88,8 +96,8 @@ test("book an existing client, then hit the overlap rule (US-05, US-09)", async 
   // Same groomer, overlapping time → nothing saved, Lithuanian message naming the conflict.
   await page.getByRole("button", { name: `Registruoti: Meistrė A, ${end}` }).click();
   await sheet.getByLabel("Pradžia").selectOption(overlapStart);
-  await sheet.getByPlaceholder("Vardas, augintinis ar telefonas").fill("Petrausk");
-  await sheet.getByRole("button", { name: "Pasirinkti Rasa Petrauskienė" }).click();
+  await sheet.getByPlaceholder("Augintinis, klientas ar telefonas").fill("Petrausk");
+  await sheet.getByRole("button", { name: "Pasirinkti Maksas (Rasa Petrauskienė)" }).click();
   await sheet.getByLabel("Augintinis", { exact: true }).selectOption({ index: 1 });
   await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
   await sheet.getByRole("button", { name: "Išsaugoti" }).click();
@@ -102,13 +110,13 @@ test("book an existing client, then hit the overlap rule (US-05, US-09)", async 
 });
 
 test("change the time, cancel and delete a booking (US-10)", async ({ page }, testInfo) => {
-  const day = futureSunday(testInfo.project.name === "mobile" ? 4 : 5);
+  const day = futureSunday({ mobile: 4, desktop: 5, tablet: 11 }[testInfo.project.name] ?? 5);
   const sheet = page.getByRole("dialog").first();
 
   async function book(start: string) {
     await page.getByRole("button", { name: `Registruoti: Meistrė A, ${start}` }).click();
-    await sheet.getByPlaceholder("Vardas, augintinis ar telefonas").fill("Petrausk");
-    await sheet.getByRole("button", { name: "Pasirinkti Rasa Petrauskienė" }).click();
+    await sheet.getByPlaceholder("Augintinis, klientas ar telefonas").fill("Petrausk");
+    await sheet.getByRole("button", { name: "Pasirinkti Maksas (Rasa Petrauskienė)" }).click();
     await sheet.getByLabel("Augintinis", { exact: true }).selectOption({ index: 1 });
     await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
     await sheet.getByRole("button", { name: "Išsaugoti" }).click();
@@ -165,8 +173,8 @@ test("drag a booking to another time, then confirm", async ({ page }, testInfo) 
   await login(page, `/calendar?date=${day}`);
 
   await page.getByRole("button", { name: "Registruoti: Meistrė A, 09:00" }).click();
-  await sheet.getByPlaceholder("Vardas, augintinis ar telefonas").fill("Petrausk");
-  await sheet.getByRole("button", { name: "Pasirinkti Rasa Petrauskienė" }).click();
+  await sheet.getByPlaceholder("Augintinis, klientas ar telefonas").fill("Petrausk");
+  await sheet.getByRole("button", { name: "Pasirinkti Maksas (Rasa Petrauskienė)" }).click();
   await sheet.getByLabel("Augintinis", { exact: true }).selectOption({ index: 1 });
   await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
   await sheet.getByRole("button", { name: "Išsaugoti" }).click();
@@ -186,4 +194,31 @@ test("drag a booking to another time, then confirm", async ({ page }, testInfo) 
   await confirm.getByRole("button", { name: "Perkelti" }).click();
   await expect(page.getByText("Vizitas perkeltas").first()).toBeVisible();
   await expect(page.getByRole("button", { name: /^12:00–14:00, .+, Rasa Petrauskienė$/ })).toBeVisible();
+});
+
+test("a booking after 19:00 widens the day grid and is shown", async ({ page }, testInfo) => {
+  const day = futureSunday({ mobile: 21, tablet: 22, desktop: 23 }[testInfo.project.name] ?? 23);
+  const start = `${20 + testInfo.retry}:00`;
+  const end = `${21 + testInfo.retry}:00`;
+  await login(page, `/calendar?date=${day}`);
+  // 08:00–19:00 by default: no 20:00 row yet
+  await expect(page.getByRole("button", { name: `Registruoti: Meistrė A, ${start}` })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Registruoti: Meistrė A, 18:00" }).click();
+  const sheet = page.getByRole("dialog");
+  await sheet.getByLabel("Pradžia").selectOption(start);
+  await sheet.getByPlaceholder("Augintinis, klientas ar telefonas").fill("Petrausk");
+  await sheet.getByRole("button", { name: "Pasirinkti Maksas (Rasa Petrauskienė)" }).click();
+  await sheet.getByLabel("Augintinis", { exact: true }).selectOption({ index: 1 });
+  await sheet.getByLabel("Paslauga").selectOption({ label: "Higieninis kirpimas" });
+  await sheet.getByLabel("Visa trukmė").selectOption("60");
+  await sheet.getByRole("button", { name: "Išsaugoti" }).click();
+  await expect(page.getByText("Registracija išsaugota").first()).toBeVisible();
+
+  // The grid now runs past 19:00 and shows the visit
+  await expect(
+    page.getByRole("region", { name: "Dienos tvarkaraštis" }).getByRole("button", {
+      name: new RegExp(`^${start}–${end}, .+, Rasa Petrauskienė$`),
+    }),
+  ).toBeVisible();
 });

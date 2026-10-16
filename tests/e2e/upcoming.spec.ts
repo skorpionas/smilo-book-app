@@ -18,7 +18,7 @@ test("upcoming bookings are grouped by date with a count per day (US-04)", async
   await expect(page.getByText(/vizitų: \d+/).first()).toBeVisible();
 
   const list = page.getByRole("list", { name: "Artimiausi vizitai pagal dienas" });
-  const days = list.locator(":scope > li");
+  const days = list.locator(":scope > li:not([data-free])");
   await expect(days.first()).toBeVisible();
 
   // Dates ascending, at most 14 days, each day's count matches its rows.
@@ -52,4 +52,21 @@ test("a day heading opens that day in the calendar", async ({ page }) => {
   const href = await link.getAttribute("href");
   await link.click();
   await expect(page).toHaveURL(new RegExp(`${href!.replace("?", "\\?")}$`));
+});
+
+test("groomer filter keeps only that groomer's bookings", async ({ page }) => {
+  await login(page, "/upcoming");
+  const list = page.getByRole("list", { name: "Artimiausi vizitai pagal dienas" });
+  await page
+    .getByRole("group", { name: "Rodyti meistrę" })
+    .getByRole("button", { name: /^Meistrė A/ })
+    .click();
+  const rows = list.locator(":scope > li ul > li").getByRole("button");
+  await expect(rows.first()).toBeVisible();
+  const names = await rows.evaluateAll((els) =>
+    els.map((el) => el.getAttribute("aria-label") ?? el.textContent ?? ""),
+  );
+  expect(names.every((n) => n.includes("Meistrė A"))).toBe(true);
+  await page.getByRole("button", { name: /^Visos/ }).click();
+  await expect(list.getByRole("button", { name: /Meistrė B/ }).first()).toBeVisible();
 });

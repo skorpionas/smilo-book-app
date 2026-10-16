@@ -1,6 +1,6 @@
 "use client";
 
-import { Cat, Dog, Phone, Plus, Search, Settings, Trash2, UserPlus, X } from "lucide-react";
+import { Cat, Copy, Dog, PawPrint, Phone, Plus, Search, Settings, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import * as React from "react";
@@ -28,10 +28,12 @@ import {
   findClientsForBooking,
   getPricePrefill,
   type BookingClientOption,
+  type BookingPetOption,
 } from "@/lib/actions/bookings";
 import type { CalendarGroomer, CalendarService } from "@/lib/calendar-data";
 import { DURATION_OPTIONS, formatDuration } from "@/lib/format";
 import { formatEur, parseEur } from "@/lib/money";
+import { splitDuration, splitPrice } from "@/lib/split";
 import type { BookingInput } from "@/lib/schemas/booking";
 import { searchDigits } from "@/lib/search";
 import {
@@ -50,10 +52,14 @@ export type BookingDefaults = {
   date: string;
   startTime: string;
   client: BookingClientOption | null;
+  /** Pre-selected pet of `client` (booking from a pet page). */
+  petId?: string | null;
 };
 
 const START_TIMES = BOOKING_START_TIMES;
 const NEW_PET = "__new";
+/** Book every active pet of the client together (they always come as a pair / group). */
+export const ALL_PETS = "all";
 
 type ItemState = {
   key: number;
@@ -63,7 +69,14 @@ type ItemState = {
   serviceId: string;
   durationMin: number;
   price: string;
-  priceSource: "last" | "default" | null;
+  priceSource: "pet" | "last" | "default" | "family" | null;
+  /** Save duration + price as this pet's own service (or, shared, as the family's). */
+  remember: boolean;
+  /**
+   * One service for several pets: the pets it covers. Duration and price are then
+   * totals for all of them; they are split per pet when saving. null = a normal row.
+   */
+  sharedPetIds: string[] | null;
 };
 
 type ClientState =
@@ -147,7 +160,12 @@ function BookingForm({
   const [client, setClient] = React.useState<ClientState>(
     defaults.client ? { mode: "existing", option: defaults.client } : { mode: "none" },
   );
-  const [items, setItems] = React.useState<ItemState[]>(() => [emptyItem(0, defaults.client)]);
+  const [items, setItems] = React.useState<ItemState[]>(
+    () =>
+      clientItems(defaults.client, defaults.petId, services, 1000) ?? [
+        withPetDefaults(emptyItem(0, defaults.client, defaults.petId), defaults.client, services),
+      ],
+  );
   const [durationMin, setDurationMin] = React.useState<number | null>(null); // null = sum of items
   const [notes, setNotes] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -164,22 +182,38 @@ function BookingForm({
   const offDay = Boolean(groomer && /^\d{4}-\d{2}-\d{2}$/.test(date) && !worksOn(groomer, date));
   const totalPrice = items.reduce((s, i) => s + (parseEur(i.price) ?? 0), 0);
 
-  function chooseClient(next: ClientState) {
+  function chooseClient(next: ClientState, petId?: string | null, newPetName?: string) {
     setClient(next);
     setFieldErrors({});
+    if (next.mode === "new") {
+      // New pet first; its owner's contact is optional (below the pet)
+      setItems((prev) =>
+        prev.map((item, index) => ({
+          ...item,
+          petId: NEW_PET,
+          newPetName: index === 0 && newPetName !== undefined ? newPetName : item.newPetName,
+          priceSource: null,
+          remember: false,
+        })),
+      );
+      return;
+    }
     const option = next.mode === "existing" ? next.option : null;
-    // Pets belong to one client: reset the pet choice on every client change.
+    const preset = clientItems(option, petId, services, nextKey.current);
+    if (preset) {
+      setItems(preset);
+      nextKey.current += 6;
+      return;
+    }
+    // Pets belong to one client: reset the pet choice on every client change, then
+    // pre-fill the chosen pet's usual service (its own duration and price).
     setItems((prev) =>
       prev.map((item, index) => {
-        const petId = index === 0 ? defaultPetId(option) : option ? "" : NEW_PET;
-        return { ...item, petId, priceSource: null };
+        const chosen = index === 0 ? defaultPetId(option, petId) : option ? "" : NEW_PET;
+        const reset = { ...item, petId: chosen, priceSource: null, remember: false };
+        return withPetDefaults(reset, option, services, true);
       }),
     );
-    if (option?.pets.length === 1) {
-      const only = option.pets[0];
-      const first = items[0];
-      if (first?.serviceId) void refreshPrice(first.key, only.id, first.serviceId);
-    }
   }
 
   function updateItem(key: number, patch: Partial<ItemState>) {
@@ -189,20 +223,45 @@ function BookingForm({
   async function refreshPrice(key: number, petId: string, serviceId: string) {
     const service = services.find((s) => s.id === serviceId);
     if (!service) return;
+    const own = findPet(pets, petId)?.services.find((ps) => ps.serviceId === serviceId);
+    if (own) {
+      updateItem(key, { durationMin: own.durationMin, price: priceText(own.price), priceSource: "pet" });
+      return;
+    }
     if (!petId || petId === NEW_PET) {
       updateItem(key, { price: priceText(service.defaultPrice), priceSource: "default" });
       return;
     }
     const prefill = await getPricePrefill(petId, serviceId);
     const value = prefill ?? service.defaultPrice;
-    updateItem(key, {
-      price: priceText(value),
-      priceSource: prefill !== null && prefill !== service.defaultPrice ? "last" : "default",
-    });
+    // The answer arrives later: apply it only if the row still has this pet + service
+    // and the owner hasn't typed a price meanwhile (typing clears priceSource).
+    setItems((prev) =>
+      prev.map((i) =>
+        i.key === key && i.petId === petId && i.serviceId === serviceId && i.priceSource !== null
+          ? {
+              ...i,
+              price: priceText(value),
+              priceSource: prefill !== null && prefill !== service.defaultPrice ? "last" : "default",
+            }
+          : i,
+      ),
+    );
   }
 
   function onPetChange(item: ItemState, petId: string) {
-    updateItem(item.key, { petId });
+    const pet = findPet(pets, petId);
+    if (!item.serviceId && pet?.services[0]) {
+      setItems((prev) =>
+        prev.map((i) =>
+          i.key === item.key
+            ? withPetDefaults({ ...i, petId }, client.mode === "existing" ? client.option : null, services)
+            : i,
+        ),
+      );
+      return;
+    }
+    updateItem(item.key, { petId, remember: false });
     if (item.serviceId) void refreshPrice(item.key, petId, item.serviceId);
   }
 
@@ -221,8 +280,137 @@ function BookingForm({
     const key = nextKey.current++;
     setItems((prev) => [
       ...prev,
-      { ...emptyItem(key, null), petId: client.mode === "existing" ? "" : NEW_PET },
+      { ...emptyItem(key, null, null), petId: client.mode === "existing" ? "" : NEW_PET },
     ]);
+  }
+
+  /** One tap: another pet of the same client, with its own usual service, time and price. */
+  function addPetItem(pet: BookingPetOption) {
+    if (client.mode !== "existing") return;
+    const key = nextKey.current++;
+    const option = client.option;
+    setItems((prev) => {
+      // Re-use an empty first row instead of adding a second one
+      const empty = prev.length === 1 && !prev[0].petId && !prev[0].serviceId;
+      const item = withPetDefaults({ ...emptyItem(key, null, null), petId: pet.id }, option, services, true);
+      return empty ? [item] : [...prev, item];
+    });
+  }
+
+  /**
+   * Several pets, one service: copy pet 1's service to the others. A pet with its own
+   * price for that service keeps it; the others take pet 1's time and price.
+   */
+  function applyFirstServiceToAll() {
+    setItems((prev) => {
+      const first = prev[0];
+      if (!first?.serviceId) return prev;
+      return prev.map((item, index) => {
+        if (index === 0) return item;
+        const own = findPet(pets, item.petId)?.services.find((ps) => ps.serviceId === first.serviceId);
+        return own
+          ? {
+              ...item,
+              serviceId: first.serviceId,
+              durationMin: own.durationMin,
+              price: priceText(own.price),
+              priceSource: "pet",
+            }
+          : {
+              ...item,
+              serviceId: first.serviceId,
+              durationMin: first.durationMin,
+              price: first.price,
+              priceSource: null,
+            };
+      });
+    });
+  }
+
+  /** Turn the rows into one shared service for several pets (totals, split on save). */
+  function makeShared() {
+    if (client.mode !== "existing") return;
+    const option = client.option;
+    const chosen = items.filter((i) => !i.sharedPetIds && i.petId && i.petId !== NEW_PET).map((i) => i.petId);
+    const petIds = chosen.length >= 2 ? chosen : option.pets.slice(0, 6).map((p) => p.id);
+    const serviceId = items.find((i) => i.serviceId)?.serviceId ?? "";
+    const key = nextKey.current++;
+    const base: ItemState = { ...emptyItem(key, null, null), petId: "", sharedPetIds: petIds, serviceId };
+    const fam = serviceId ? option.familyServices?.find((f) => f.serviceId === serviceId) : undefined;
+    const item: ItemState = fam
+      ? { ...base, durationMin: fam.durationMin, price: priceText(fam.price), priceSource: "family" }
+      : serviceId
+        ? {
+            ...base,
+            durationMin: Math.min(
+              600,
+              items.reduce((sum, i) => sum + (i.serviceId ? i.durationMin : 0), 0) || 60,
+            ),
+            price: priceText(items.reduce((sum, i) => sum + (parseEur(i.price) ?? 0), 0)),
+            priceSource: null,
+          }
+        : base;
+    setItems([item, ...items.filter((i) => i.petId === NEW_PET && i.newPetName.trim())]);
+  }
+
+  /** Back to one row per pet, each with its own usual service and price. */
+  function splitShared(key: number) {
+    if (client.mode !== "existing") return;
+    const option = client.option;
+    const shared = items.find((i) => i.key === key);
+    if (!shared?.sharedPetIds) return;
+    const first = nextKey.current;
+    nextKey.current += 6;
+    const rows = shared.sharedPetIds.map((petId, i) => {
+      const own = option.pets
+        .find((p) => p.id === petId)
+        ?.services.find((x) => x.serviceId === shared.serviceId);
+      const service = services.find((x) => x.id === shared.serviceId);
+      const base: ItemState = { ...emptyItem(first + i, null, null), petId, serviceId: shared.serviceId };
+      return own
+        ? { ...base, durationMin: own.durationMin, price: priceText(own.price), priceSource: "pet" as const }
+        : service
+          ? {
+              ...base,
+              durationMin: service.defaultDurationMin,
+              price: priceText(service.defaultPrice),
+              priceSource: "default" as const,
+            }
+          : withPetDefaults(base, option, services, true);
+    });
+    setItems((prev) => prev.flatMap((i) => (i.key === key ? rows : [i])));
+  }
+
+  function onSharedServiceChange(item: ItemState, serviceId: string) {
+    const service = services.find((x) => x.id === serviceId);
+    const count = item.sharedPetIds?.length ?? 1;
+    const fam =
+      client.mode === "existing"
+        ? client.option.familyServices?.find((f) => f.serviceId === serviceId)
+        : undefined;
+    updateItem(
+      item.key,
+      fam
+        ? {
+            serviceId,
+            durationMin: fam.durationMin,
+            price: priceText(fam.price),
+            priceSource: "family",
+            remember: false,
+          }
+        : {
+            serviceId,
+            durationMin: Math.min(600, (service?.defaultDurationMin ?? 60) * count),
+            price: service ? priceText(service.defaultPrice * count) : item.price,
+            priceSource: service ? "default" : null,
+          },
+    );
+  }
+
+  function toggleSharedPet(item: ItemState, petId: string) {
+    const current = item.sharedPetIds ?? [];
+    const next = current.includes(petId) ? current.filter((id) => id !== petId) : [...current, petId];
+    updateItem(item.key, { sharedPetIds: next });
   }
 
   function removeItem(key: number) {
@@ -239,23 +427,22 @@ function BookingForm({
       date,
       startTime,
       durationMin: totalDuration,
+      // Pet first: the client is optional. An owner-less pet → "none"; a new pet with
+      // no contact typed → "none"; any of name / phone / e-mail → a new contact card.
       client:
         client.mode === "existing"
-          ? { mode: "existing", id: client.option.id }
+          ? client.option.id
+            ? { mode: "existing", id: client.option.id }
+            : { mode: "none" }
           : client.mode === "new"
-            ? { mode: "new", fullName: client.fullName, phone: client.phone, email: client.email }
+            ? client.fullName.trim() || client.phone.trim() || client.email.trim()
+              ? { mode: "new", fullName: client.fullName, phone: client.phone, email: client.email }
+              : { mode: "none" }
             : (undefined as unknown as BookingInput["client"]),
-      items: items.map((i) => ({
-        pet:
-          i.petId === NEW_PET
-            ? { mode: "new", name: i.newPetName, species: i.newPetSpecies, breed: "" }
-            : i.petId
-              ? { mode: "existing", id: i.petId }
-              : (undefined as unknown as BookingInput["items"][number]["pet"]),
-        serviceId: i.serviceId,
-        durationMin: i.durationMin,
-        plannedPrice: i.price,
-      })),
+      items: expandItems(items),
+      rememberFamily: items
+        .filter((i) => i.sharedPetIds && i.sharedPetIds.length > 1 && i.remember && i.serviceId)
+        .map((i) => ({ serviceId: i.serviceId, durationMin: i.durationMin, price: i.price })),
       notes,
     };
 
@@ -263,7 +450,11 @@ function BookingForm({
       const res = await createBooking(input);
       if (res.ok) {
         const petNames = items
-          .map((i) => (i.petId === NEW_PET ? i.newPetName : pets.find((p) => p.id === i.petId)?.name))
+          .flatMap((i) =>
+            i.sharedPetIds
+              ? i.sharedPetIds.map((id) => pets.find((p) => p.id === id)?.name)
+              : [i.petId === NEW_PET ? i.newPetName : pets.find((p) => p.id === i.petId)?.name],
+          )
           .filter(Boolean)
           .join(", ");
         toast({ title: t("saved"), description: [res.summary?.range, petNames].filter(Boolean).join(", ") });
@@ -278,6 +469,12 @@ function BookingForm({
   }
 
   const fe = fieldErrors;
+  const pickerErrors = {
+    client: fe.client,
+    fullName: fe["client.fullName"],
+    phone: fe["client.phone"],
+    email: fe["client.email"],
+  };
 
   return (
     <form onSubmit={submit} noValidate className="flex min-h-0 flex-1 flex-col">
@@ -342,16 +539,9 @@ function BookingForm({
           </Alert>
         ) : null}
 
-        <ClientPicker
-          client={client}
-          onChange={chooseClient}
-          errors={{
-            client: fe.client,
-            fullName: fe["client.fullName"],
-            phone: fe["client.phone"],
-            email: fe["client.email"],
-          }}
-        />
+        {client.mode !== "new" ? (
+          <ClientPicker client={client} onChange={chooseClient} errors={pickerErrors} />
+        ) : null}
 
         <FormSection title={t("pets")}>
           {fe.items ? (
@@ -364,6 +554,23 @@ function BookingForm({
             {items.map((item, index) => {
               const prefix = `items.${index}`;
               const service = services.find((s) => s.id === item.serviceId);
+              if (item.sharedPetIds) {
+                return (
+                  <SharedItemRow
+                    key={item.key}
+                    item={item}
+                    pets={pets}
+                    services={services}
+                    errors={fe}
+                    canRemove={items.length > 1}
+                    onRemove={() => removeItem(item.key)}
+                    onSplit={() => splitShared(item.key)}
+                    onTogglePet={(petId) => toggleSharedPet(item, petId)}
+                    onService={(serviceId) => onSharedServiceChange(item, serviceId)}
+                    onChange={(patch) => updateItem(item.key, patch)}
+                  />
+                );
+              }
               return (
                 <li key={item.key} className="border-border space-y-4 rounded-lg border p-3.5">
                   <div className="-mt-1 -mr-1.5 flex min-h-9 items-center justify-between">
@@ -459,7 +666,12 @@ function BookingForm({
                         <Select
                           {...p}
                           value={String(item.durationMin)}
-                          onChange={(e) => updateItem(item.key, { durationMin: Number(e.target.value) })}
+                          onChange={(e) =>
+                            updateItem(item.key, {
+                              durationMin: Number(e.target.value),
+                              priceSource: item.priceSource === "pet" ? null : item.priceSource,
+                            })
+                          }
                         >
                           {DURATION_OPTIONS.map((m) => (
                             <option key={m} value={m}>
@@ -475,9 +687,11 @@ function BookingForm({
                       error={fe[`${prefix}.plannedPrice`]}
                       hint={
                         service && item.priceSource
-                          ? item.priceSource === "last"
-                            ? t("priceLastTime")
-                            : t("priceDefault")
+                          ? item.priceSource === "pet"
+                            ? t("pricePet")
+                            : item.priceSource === "last"
+                              ? t("priceLastTime")
+                              : t("priceDefault")
                           : undefined
                       }
                     >
@@ -493,10 +707,54 @@ function BookingForm({
                       )}
                     </Field>
                   </div>
+                  {service && item.petId && item.priceSource !== "pet" ? (
+                    <label
+                      htmlFor={`item-${item.key}-remember`}
+                      className="-my-1 flex min-h-11 cursor-pointer items-center gap-3 text-sm"
+                    >
+                      <input
+                        id={`item-${item.key}-remember`}
+                        type="checkbox"
+                        checked={item.remember}
+                        onChange={(e) => updateItem(item.key, { remember: e.target.checked })}
+                        className="accent-primary size-5 shrink-0"
+                      />
+                      <span>
+                        {t("rememberForPet", {
+                          name:
+                            (item.petId === NEW_PET ? item.newPetName : findPet(pets, item.petId)?.name) ||
+                            t("thisPet"),
+                        })}
+                      </span>
+                    </label>
+                  ) : null}
                 </li>
               );
             })}
           </ol>
+          {items.length > 1 &&
+          !items.some((i) => i.sharedPetIds) &&
+          items[0].serviceId &&
+          items.slice(1).some((i) => i.serviceId !== items[0].serviceId) ? (
+            <Button type="button" variant="soft" className="w-full" onClick={applyFirstServiceToAll}>
+              <Copy aria-hidden />
+              {t("applyToAll", { service: services.find((x) => x.id === items[0].serviceId)?.name ?? "" })}
+            </Button>
+          ) : null}
+          {client.mode === "existing" && pets.length > 1 && !items.some((i) => i.sharedPetIds) ? (
+            <Button type="button" variant="soft" className="w-full" onClick={makeShared}>
+              <PawPrint aria-hidden />
+              {t("oneServiceForAll")}
+            </Button>
+          ) : null}
+          {items.length < 6 && client.mode === "existing" ? (
+            <QuickAddPets
+              pets={pets.filter(
+                (p) => !items.some((i) => i.petId === p.id || i.sharedPetIds?.includes(p.id)),
+              )}
+              onAdd={addPetItem}
+            />
+          ) : null}
           {items.length < 6 && client.mode !== "none" ? (
             <Button type="button" variant="secondary" className="w-full" onClick={addItem}>
               <Plus aria-hidden />
@@ -504,6 +762,10 @@ function BookingForm({
             </Button>
           ) : null}
         </FormSection>
+
+        {client.mode === "new" ? (
+          <ClientPicker client={client} onChange={chooseClient} errors={pickerErrors} />
+        ) : null}
 
         <div className="space-y-4">
           <Field
@@ -563,7 +825,7 @@ function ClientPicker({
   errors,
 }: {
   client: ClientState;
-  onChange: (c: ClientState) => void;
+  onChange: (c: ClientState, petId?: string | null, newPetName?: string) => void;
   errors: { client?: string; fullName?: string; phone?: string; email?: string };
 }) {
   const t = useTranslations("booking");
@@ -594,11 +856,24 @@ function ClientPicker({
     return (
       <FormSection title={t("client")}>
         <div className="border-border bg-surface-muted/50 flex items-center gap-3 rounded-lg border p-3">
-          <Avatar name={c.fullName} />
+          {c.id ? (
+            <Avatar name={c.fullName} />
+          ) : (
+            <Avatar
+              name={c.pets[0]?.name ?? ""}
+              icon={<SpeciesIcon species={c.pets[0]?.species ?? "dog"} />}
+            />
+          )}
           <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold">{c.fullName}</p>
-            <p className="text-muted truncate text-sm">
-              {[c.phoneDisplay, c.pets.map((p) => p.name).join(", ")].filter(Boolean).join(" · ")}
+            <p className="truncate font-semibold">{c.id ? c.fullName : t("noOwner")}</p>
+            <p className="text-muted flex flex-wrap items-center gap-x-2 text-sm">
+              {c.phoneDisplay ? <span className="tabular-nums">{c.phoneDisplay}</span> : null}
+              {c.pets.map((p) => (
+                <span key={p.id} className="inline-flex items-center gap-1">
+                  <SpeciesIcon species={p.species} className="size-3.5" />
+                  {p.name}
+                </span>
+              ))}
             </p>
           </div>
           <Button type="button" variant="ghost" size="sm" onClick={() => onChange({ mode: "none" })}>
@@ -612,7 +887,7 @@ function ClientPicker({
   if (client.mode === "new") {
     return (
       <FormSection
-        title={t("newClientTitle")}
+        title={`${t("ownerContact")} (${tc("optional")})`}
         action={
           <Button type="button" variant="ghost" size="sm" onClick={() => onChange({ mode: "none" })}>
             <Search aria-hidden />
@@ -620,7 +895,8 @@ function ClientPicker({
           </Button>
         }
       >
-        <Field id="new-client-name" label={tcl("fullName")} error={errors.fullName}>
+        <p className="text-muted -mt-2 text-sm">{t("ownerContactHint")}</p>
+        <Field id="new-client-name" label={tcl("fullName")} optional={tc("optional")} error={errors.fullName}>
           {(p) => (
             <Input
               {...p}
@@ -630,7 +906,6 @@ function ClientPicker({
               autoComplete="off"
               autoCapitalize="words"
               maxLength={100}
-              autoFocus
             />
           )}
         </Field>
@@ -730,39 +1005,64 @@ function ClientPicker({
             className="border-border divide-border divide-y overflow-hidden rounded-lg border"
             aria-live="polite"
           >
-            {results.list.map((c) => (
-              <li key={c.id}>
-                <button
-                  type="button"
-                  onClick={() => onChange({ mode: "existing", option: c })}
-                  aria-label={t("selectClient", { name: c.fullName })}
-                  className="hover:bg-surface-muted flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left transition-colors"
-                >
-                  <Avatar name={c.fullName} size="sm" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{c.fullName}</span>
-                    <span className="text-muted flex items-center gap-2 truncate text-sm">
-                      {c.phone ? (
-                        <span className="inline-flex items-center gap-1 tabular-nums">
-                          <Phone aria-hidden className="size-3.5" />
-                          {c.phoneDisplay}
-                        </span>
-                      ) : null}
-                      {c.pets.map((p) => (
-                        <span key={p.id} className="inline-flex items-center gap-1">
-                          {p.species === "cat" ? (
-                            <Cat aria-hidden className="size-3.5" />
-                          ) : (
-                            <Dog aria-hidden className="size-3.5" />
-                          )}
-                          {p.name}
-                        </span>
-                      ))}
+            {pickRows(results.list).map(({ client: c, pet, all }) =>
+              all ? (
+                <li key={`${c.id}-all`}>
+                  <button
+                    type="button"
+                    onClick={() => onChange({ mode: "existing", option: c }, ALL_PETS)}
+                    aria-label={t("selectAllPets", {
+                      pets: c.pets.map((p) => p.name).join(", "),
+                      client: c.fullName,
+                    })}
+                    className="hover:bg-surface-muted flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left transition-colors"
+                  >
+                    <Avatar name={c.fullName} size="sm" icon={<PawPrint aria-hidden />} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">
+                        {t("allPetsTogether", { pets: c.pets.map((p) => p.name).join(" + ") })}
+                      </span>
+                      <span className="text-muted block truncate text-sm">{c.fullName}</span>
                     </span>
-                  </span>
-                </button>
-              </li>
-            ))}
+                  </button>
+                </li>
+              ) : (
+                <li key={pet ? pet.id : c.id}>
+                  <button
+                    type="button"
+                    onClick={() => onChange({ mode: "existing", option: c }, pet?.id ?? null)}
+                    aria-label={
+                      pet
+                        ? t("selectPet", { pet: pet.name, client: c.fullName })
+                        : t("selectClient", { name: c.fullName })
+                    }
+                    className="hover:bg-surface-muted flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left transition-colors"
+                  >
+                    {pet ? (
+                      <Avatar name={pet.name} size="sm" icon={<SpeciesIcon species={pet.species} />} />
+                    ) : (
+                      <Avatar name={c.fullName} size="sm" />
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">
+                        {pet ? pet.name : c.fullName}
+                        {pet?.breed ? <span className="text-muted font-normal"> · {pet.breed}</span> : null}
+                      </span>
+                      <span className="text-muted flex items-center gap-2 truncate text-sm">
+                        {pet ? <span className="truncate">{c.fullName}</span> : null}
+                        {c.phone ? (
+                          <span className="inline-flex items-center gap-1 tabular-nums">
+                            <Phone aria-hidden className="size-3.5" />
+                            {c.phoneDisplay}
+                          </span>
+                        ) : null}
+                        {!pet ? <span>{tcl("noPetsShort")}</span> : null}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ),
+            )}
           </ul>
         ) : (
           <p className="text-muted text-sm" aria-live="polite">
@@ -776,41 +1076,379 @@ function ClientPicker({
         variant={showResults && results.list.length === 0 ? "primary" : "secondary"}
         className="w-full"
         onClick={() =>
-          onChange({
-            mode: "new",
-            fullName: looksLikePhone ? "" : q,
-            phone: looksLikePhone ? q : "",
-            email: "",
-          })
+          // Pet first: typed text becomes the new pet's name (or the owner's phone)
+          onChange(
+            { mode: "new", fullName: "", phone: looksLikePhone ? q : "", email: "" },
+            null,
+            looksLikePhone ? "" : q,
+          )
         }
       >
-        <UserPlus aria-hidden />
-        {t("newClient")}
+        <Plus aria-hidden />
+        {t("newPet")}
       </Button>
     </FormSection>
   );
 }
 
-function emptyItem(key: number, client: BookingClientOption | null): ItemState {
+function emptyItem(key: number, client: BookingClientOption | null, petId?: string | null): ItemState {
   return {
     key,
-    petId: defaultPetId(client),
+    petId: defaultPetId(client, petId),
     newPetName: "",
     newPetSpecies: "dog",
     serviceId: "",
     durationMin: 60,
     price: "",
     priceSource: null,
+    remember: false,
+    sharedPetIds: null,
   };
 }
 
-/** One pet → pick it; several → let the owner choose; none (or new client) → new pet. */
-function defaultPetId(client: BookingClientOption | null): string {
+/** Requested pet if it belongs to the client; one pet → pick it; several → let the owner choose; none → new pet. */
+function defaultPetId(client: BookingClientOption | null, petId?: string | null): string {
   if (!client) return NEW_PET;
+  if (petId && client.pets.some((p) => p.id === petId)) return petId;
   if (client.pets.length === 1) return client.pets[0].id;
   return client.pets.length === 0 ? NEW_PET : "";
 }
 
 function priceText(value: number): string {
   return value.toFixed(2).replace(".", ",");
+}
+
+function findPet(pets: BookingPetOption[], petId: string): BookingPetOption | undefined {
+  return petId && petId !== NEW_PET ? pets.find((p) => p.id === petId) : undefined;
+}
+
+/**
+ * Pre-fill an item from the pet's usual service (its first own service): service,
+ * duration and price in one go. With `force`, replaces a service chosen earlier
+ * (the pet changed); otherwise keeps it.
+ */
+function withPetDefaults(
+  item: ItemState,
+  client: BookingClientOption | null,
+  services: { id: string }[],
+  force = false,
+): ItemState {
+  const pet = client ? findPet(client.pets, item.petId) : undefined;
+  if (!pet) return item;
+  const own =
+    (item.serviceId && pet.services.find((ps) => ps.serviceId === item.serviceId)) ||
+    (force || !item.serviceId
+      ? pet.services.find((ps) => services.some((s) => s.id === ps.serviceId))
+      : undefined);
+  if (!own) return item;
+  return {
+    ...item,
+    serviceId: own.serviceId,
+    durationMin: own.durationMin,
+    price: priceText(own.price),
+    priceSource: "pet",
+  };
+}
+
+type PickRow = { client: BookingClientOption; pet: BookingPetOption | null; all?: boolean };
+
+/**
+ * Picker rows, pet first: matched pets, then the client's other pets; clients without
+ * pets as one row. A client with 2+ pets also gets "Maksas + Žuikis" — pets that always
+ * come together are booked in one tap.
+ */
+export function pickRows(list: BookingClientOption[]): PickRow[] {
+  const rows: PickRow[] = [];
+  for (const c of list) {
+    if (c.pets.length === 0) {
+      rows.push({ client: c, pet: null });
+      continue;
+    }
+    const matched = new Set(c.matchedPetIds ?? []);
+    const ordered = [...c.pets.filter((p) => matched.has(p.id)), ...c.pets.filter((p) => !matched.has(p.id))];
+    for (const pet of ordered) rows.push({ client: c, pet });
+    if (c.pets.length > 1) rows.push({ client: c, pet: null, all: true });
+  }
+  // Matched pets first, each client's "together" row right after them
+  const first = rows.filter(
+    (r) =>
+      (r.pet && r.client.matchedPetIds?.includes(r.pet.id)) ||
+      (r.all && (r.client.matchedPetIds?.length ?? 0) > 0),
+  );
+  return [...first, ...rows.filter((r) => !first.includes(r))];
+}
+
+/** One item per pet of the client (max 6), each with its own usual service, time and price. */
+function familyItems(client: BookingClientOption, services: { id: string }[], firstKey: number): ItemState[] {
+  return client.pets
+    .slice(0, 6)
+    .map((pet, i) =>
+      withPetDefaults({ ...emptyItem(firstKey + i, null, null), petId: pet.id }, client, services, true),
+    );
+}
+
+function QuickAddPets({ pets, onAdd }: { pets: BookingPetOption[]; onAdd: (pet: BookingPetOption) => void }) {
+  const t = useTranslations("booking");
+  if (pets.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-2" role="group" aria-label={t("quickAddLabel")}>
+      {pets.map((pet) => (
+        <Button key={pet.id} type="button" variant="soft" size="sm" onClick={() => onAdd(pet)}>
+          <Plus aria-hidden />
+          <SpeciesIcon species={pet.species} />
+          {t("addNamedPet", { name: pet.name })}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+function SpeciesIcon({ species, className }: { species: "dog" | "cat"; className?: string }) {
+  return species === "cat" ? (
+    <Cat aria-hidden className={className} />
+  ) : (
+    <Dog aria-hidden className={className} />
+  );
+}
+
+/**
+ * Rows to start with when a client is chosen. A client with several pets and a usual
+ * shared service gets that one row (also when no pet was asked for, e.g. "Registruoti
+ * vizitą" on the client page); "all pets" without one gets a row per pet. null = the
+ * usual single row.
+ */
+function clientItems(
+  client: BookingClientOption | null | undefined,
+  petId: string | null | undefined,
+  services: { id: string }[],
+  firstKey: number,
+): ItemState[] | null {
+  if (!client) return null;
+  const wantsAll = petId === ALL_PETS || !petId;
+  if (wantsAll && client.pets.length > 1 && familyServiceFor(client, services)) {
+    return [sharedItem(firstKey, client, services)];
+  }
+  if (petId === ALL_PETS && client.pets.length > 0) return familyItems(client, services, firstKey);
+  return null;
+}
+
+/** The client's usual shared service, if it is still offered. */
+function familyServiceFor(client: BookingClientOption, services: { id: string }[]) {
+  return client.familyServices?.find((f) => services.some((x) => x.id === f.serviceId));
+}
+
+/** One row for all of the client's pets with the family's usual shared service. */
+function sharedItem(key: number, client: BookingClientOption, services: { id: string }[]): ItemState {
+  const fam = familyServiceFor(client, services);
+  return {
+    ...emptyItem(key, null, null),
+    petId: "",
+    sharedPetIds: client.pets.slice(0, 6).map((p) => p.id),
+    serviceId: fam?.serviceId ?? "",
+    durationMin: fam?.durationMin ?? 60,
+    price: fam ? priceText(fam.price) : "",
+    priceSource: fam ? "family" : null,
+  };
+}
+
+/**
+ * Rows → what the server stores: one row per pet. A shared row becomes one row per
+ * pet with the total time and price split (remainder on the first pet) and a common
+ * sharedGroup number, so it can be shown as one line again.
+ */
+function expandItems(items: ItemState[]): BookingInput["items"] {
+  let group = 0;
+  return items.flatMap((i): BookingInput["items"] => {
+    if (i.sharedPetIds && i.sharedPetIds.length > 0) {
+      const ids = i.sharedPetIds;
+      const total = parseEur(i.price);
+      const prices: (number | string)[] =
+        total === null ? ids.map(() => i.price) : splitPrice(total, ids.length);
+      const minutes = splitDuration(i.durationMin, ids.length);
+      const sharedGroup = ids.length > 1 ? ++group : undefined;
+      return ids.map((id, n) => ({
+        pet: { mode: "existing" as const, id },
+        serviceId: i.serviceId,
+        durationMin: minutes[n],
+        plannedPrice: prices[n],
+        remember: false,
+        sharedGroup,
+      }));
+    }
+    return [
+      {
+        pet:
+          i.petId === NEW_PET
+            ? { mode: "new" as const, name: i.newPetName, species: i.newPetSpecies, breed: "" }
+            : i.petId
+              ? { mode: "existing" as const, id: i.petId }
+              : (undefined as unknown as BookingInput["items"][number]["pet"]),
+        serviceId: i.serviceId,
+        durationMin: i.durationMin,
+        plannedPrice: i.price,
+        remember: i.remember,
+      },
+    ];
+  });
+}
+
+/** One service for several pets: pet chips, service, total time and total price. */
+function SharedItemRow({
+  item,
+  pets,
+  services,
+  errors,
+  canRemove,
+  onRemove,
+  onSplit,
+  onTogglePet,
+  onService,
+  onChange,
+}: {
+  item: ItemState;
+  pets: BookingPetOption[];
+  services: { id: string; name: string }[];
+  errors: Record<string, string>;
+  canRemove: boolean;
+  onRemove: () => void;
+  onSplit: () => void;
+  onTogglePet: (petId: string) => void;
+  onService: (serviceId: string) => void;
+  onChange: (patch: Partial<ItemState>) => void;
+}) {
+  const t = useTranslations("booking");
+  const tu = useTranslations("units");
+  const chosen = item.sharedPetIds ?? [];
+  const names = pets.filter((p) => chosen.includes(p.id)).map((p) => p.name);
+  const total = parseEur(item.price);
+  const split =
+    total !== null && chosen.length > 1 ? splitPrice(total, chosen.length).map(formatEur).join(" + ") : null;
+  // The expanded rows all carry the same values: show the first error of any of them
+  const err = (field: string) =>
+    Object.entries(errors).find(([k]) => k.startsWith("items.") && k.endsWith(`.${field}`))?.[1];
+
+  return (
+    <li className="border-primary/40 bg-primary-soft/20 space-y-4 rounded-lg border p-3.5">
+      <div className="-mt-1 -mr-1.5 flex min-h-9 items-center justify-between gap-2">
+        <span className="text-sm font-semibold">{t("sharedTitle")}</span>
+        <span className="flex items-center gap-1">
+          <Button type="button" variant="ghost" size="sm" onClick={onSplit}>
+            {t("splitPerPet")}
+          </Button>
+          {canRemove ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={t("removeShared")}
+              onClick={onRemove}
+            >
+              <Trash2 aria-hidden />
+            </Button>
+          ) : null}
+        </span>
+      </div>
+
+      <div role="group" aria-label={t("sharedPets")} className="flex flex-wrap gap-2">
+        {pets.map((pet) => {
+          const on = chosen.includes(pet.id);
+          return (
+            <button
+              key={pet.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onTogglePet(pet.id)}
+              className={cn(
+                "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors",
+                on
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-surface text-foreground-soft hover:bg-surface-muted",
+              )}
+            >
+              <SpeciesIcon species={pet.species} className="size-4" />
+              {pet.name}
+            </button>
+          );
+        })}
+      </div>
+      {chosen.length < 2 ? <p className="text-danger -mt-2 text-sm">{t("sharedNeedsTwo")}</p> : null}
+
+      <Field id={`shared-${item.key}-service`} label={t("service")} error={err("serviceId")}>
+        {(p) => (
+          <Select {...p} value={item.serviceId} onChange={(e) => onService(e.target.value)}>
+            <option value="" disabled>
+              {t("chooseService")}
+            </option>
+            {services.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.name}
+              </option>
+            ))}
+          </Select>
+        )}
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field id={`shared-${item.key}-duration`} label={t("sharedDuration")} error={err("durationMin")}>
+          {(p) => (
+            <Select
+              {...p}
+              value={String(item.durationMin)}
+              onChange={(e) =>
+                onChange({
+                  durationMin: Number(e.target.value),
+                  priceSource: item.priceSource === "family" ? null : item.priceSource,
+                })
+              }
+            >
+              {DURATION_OPTIONS.map((m) => (
+                <option key={m} value={m}>
+                  {formatDuration(tu, m)}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+        <Field
+          id={`shared-${item.key}-price`}
+          label={t("sharedPrice")}
+          error={err("plannedPrice")}
+          hint={
+            item.priceSource === "family"
+              ? t("priceFamily")
+              : split
+                ? t("splitAs", { parts: split })
+                : undefined
+          }
+        >
+          {(p) => (
+            <Input
+              {...p}
+              inputMode="decimal"
+              autoComplete="off"
+              value={item.price}
+              onChange={(e) => onChange({ price: e.target.value, priceSource: null })}
+              className="tabular-nums"
+            />
+          )}
+        </Field>
+      </div>
+
+      {item.serviceId && chosen.length > 1 && item.priceSource !== "family" ? (
+        <label
+          htmlFor={`shared-${item.key}-remember`}
+          className="-my-1 flex min-h-11 cursor-pointer items-center gap-3 text-sm"
+        >
+          <input
+            id={`shared-${item.key}-remember`}
+            type="checkbox"
+            checked={item.remember}
+            onChange={(e) => onChange({ remember: e.target.checked })}
+            className="accent-primary size-5 shrink-0"
+          />
+          <span>{t("rememberFamily", { names: names.join(", ") })}</span>
+        </label>
+      ) : null}
+    </li>
+  );
 }

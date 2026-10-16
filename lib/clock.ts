@@ -42,6 +42,40 @@ export function snapMinutes(minutes: number, mode: "nearest" | "floor" | "ceil" 
 /** Number of grid rows between opening and closing (08:00–19:00 → 44). */
 export const GRID_ROWS = (timeToMinutes(DAY_CLOSE) - timeToMinutes(DAY_OPEN)) / SLOT_MINUTES;
 
+/**
+ * Hours shown in the day / week grid, in minutes since midnight. Normally
+ * 08:00–19:00; widened to whole hours when a booking starts earlier or ends later
+ * (e.g. a 20:00 visit), so nothing is hidden.
+ */
+export type GridWindow = { open: number; close: number };
+export const DEFAULT_WINDOW: GridWindow = { open: timeToMinutes(DAY_OPEN), close: timeToMinutes(DAY_CLOSE) };
+
+/** The default window widened to whole hours around the given wall-clock spans (minutes). */
+export function gridWindowFor(spans: { from: number; to: number }[]): GridWindow {
+  let open = DEFAULT_WINDOW.open;
+  let close = DEFAULT_WINDOW.close;
+  for (const s of spans) {
+    if (s.to <= s.from) continue;
+    open = Math.min(open, Math.floor(s.from / 60) * 60);
+    close = Math.max(close, Math.min(24 * 60, Math.ceil(s.to / 60) * 60));
+  }
+  return { open, close };
+}
+
+export function windowRows(w: GridWindow): number {
+  return (w.close - w.open) / SLOT_MINUTES;
+}
+
+/** "HH:mm" of every 15-min row in the window. */
+export function windowSlots(w: GridWindow): TimeStr[] {
+  return Array.from({ length: windowRows(w) }, (_, i) => minutesToTime(w.open + i * SLOT_MINUTES));
+}
+
+/** "HH:mm" label for a window edge (24:00 is a valid closing label). */
+export function edgeLabel(minutes: number): string {
+  return minutes >= 24 * 60 ? "24:00" : minutesToTime(minutes);
+}
+
 const clockFormatter = new Intl.DateTimeFormat("en-CA", {
   timeZone: TIME_ZONE,
   hourCycle: "h23",

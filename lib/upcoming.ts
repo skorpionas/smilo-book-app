@@ -29,3 +29,18 @@ export function groupUpcoming<T extends Groupable>(
       bookings: list.sort((a, b) => a.startTime.localeCompare(b.startTime)),
     }));
 }
+
+type Timed = { id: string; kind: "booking" | "block"; status: string; startTime: string; endTime: string };
+
+/** Today's booking in progress ("now"), else the next one to start ("next"); times are "HH:mm". */
+export function nowOrNext(bookings: Timed[], nowTime: string): { id: string; label: "now" | "next" } | null {
+  const open = bookings.filter((b) => b.kind === "booking" && b.status === "scheduled");
+  const now = open.find(
+    (b) => b.startTime.localeCompare(nowTime) <= 0 && nowTime.localeCompare(b.endTime) < 0,
+  );
+  if (now) return { id: now.id, label: "now" };
+  const next = open
+    .filter((b) => b.startTime.localeCompare(nowTime) > 0)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime))[0];
+  return next ? { id: next.id, label: "next" } : null;
+}

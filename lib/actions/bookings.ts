@@ -11,16 +11,35 @@ import {
   type RescheduleInput,
 } from "@/lib/schemas/booking";
 import { uuid } from "@/lib/schemas/common";
-import { formatPhone } from "@/lib/phone";
+import { contactLabel, formatPhone } from "@/lib/phone";
 import { createClient } from "@/lib/supabase/server";
 import { toVilniusTime, vilniusToUtc } from "@/lib/time";
 
-export type BookingClientOption = {
+/** A pet's own duration + price for one service; the first one is the pet's usual service. */
+export type PetServiceOption = { serviceId: string; durationMin: number; price: number };
+
+export type BookingPetOption = {
   id: string;
+  name: string;
+  species: "dog" | "cat";
+  breed: string;
+  services: PetServiceOption[];
+};
+
+/**
+ * A client with its pets — or, for a pet without an owner (pet first), `id: null`
+ * with just that one pet. `fullName` is the display label (name, else phone / e-mail).
+ */
+export type BookingClientOption = {
+  id: string | null;
   fullName: string;
   phone: string | null;
   phoneDisplay: string;
-  pets: { id: string; name: string; species: "dog" | "cat" }[];
+  pets: BookingPetOption[];
+  /** Pets whose name matched the search (shown first in the picker). */
+  matchedPetIds?: string[];
+  /** The family's shared services (totals for all pets together); first = usual. */
+  familyServices?: PetServiceOption[];
 };
 
 /** Client picker in the booking sheet (US-05): name, pet name or phone digits; ≥ 2 characters. */
@@ -37,8 +56,90 @@ export async function findClientsForBooking(query: string): Promise<BookingClien
     console.error("[action] findClientsForBooking failed", { code: error.code });
     return [];
   }
-  const ids = [...new Set(hits.map((h) => h.client_id))].slice(0, 10);
-  return loadClientOptions(ids);
+  const ids = [...new Set(hits.map((h) => h.client_id).filter((id): id is string => Boolean(id)))].slice(
+    0,
+    10,
+  );
+  const orphanIds = hits
+    .filter((h) => h.kind === "pet" && !h.client_id)
+    .map((h) => h.id)
+    .slice(0, 10);
+  const matched = new Set(hits.filter((h) => h.kind === "pet").map((h) => h.id));
+  const [options, orphans] = await Promise.all([loadClientOptions(ids), loadOwnerlessPets(orphanIds)]);
+  return [
+    ...orphans.map((o) => ({ ...o, matchedPetIds: o.pets.map((p) => p.id) })),
+    ...options.map((o) => ({
+      ...o,
+      matchedPetIds: o.pets.filter((p) => matched.has(p.id)).map((p) => p.id),
+    })),
+  ];
+}
+
+/** A pet for the booking sheet (from a pet page): its owner with all pets, or the pet alone. */
+export async function getPetForBooking(petId: string): Promise<BookingClientOption | null> {
+  await requireUser();
+  if (!uuid.safeParse(petId).success) return null;
+  const supabase = await createClient();
+  const { data } = await supabase.from("pets").select("client_id").eq("id", petId).maybeSingle();
+  if (!data) return null;
+  if (data.client_id) return (await loadClientOptions([data.client_id]))[0] ?? null;
+  return (await loadOwnerlessPets([petId]))[0] ?? null;
+}
+
+const PET_FIELDS =
+  "id, name, species, breed, archived_at, pet_services(service_id, duration_min, price, position, created_at, services(archived_at))";
+
+type PetRow = {
+  id: string;
+  name: string;
+  species: "dog" | "cat";
+  breed: string;
+  archived_at: string | null;
+  pet_services: {
+    service_id: string;
+    duration_min: number;
+    price: number;
+    position: number;
+    created_at: string;
+    services: { archived_at: string | null } | null;
+  }[];
+};
+
+function toPetOption(p: PetRow): BookingPetOption {
+  return {
+    id: p.id,
+    name: p.name,
+    species: p.species,
+    breed: p.breed,
+    services: [...p.pet_services]
+      .filter((ps) => !ps.services?.archived_at)
+      .sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at))
+      .map((ps) => ({ serviceId: ps.service_id, durationMin: ps.duration_min, price: Number(ps.price) })),
+  };
+}
+
+/** Pets without an owner, each as its own option (id null). */
+async function loadOwnerlessPets(ids: string[]): Promise<BookingClientOption[]> {
+  if (ids.length === 0) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("pets")
+    .select(PET_FIELDS)
+    .in("id", ids)
+    .is("client_id", null)
+    .is("archived_at", null)
+    .order("name");
+  if (error) {
+    console.error("[action] loadOwnerlessPets failed", { code: error.code });
+    return [];
+  }
+  return (data as PetRow[]).map((p) => ({
+    id: null,
+    fullName: "",
+    phone: null,
+    phoneDisplay: "",
+    pets: [toPetOption(p)],
+  }));
 }
 
 /** One client with active pets, for opening the sheet from a client page. */
@@ -54,7 +155,9 @@ async function loadClientOptions(ids: string[]): Promise<BookingClientOption[]> 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("clients")
-    .select("id, full_name, phone_e164, pets(id, name, species, archived_at)")
+    .select(
+      "id, full_name, phone_e164, email, pets(id, name, species, breed, archived_at, pet_services(service_id, duration_min, price, position, created_at, services(archived_at))), client_services(service_id, duration_min, price, position, created_at, services(archived_at))",
+    )
     .in("id", ids)
     .is("archived_at", null)
     .is("anonymized_at", null)
@@ -65,13 +168,17 @@ async function loadClientOptions(ids: string[]): Promise<BookingClientOption[]> 
   }
   return data.map((c) => ({
     id: c.id,
-    fullName: c.full_name,
+    fullName: contactLabel(c),
     phone: c.phone_e164,
     phoneDisplay: formatPhone(c.phone_e164),
-    pets: c.pets
+    pets: (c.pets as PetRow[])
       .filter((p) => !p.archived_at)
       .sort((a, b) => a.name.localeCompare(b.name, "lt"))
-      .map((p) => ({ id: p.id, name: p.name, species: p.species })),
+      .map(toPetOption),
+    familyServices: [...c.client_services]
+      .filter((cs) => !cs.services?.archived_at)
+      .sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at))
+      .map((cs) => ({ serviceId: cs.service_id, durationMin: cs.duration_min, price: Number(cs.price) })),
   }));
 }
 
@@ -109,6 +216,8 @@ export async function createBooking(input: BookingInput): Promise<CreateBookingR
     service_id: item.serviceId,
     duration_min: item.durationMin,
     planned_price: item.plannedPrice,
+    remember: item.remember,
+    shared_group: item.sharedGroup ?? null,
   }));
 
   const supabase = await createClient();
@@ -117,6 +226,7 @@ export async function createBooking(input: BookingInput): Promise<CreateBookingR
     p_start_at: start.toISOString(),
     p_end_at: end.toISOString(),
     p_items: items,
+    // "none": no client — the database takes the owner of an existing pet, if it has one
     p_client_id: b.client.mode === "existing" ? b.client.id : undefined,
     p_new_client:
       b.client.mode === "new"
@@ -136,10 +246,37 @@ export async function createBooking(input: BookingInput): Promise<CreateBookingR
     return dbFailed(error, "createBooking");
   }
 
-  revalidatePath("/calendar", "layout");
+  // "Įsiminti kaip šeimos paslaugą": the shared totals become the family's usual price.
+  if (b.client.mode === "existing" && b.rememberFamily.length > 0) {
+    const clientId = b.client.id;
+    const { data: existing } = await supabase
+      .from("client_services")
+      .select("id, service_id")
+      .eq("client_id", clientId);
+    for (const f of b.rememberFamily) {
+      const same = existing?.find((r) => r.service_id === f.serviceId);
+      const { error: e } = same
+        ? await supabase
+            .from("client_services")
+            .update({ duration_min: f.durationMin, price: f.price })
+            .eq("id", same.id)
+        : await supabase.from("client_services").insert({
+            client_id: clientId,
+            service_id: f.serviceId,
+            duration_min: f.durationMin,
+            price: f.price,
+            position: existing?.length ?? 0,
+          });
+      // The booking is saved either way; a failed "remember" is only logged.
+      if (e) console.error("[action] createBooking.rememberFamily failed", { code: e.code });
+    }
+    revalidatePath(`/clients/${clientId}`);
+  }
 
+  revalidatePath("/calendar", "layout");
   revalidatePath("/upcoming");
   revalidatePath("/clients", "layout");
+  revalidatePath("/pets", "layout");
   const range = `${toVilniusTime(start)}–${toVilniusTime(end)}`;
   return { ok: true, savedAt: Date.now(), id: bookingId, summary: { range } };
 }
@@ -195,6 +332,7 @@ export async function cancelBooking(id: string): Promise<ActionState> {
 
   revalidatePath("/upcoming");
   if (data.client_id) revalidatePath(`/clients/${data.client_id}`);
+  revalidatePath("/pets", "layout");
   return { ok: true, savedAt: Date.now(), id };
 }
 
@@ -231,6 +369,7 @@ export async function rescheduleBooking(input: RescheduleInput): Promise<CreateB
 
   revalidatePath("/upcoming");
   if (data.client_id) revalidatePath(`/clients/${data.client_id}`);
+  revalidatePath("/pets", "layout");
   const range = `${toVilniusTime(start)}–${toVilniusTime(end)}`;
   return { ok: true, savedAt: Date.now(), id, summary: { range } };
 }
@@ -258,5 +397,6 @@ export async function deleteBooking(id: string): Promise<ActionState> {
 
   revalidatePath("/upcoming");
   if (data.client_id) revalidatePath(`/clients/${data.client_id}`);
+  revalidatePath("/pets", "layout");
   return { ok: true, savedAt: Date.now(), id };
 }

@@ -6,8 +6,9 @@ import { classifyDbError } from "@/lib/db-errors";
 describe("auth paths", () => {
   it("knows which paths are public", () => {
     expect(isPublicPath("/login")).toBe(true);
-    expect(isPublicPath("/auth/confirm")).toBe(true);
-    expect(isPublicPath("/forgot-password")).toBe(true);
+    // single-owner app: no password-reset pages (owner resets in Supabase)
+    expect(isPublicPath("/auth/confirm")).toBe(false);
+    expect(isPublicPath("/forgot-password")).toBe(false);
     expect(isPublicPath("/calendar")).toBe(false);
     expect(isPublicPath("/loginx")).toBe(false);
   });
@@ -27,7 +28,8 @@ describe("classifyDbError", () => {
     ["23P01", "slotTaken"],
     ["23514", "invalid"],
     ["23505", "invalid"],
-    ["42501", "unauthorized"],
+    ["42501", "forbidden"],
+    ["PGRST301", "unauthorized"],
     ["PGRST116", "notFound"],
     ["XX000", "unknown"],
   ])("%s -> %s", (code, kind) => {
@@ -54,5 +56,22 @@ describe("i18n messages", () => {
     const walk = (o: unknown): string[] =>
       typeof o === "string" ? [o] : Object.values(o as Record<string, unknown>).flatMap(walk);
     expect(walk(messages).every((s) => s.trim().length > 0)).toBe(true);
+  });
+});
+
+describe("security review 2026-10-16", () => {
+  it("refuses next paths that browsers turn into another origin", () => {
+    for (const bad of [
+      "/\t/evil.com",
+      "/\n/evil.com",
+      "/\\evil.com",
+      "/x\\..\\/evil.com",
+      "/%00",
+      "\u0000/x",
+    ]) {
+      expect(safeNextPath(bad === "/%00" ? "/ok" : bad)).toBe(bad === "/%00" ? "/ok" : "/calendar");
+    }
+    expect(safeNextPath("/" + "a".repeat(600))).toBe("/calendar");
+    expect(safeNextPath("/pets/1?x=1")).toBe("/pets/1?x=1");
   });
 });

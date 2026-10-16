@@ -20,6 +20,7 @@ export type Database = {
           planned_price: number;
           position: number;
           service_id: string;
+          shared_group: number | null;
           updated_at: string;
           visit_notes: string;
         };
@@ -34,6 +35,7 @@ export type Database = {
           planned_price: number;
           position?: number;
           service_id: string;
+          shared_group?: number | null;
           updated_at?: string;
           visit_notes?: string;
         };
@@ -48,6 +50,7 @@ export type Database = {
           planned_price?: number;
           position?: number;
           service_id?: string;
+          shared_group?: number | null;
           updated_at?: string;
           visit_notes?: string;
         };
@@ -150,7 +153,7 @@ export type Database = {
           archived_at: string | null;
           created_at: string;
           email: string | null;
-          full_name: string;
+          full_name: string | null;
           id: string;
           notes: string;
           owner_id: string;
@@ -162,7 +165,7 @@ export type Database = {
           archived_at?: string | null;
           created_at?: string;
           email?: string | null;
-          full_name: string;
+          full_name?: string | null;
           id?: string;
           notes?: string;
           owner_id?: string;
@@ -174,7 +177,7 @@ export type Database = {
           archived_at?: string | null;
           created_at?: string;
           email?: string | null;
-          full_name?: string;
+          full_name?: string | null;
           id?: string;
           notes?: string;
           owner_id?: string;
@@ -218,6 +221,108 @@ export type Database = {
           work_days?: number[];
         };
         Relationships: [];
+      };
+      client_services: {
+        Row: {
+          created_at: string;
+          duration_min: number;
+          id: string;
+          owner_id: string;
+          client_id: string;
+          position: number;
+          price: number;
+          service_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          duration_min: number;
+          id?: string;
+          owner_id?: string;
+          client_id: string;
+          position?: number;
+          price: number;
+          service_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          duration_min?: number;
+          id?: string;
+          owner_id?: string;
+          client_id?: string;
+          position?: number;
+          price?: number;
+          service_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "client_services_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_services_service_id_fkey";
+            columns: ["service_id"];
+            isOneToOne: false;
+            referencedRelation: "services";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      pet_services: {
+        Row: {
+          created_at: string;
+          duration_min: number;
+          id: string;
+          owner_id: string;
+          pet_id: string;
+          position: number;
+          price: number;
+          service_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          duration_min: number;
+          id?: string;
+          owner_id?: string;
+          pet_id: string;
+          position?: number;
+          price: number;
+          service_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          duration_min?: number;
+          id?: string;
+          owner_id?: string;
+          pet_id?: string;
+          position?: number;
+          price?: number;
+          service_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pet_services_pet_id_fkey";
+            columns: ["pet_id"];
+            isOneToOne: false;
+            referencedRelation: "pets";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pet_services_service_id_fkey";
+            columns: ["service_id"];
+            isOneToOne: false;
+            referencedRelation: "services";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       pets: {
         Row: {
@@ -335,12 +440,25 @@ export type Database = {
         Args: { p_pet_id: string; p_service_id: string };
         Returns: number;
       };
+      client_label: {
+        Args: { c: Database["public"]["Tables"]["clients"]["Row"] };
+        Returns: string;
+      };
+      create_pets: {
+        Args: { p_client_id?: string; p_new_client?: Json; p_pets: Json };
+        Returns: { client_id: string; pet_id: string }[];
+      };
+      set_pet_owner: {
+        Args: { p_client_id?: string; p_new_client?: Json; p_pet_id: string };
+        Returns: string;
+      };
       search_directory: {
         Args: { p_limit?: number; p_query: string };
         Returns: {
           client_id: string;
           id: string;
           kind: string;
+          species: string;
           subtitle: string;
           title: string;
         }[];

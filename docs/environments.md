@@ -103,8 +103,8 @@ and three rows for `NEXT_PUBLIC_APP_ENV`.
    as "Smilo PROD DB". (Nobody knows the current one: the project was created by Claude.)
 2. **Authentication → Sign In / Providers**: **Allow new users to sign up = OFF**. Under **Email**: provider
    **enabled**, _Confirm email_ may stay on, **Minimum password length = 12** → Save.
-3. **Authentication → URL Configuration**: Site URL `https://app.smilo.lt`. Redirect URLs → Add:
-   `https://app.smilo.lt/auth/confirm` and `https://smilo-book-app.vercel.app/auth/confirm` → Save.
+3. **Authentication → URL Configuration**: Site URL `https://app.smilo.lt` (no redirect URLs needed — the app
+   sends no e-mail links).
 4. **Authentication → Users → Add user → Create new user**: the owner's e-mail, a password of 12+ characters,
    tick **Auto Confirm User** → Create.
 
@@ -115,9 +115,7 @@ and three rows for `NEXT_PUBLIC_APP_ENV`.
 [DEV dashboard](https://supabase.com/dashboard/project/gfnrlbpiqdmlkuyhbwde):
 
 1. **Authentication → Sign In / Providers**: sign-ups **OFF**, Email **enabled**, min length **12** (if not done).
-2. **Authentication → URL Configuration**: Site URL `http://localhost:3000`. Redirect URLs:
-   `https://*-zbignevs-projects.vercel.app/auth/confirm`, `http://localhost:3000/auth/confirm`
-   (and `https://dev.smilo.lt/auth/confirm` if you set up step 11).
+2. **Authentication → URL Configuration**: Site URL `http://localhost:3000` (no redirect URLs needed).
 3. **Authentication → Users**: keep one _test_ login for previews (not your real password). If real client data was
    typed into the app while production used DEV (before this change), it is still in DEV: re-enter it in PROD (or ask
    Claude to copy it), then delete it from DEV — personal data should live only in PROD.
@@ -187,7 +185,7 @@ GitHub → **Settings → Rules → Rulesets → New branch ruleset**: name `mai
 3. Wait 5–60 min. **Check:** Vercel Domains shows **Valid Configuration** and a certificate; https://app.smilo.lt
    opens the login page with no badge; https://smilo.lt still shows the website.
 4. Optional: **Settings → Domains → `smilo-book-app.vercel.app` → Edit → Redirect to `app.smilo.lt`** so there is one
-   address. Then remove `https://smilo-book-app.vercel.app/auth/confirm` from PROD redirect URLs.
+   address.
 
 ### 10. Paid plans — by Fri 2026-11-06 (R4)
 
@@ -205,20 +203,19 @@ GitHub → **Settings → Rules → Rulesets → New branch ruleset**: name `mai
 
 Previews already get automatic URLs per branch. A fixed alias only helps with a long-lived branch: create branch
 `dev`, then Vercel → Domains → Add `dev.smilo.lt` → Connect to environment **Preview**, Git branch `dev`; add
-Hostinger CNAME `dev` → Vercel value; add `https://dev.smilo.lt/auth/confirm` to DEV redirect URLs.
+Hostinger CNAME `dev` → Vercel value.
 
-### 12. Branded auth e-mails (custom SMTP)
+### 12. Forgotten password (no e-mail flow in the app)
 
-Supabase's built-in mailer allows only a few e-mails per hour and its templates cannot be fully customised on the
-free plan. With custom SMTP you can send password-reset e-mails in Lithuanian from `noreply@smilo.lt`:
+The app has one user (the owner), so it has no "Pamiršau slaptažodį" page and sends no e-mails. Signed in, the
+password is changed in **Nustatymai → Keisti slaptažodį**. If it is forgotten, set a new one in the PROD
+dashboard → **SQL Editor**:
 
-- **Easiest:** a Hostinger mailbox (you already use Hostinger for `smilo.lt`; check hPanel → Emails): host
-  `smtp.hostinger.com`, port 465, user = mailbox address, password = mailbox password.
-- **EU transactional providers:** Brevo (France), Mailjet (France), Scaleway Transactional Email (Paris), Amazon SES
-  in `eu-central-1`. Each asks you to add SPF/DKIM records in Hostinger DNS — merge into the existing SPF record,
-  never create a second one.
+```sql
+update auth.users
+set encrypted_password = extensions.crypt('NEW-PASSWORD-12+-CHARS', extensions.gen_salt('bf'))
+where email = 'owner@example.lt';
+```
 
-Then PROD → **Authentication → Emails → SMTP Settings** → enable, fill in host/port/user/password, sender
-`noreply@smilo.lt`, sender name `Smilo`. Edit the **Reset password** template; use this link so it works from any
-browser: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/account/new-password`.
-**Check:** "Pamiršau slaptažodį" on app.smilo.lt delivers the e-mail and the link opens the new-password page.
+(or ask Claude to do it). Never delete and re-create the user instead: every row belongs to its user id, and a new
+user would not see any of the existing data.

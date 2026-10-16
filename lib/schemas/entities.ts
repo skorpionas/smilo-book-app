@@ -5,6 +5,7 @@ import {
   checkbox,
   duration,
   optionalEmail,
+  optionalName,
   optionalPhone,
   optionalText,
   price,
@@ -44,9 +45,13 @@ export type GroomerInput = z.output<typeof groomerSchema>;
 // ---------------------------------------------------------------------------
 // Clients (issue #15)
 // ---------------------------------------------------------------------------
+/**
+ * Family (account) contact: owner name, phone and e-mail — all optional. A family
+ * without any contact is shown by its pets' names.
+ */
 export const clientSchema = z.object({
   id: optionalId,
-  fullName: requiredText(100, 2),
+  fullName: optionalName(100),
   phone: optionalPhone,
   email: optionalEmail,
   notes: optionalText(2000),
@@ -63,7 +68,12 @@ const emptyToNull = (v: unknown) => (v === "" || v === null || v === undefined ?
 export const petSchema = z
   .object({
     id: optionalId,
-    clientId: uuid,
+    /** Owner is optional (pet first). */
+    clientId: optionalId,
+    /** New pet only: an optional contact created together with it (any of the three). */
+    ownerName: optionalName(100),
+    ownerPhone: optionalPhone,
+    ownerEmail: optionalEmail,
     name: requiredText(50),
     species: z.enum(SPECIES, { error: "required" }),
     breed: optionalText(80),
@@ -113,3 +123,42 @@ export const petSchema = z
     }
   });
 export type PetInput = z.output<typeof petSchema>;
+
+// ---------------------------------------------------------------------------
+// Per-pet services: the pet's own duration and price for a service
+// ---------------------------------------------------------------------------
+export const petServiceSchema = z.object({
+  petId: uuid,
+  serviceId: z.string({ error: "required" }).min(1, { error: "required" }).pipe(uuid),
+  durationMin: duration,
+  price,
+});
+export type PetServiceInput = z.output<typeof petServiceSchema>;
+
+/** A family's shared service: total time and price for all of the client's pets. */
+export const clientServiceSchema = z.object({
+  clientId: uuid,
+  serviceId: z.string({ error: "required" }).min(1, { error: "required" }).pipe(uuid),
+  durationMin: duration,
+  price,
+});
+
+/** Moving a pet to a new family: its contact is optional too. */
+export const petOwnerContactSchema = z.object({
+  fullName: optionalName(100),
+  phone: optionalPhone,
+  email: optionalEmail,
+});
+
+/** Several new pets at once (a household): name + species per row, owner optional. */
+export const newPetsSchema = z.object({
+  clientId: optionalId,
+  pets: z
+    .array(z.object({ name: requiredText(50), species: z.enum(SPECIES, { error: "required" }) }))
+    .min(1, { error: "itemsRequired" })
+    .max(10, { error: "invalid" }),
+  ownerName: optionalName(100),
+  ownerPhone: optionalPhone,
+  ownerEmail: optionalEmail,
+});
+export type NewPetsInput = z.input<typeof newPetsSchema>;

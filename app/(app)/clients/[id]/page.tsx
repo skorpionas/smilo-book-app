@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { ClientActions, PetsSection } from "@/components/clients/client-detail";
 import { PageBody, PageHeader } from "@/components/page-header";
+import { PetServicesSection } from "@/components/pets/pet-services-section";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { Card } from "@/components/ui/card";
 import { GroomerDot } from "@/components/ui/groomer-chip";
 import { uuid } from "@/lib/schemas/common";
 import { formatEur } from "@/lib/money";
-import { formatPhone, phoneDigits } from "@/lib/phone";
+import { contactLabel, formatPhone, phoneDigits } from "@/lib/phone";
 import { createClient } from "@/lib/supabase/server";
 import { todayInVilnius, toVilniusDate, toVilniusTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -29,28 +30,42 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
 
   const t = await getTranslations("clients");
   const supabase = await createClient();
-  const [{ data: client }, { data: pets }, { data: bookings }] = await Promise.all([
-    supabase
-      .from("clients")
-      .select("id, full_name, phone_e164, email, notes, archived_at, anonymized_at")
-      .eq("id", id)
-      .maybeSingle(),
-    supabase
-      .from("pets")
-      .select("id, name, species, breed, size, weight_kg, birth_year, birth_month, notes")
-      .eq("client_id", id)
-      .is("archived_at", null)
-      .order("name"),
-    supabase
-      .from("bookings")
-      .select(
-        "id, start_at, end_at, status, notes, groomers(name, color), booking_items(id, position, planned_price, actual_price, visit_notes, pets(name), services(name))",
-      )
-      .eq("client_id", id)
-      .eq("kind", "booking")
-      .order("start_at", { ascending: false })
-      .limit(200),
-  ]);
+  const [{ data: client }, { data: pets }, { data: bookings }, { data: family }, { data: services }] =
+    await Promise.all([
+      supabase
+        .from("clients")
+        .select("id, full_name, phone_e164, email, notes, archived_at, anonymized_at")
+        .eq("id", id)
+        .maybeSingle(),
+      supabase
+        .from("pets")
+        .select("id, name, species, breed, size, weight_kg, birth_year, birth_month, notes")
+        .eq("client_id", id)
+        .is("archived_at", null)
+        .order("name"),
+      supabase
+        .from("bookings")
+        .select(
+          "id, start_at, end_at, status, notes, groomers(name, color), booking_items(id, position, planned_price, actual_price, visit_notes, pets(name), services(name))",
+        )
+        .eq("client_id", id)
+        .eq("kind", "booking")
+        .order("start_at", { ascending: false })
+        .limit(200),
+      supabase
+        .from("client_services")
+        .select(
+          "id, service_id, duration_min, price, position, created_at, services(name, default_duration_min, default_price, archived_at)",
+        )
+        .eq("client_id", id)
+        .order("position")
+        .order("created_at"),
+      supabase
+        .from("services")
+        .select("id, name, default_duration_min, default_price")
+        .is("archived_at", null)
+        .order("name"),
+    ]);
   if (!client) notFound();
 
   const { all, upcoming, history } = partitionVisits(bookings ?? []);
@@ -61,9 +76,9 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
   return (
     <>
       <PageHeader
-        title={client.full_name}
+        title={contactLabel({ ...client, pets: pets ?? [] })}
         eyebrow={
-          <Link href="/clients" className="hover:text-foreground inline-flex items-center gap-1">
+          <Link href="/clients?view=owners" className="hover:text-foreground inline-flex items-center gap-1">
             <ArrowLeft aria-hidden className="size-4" />
             {t("back")}
           </Link>
@@ -74,7 +89,7 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
             archived={client.archived_at !== null}
             client={{
               id: client.id,
-              fullName: client.full_name,
+              fullName: client.full_name ?? "",
               phone: formatPhone(client.phone_e164),
               email: client.email,
               notes: client.notes,
@@ -86,34 +101,38 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
       <PageBody className="max-w-3xl space-y-8">
         <Card className="space-y-4 p-4 sm:p-5">
           <div className="flex items-center gap-3">
-            <Avatar name={client.full_name} size="lg" />
+            <Avatar name={contactLabel({ ...client, pets: pets ?? [] })} size="lg" />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap gap-1.5">
                 {client.anonymized_at ? <Badge tone="neutral">{t("anonymizedBadge")}</Badge> : null}
                 {client.archived_at && !client.anonymized_at ? (
                   <Badge tone="neutral">{t("archivedBadge")}</Badge>
                 ) : null}
-                <Badge tone={cancelled > 0 ? "neutral" : "outline"}>
-                  {t("cancelledCount", { count: cancelled })}
-                </Badge>
-                <Badge tone={noShows > 0 ? "warning" : "outline"}>
-                  {t("noShowCount", { count: noShows })}
-                </Badge>
+                {/* only when there is something to warn about: "0" badges were noise */}
+                {cancelled > 0 ? (
+                  <Badge tone="neutral">{t("cancelledCount", { count: cancelled })}</Badge>
+                ) : null}
+                {noShows > 0 ? <Badge tone="warning">{t("noShowCount", { count: noShows })}</Badge> : null}
               </div>
+              {client.full_name && (client.phone_e164 || client.email) ? (
+                <p className="mt-1.5 font-medium">{client.full_name}</p>
+              ) : null}
               {client.phone_e164 ? (
-                <p className="mt-1.5 text-base tabular-nums">{formatPhone(client.phone_e164)}</p>
-              ) : (
-                <p className="text-muted mt-1.5 text-sm">{t("noPhone")}</p>
-              )}
+                <p className="mt-1 text-base tabular-nums">{formatPhone(client.phone_e164)}</p>
+              ) : !client.full_name && !client.email ? (
+                // A family without any contact is fine: it is shown by its pets
+                <p className="text-muted mt-1.5 text-sm">{t("noContact")}</p>
+              ) : null}
               {client.email ? <p className="text-muted truncate text-sm">{client.email}</p> : null}
             </div>
           </div>
           {client.notes ? (
             <p className="text-foreground-soft text-sm whitespace-pre-line">{client.notes}</p>
           ) : null}
+          {/* phone: the main action full width on top, call / e-mail share the row below */}
           <div className="flex flex-wrap gap-2">
             {client.phone_e164 ? (
-              <Button asChild variant="secondary">
+              <Button asChild variant="secondary" className="flex-1 sm:flex-none">
                 <a
                   href={`tel:+${phoneDigits(client.phone_e164)}`}
                   aria-label={t("callNamed", { phone: formatPhone(client.phone_e164) })}
@@ -124,7 +143,7 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
               </Button>
             ) : null}
             {client.email ? (
-              <Button asChild variant="ghost">
+              <Button asChild variant="ghost" className="flex-1 sm:flex-none">
                 <a href={`mailto:${client.email}`}>
                   <Mail aria-hidden />
                   {t("email")}
@@ -132,7 +151,7 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
               </Button>
             ) : null}
             {!readOnly ? (
-              <Button asChild>
+              <Button asChild className="order-first basis-full sm:order-none sm:basis-auto">
                 <Link href={`/calendar?client=${client.id}`}>
                   <CalendarPlus aria-hidden />
                   {t("book")}
@@ -158,6 +177,34 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
             notes: p.notes,
           }))}
         />
+
+        {/* One service for all the pets together (e.g. "Maudymas abiem, 2 h, 50 €") */}
+        {/* Always visible: see, add, edit and remove the family's shared services */}
+        {!client.anonymized_at ? (
+          <PetServicesSection
+            kind="family"
+            petId={client.id}
+            petName={(pets ?? []).map((p) => p.name).join(", ")}
+            readOnly={readOnly}
+            services={(services ?? []).map((x) => ({
+              id: x.id,
+              name: x.name,
+              defaultDurationMin: x.default_duration_min,
+              defaultPrice: Number(x.default_price),
+            }))}
+            rows={(family ?? [])
+              .filter((r) => r.services && !r.services.archived_at)
+              .map((r) => ({
+                id: r.id,
+                serviceId: r.service_id,
+                serviceName: r.services?.name ?? "",
+                durationMin: r.duration_min,
+                price: Number(r.price),
+                defaultDurationMin: r.services?.default_duration_min ?? r.duration_min,
+                defaultPrice: Number(r.services?.default_price ?? r.price),
+              }))}
+          />
+        ) : null}
 
         <VisitSection id="upcoming" title={t("upcoming")} empty={t("noUpcoming")} visits={upcoming} />
         <VisitSection id="history" title={t("history")} empty={t("noHistory")} visits={history} />
@@ -213,7 +260,7 @@ function VisitSection({
 }) {
   return (
     <section aria-labelledby={`${id}-heading`} className="space-y-2">
-      <h2 id={`${id}-heading`} className="text-muted px-1 text-xs font-semibold tracking-wider uppercase">
+      <h2 id={`${id}-heading`} className="text-foreground-soft px-1 text-[0.9375rem] font-semibold">
         {title}
       </h2>
       {visits.length === 0 ? (

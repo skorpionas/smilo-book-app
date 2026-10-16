@@ -4,9 +4,11 @@ import {
   duration,
   gridTime,
   optionalEmail,
+  optionalName,
   optionalPhone,
   optionalText,
   price,
+  requireContact,
   requiredText,
   uuid,
 } from "./common";
@@ -21,12 +23,17 @@ export const bookingDate = dateStr.refine((d) => d >= todayInVilnius(), { error:
  * booking sheet; the same schema validates on the server.
  */
 const existingClient = z.object({ mode: z.literal("existing"), id: uuid });
-const newClient = z.object({
-  mode: z.literal("new"),
-  fullName: requiredText(100, 2),
-  phone: optionalPhone,
-  email: optionalEmail,
-});
+/** New contact card: name, phone, e-mail each optional, at least one (else use "none"). */
+const newClient = z
+  .object({
+    mode: z.literal("new"),
+    fullName: optionalName(100),
+    phone: optionalPhone,
+    email: optionalEmail,
+  })
+  .superRefine((v, ctx) => requireContact(v, ctx));
+/** Pet first: a booking can have no client at all. */
+const noClient = z.object({ mode: z.literal("none") });
 
 const existingPet = z.object({ mode: z.literal("existing"), id: uuid });
 const newPet = z.object({
@@ -41,6 +48,10 @@ export const bookingItemSchema = z.object({
   serviceId: z.string({ error: "required" }).min(1, { error: "required" }).pipe(uuid),
   durationMin: duration,
   plannedPrice: price,
+  /** Save this duration + price as the pet's own service (pre-filled next time). */
+  remember: z.boolean().optional().default(false),
+  /** Rows with the same number were one shared service for several pets (time and price split). */
+  sharedGroup: z.number().int().min(1).max(6).optional(),
 });
 
 export const bookingSchema = z
@@ -49,9 +60,15 @@ export const bookingSchema = z
     date: bookingDate,
     startTime: gridTime,
     durationMin: duration,
-    client: z.discriminatedUnion("mode", [existingClient, newClient], { error: "required" }),
+    client: z.discriminatedUnion("mode", [existingClient, newClient, noClient], { error: "required" }),
     items: z.array(bookingItemSchema).min(1, { error: "itemsRequired" }).max(6, { error: "invalid" }),
     notes: optionalText(2000),
+    /** Shared services to save as the family's usual price (totals for all pets). */
+    rememberFamily: z
+      .array(z.object({ serviceId: uuid, durationMin: duration, price }))
+      .max(6)
+      .optional()
+      .default([]),
   })
   .superRefine((value, ctx) => {
     // A new pet can only be added to a new or existing client of this booking — always true here —

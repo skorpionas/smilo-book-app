@@ -19,21 +19,27 @@ import {
 } from "date-fns";
 
 import {
-  DAY_CLOSE,
-  DAY_OPEN,
+  DEFAULT_WINDOW,
   SLOT_MINUTES,
   TIME_ZONE,
   minutesToTime,
   snapMinutes,
   timeToMinutes,
   type DateStr,
+  type GridWindow,
   type TimeStr,
 } from "./clock";
 
 export {
   DAY_CLOSE,
   DAY_OPEN,
+  DEFAULT_WINDOW,
   GRID_ROWS,
+  edgeLabel,
+  gridWindowFor,
+  windowRows,
+  windowSlots,
+  type GridWindow,
   SLOT_MINUTES,
   TIME_ZONE,
   isTimeStr,
@@ -223,30 +229,42 @@ export function isValidDuration(minutes: number): boolean {
 }
 
 /**
- * Position of a booking in the day grid, in rows from DAY_OPEN, clipped to the
- * visible window. Uses wall-clock minutes so DST days render like any other.
- * Returns null when the booking is entirely outside the window or day.
+ * Wall-clock span of a booking on `date`, in minutes since midnight, clipped to
+ * that day (a block from yesterday starts at 0). null when it isn't on that day.
+ */
+export function daySpan(
+  start: Date | string,
+  end: Date | string,
+  date: DateStr,
+): { from: number; to: number } | null {
+  const { start: dayStart, end: dayEnd } = dayBoundsUtc(date);
+  const s = toDate(start);
+  const e = toDate(end);
+  if (e <= dayStart || s >= dayEnd) return null;
+  const from = s < dayStart ? 0 : vilniusMinutesOfDay(s);
+  const to = e >= dayEnd ? 24 * 60 : vilniusMinutesOfDay(e) || 24 * 60;
+  return to > from ? { from, to } : null;
+}
+
+/**
+ * Position of a booking in the day grid, in rows from the window's opening hour,
+ * clipped to the visible window (default 08:00–19:00). Uses wall-clock minutes so
+ * DST days render like any other. Returns null when the booking is entirely
+ * outside the window or day.
  */
 export function gridPosition(
   start: Date | string,
   end: Date | string,
   date: DateStr,
+  window: GridWindow = DEFAULT_WINDOW,
 ): { row: number; span: number } | null {
-  const { start: dayStart, end: dayEnd } = dayBoundsUtc(date);
-  const s = toDate(start);
-  const e = toDate(end);
-  if (e <= dayStart || s >= dayEnd) return null;
-
-  const open = timeToMinutes(DAY_OPEN);
-  const close = timeToMinutes(DAY_CLOSE);
-  const startMin = s < dayStart ? 0 : vilniusMinutesOfDay(s);
-  const endMin = e >= dayEnd ? 24 * 60 : vilniusMinutesOfDay(e) || 24 * 60;
-
-  const from = Math.max(startMin, open);
-  const to = Math.min(endMin, close);
+  const span = daySpan(start, end, date);
+  if (!span) return null;
+  const from = Math.max(span.from, window.open);
+  const to = Math.min(span.to, window.close);
   if (to <= from) return null;
   return {
-    row: Math.floor((from - open) / SLOT_MINUTES),
+    row: Math.floor((from - window.open) / SLOT_MINUTES),
     span: Math.max(1, Math.ceil((to - from) / SLOT_MINUTES)),
   };
 }

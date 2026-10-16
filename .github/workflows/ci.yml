@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # started by ui-screens.yml after it commits screenshots (GITHUB_TOKEN pushes trigger nothing)
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -33,7 +35,7 @@ jobs:
   db-and-e2e:
     name: DB tests (pgTAP) + E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

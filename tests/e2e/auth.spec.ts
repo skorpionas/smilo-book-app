@@ -39,7 +39,7 @@ test.describe("US-01 login", () => {
     await expect(page.getByText("Meistrė B")).toBeVisible();
 
     // all five sections reachable, touch targets ≥ 44 px
-    for (const name of ["Artimiausi", "Paieška", "Klientai", "Nustatymai", "Kalendorius"]) {
+    for (const name of ["Artimiausi", "Paieška", "Augintiniai", "Nustatymai", "Kalendorius"]) {
       const link = nav.getByRole("link", { name });
       const box = await link.boundingBox();
       expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);

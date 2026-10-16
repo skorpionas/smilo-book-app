@@ -1,6 +1,7 @@
 "use client";
 
-import { Archive, ArchiveRestore, Cat, Dog, Pencil, Plus, TriangleAlert } from "lucide-react";
+import { Archive, ArchiveRestore, Cat, ChevronRight, Dog, Pencil, Plus, TriangleAlert } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import * as React from "react";
 import { ConfirmDialog } from "@/components/forms/confirm-dialog";
@@ -12,6 +13,7 @@ import { toast } from "@/components/ui/toast";
 import { setClientArchived, setPetArchived } from "@/lib/actions/clients";
 import { formatAge } from "@/lib/format";
 import { ClientSheet, type ClientFormValues } from "./client-sheet";
+import { NewPetsSheet } from "@/components/pets/new-pets-sheet";
 import { PetSheet, type PetFormValues } from "./pet-sheet";
 
 /** Edit / archive / restore buttons on the client page header. */
@@ -44,7 +46,7 @@ export function ClientActions({ client, archived }: { client: ClientFormValues; 
           </Button>
           <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
             <Pencil aria-hidden />
-            {t("edit")}
+            {client.fullName || client.phone || client.email ? t("edit") : t("addContact")}
           </Button>
         </>
       )}
@@ -82,7 +84,7 @@ export function PetsSection({
   const [archiving, setArchiving] = React.useState<PetFormValues | null>(null);
 
   async function archive(pet: PetFormValues) {
-    const res = await setPetArchived(pet.id, clientId, true);
+    const res = await setPetArchived(pet.id, true, clientId);
     if (res?.ok) {
       toast({ title: tp("archived"), description: pet.name });
       return true;
@@ -94,7 +96,7 @@ export function PetsSection({
   return (
     <section aria-labelledby="pets-heading" className="space-y-2">
       <div className="flex min-h-11 items-center justify-between gap-2 px-1">
-        <h2 id="pets-heading" className="text-muted text-xs font-semibold tracking-wider uppercase">
+        <h2 id="pets-heading" className="text-foreground-soft text-[0.9375rem] font-semibold">
           {t("pets")}
         </h2>
         {!readOnly ? (
@@ -116,7 +118,7 @@ export function PetsSection({
           />
         </Card>
       ) : (
-        <ul className="grid gap-2 sm:grid-cols-2">
+        <ul className="grid items-start gap-2 sm:grid-cols-2">
           {pets.map((pet) => {
             const facts = [
               ts(pet.species),
@@ -133,10 +135,17 @@ export function PetsSection({
                       name={pet.name}
                       icon={pet.species === "cat" ? <Cat aria-hidden /> : <Dog aria-hidden />}
                     />
-                    <div className="min-w-0 flex-1">
-                      <h3 className="truncate text-base font-semibold">{pet.name}</h3>
+                    <Link
+                      href={`/pets/${pet.id}`}
+                      aria-label={t("openPet", { name: pet.name })}
+                      className="group -my-1 min-w-0 flex-1 py-1"
+                    >
+                      <h3 className="group-hover:text-primary flex items-center gap-1 truncate text-base font-semibold">
+                        {pet.name}
+                        <ChevronRight aria-hidden className="text-muted size-4 shrink-0" />
+                      </h3>
                       <p className="text-muted text-sm">{facts.join(" · ")}</p>
-                    </div>
+                    </Link>
                     {!readOnly ? (
                       <Button
                         variant="ghost"
@@ -157,8 +166,14 @@ export function PetsSection({
         </ul>
       )}
 
+      {/* adding: several pets at once; editing: the full form for one pet */}
+      <NewPetsSheet
+        open={editing === "new"}
+        onOpenChange={(o) => !o && setEditing(null)}
+        clientId={clientId}
+      />
       <PetSheet
-        open={editing !== null}
+        open={editing !== null && editing !== "new"}
         onOpenChange={(o) => !o && setEditing(null)}
         clientId={clientId}
         pet={editing === "new" ? null : editing}

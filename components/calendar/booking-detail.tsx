@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, CalendarClock, Phone, Trash2, UserRound } from "lucide-react";
+import { Ban, CalendarClock, Cat, ChevronRight, Dog, Phone, Trash2, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import * as React from "react";
@@ -125,11 +125,62 @@ export function BookingDetailSheet({
                   </div>
                 ) : (
                   <>
+                    <section className="space-y-3">
+                      <h3 className="text-foreground-soft text-[0.9375rem] font-semibold">{t("pets")}</h3>
+                      <ul className="space-y-3">
+                        {groupItems(b.items).map((group) => {
+                          const first = group[0];
+                          const shared = group.length > 1;
+                          const minutes = group.reduce((m, i) => m + i.durationMin, 0);
+                          const price = group.reduce((m, i) => m + (i.actualPrice ?? i.plannedPrice), 0);
+                          return (
+                            <li key={first.id} className="border-border space-y-2 rounded-lg border p-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="flex flex-wrap items-center gap-x-3">
+                                    {group.map((item) =>
+                                      item.petId ? (
+                                        <Link
+                                          key={item.id}
+                                          href={`/pets/${item.petId}`}
+                                          className="hover:text-primary -my-1 inline-flex min-h-11 items-center gap-1.5 font-semibold"
+                                        >
+                                          {item.species === "cat" ? (
+                                            <Cat aria-hidden className="text-muted size-4" />
+                                          ) : (
+                                            <Dog aria-hidden className="text-muted size-4" />
+                                          )}
+                                          {item.petName}
+                                          <ChevronRight aria-hidden className="text-muted size-4" />
+                                        </Link>
+                                      ) : (
+                                        <span key={item.id} className="font-semibold">
+                                          {item.petName}
+                                        </span>
+                                      ),
+                                    )}
+                                  </p>
+                                  <p className="text-muted text-sm">
+                                    {first.serviceName} · {formatDuration(tu, minutes)}
+                                    {shared ? ` · ${t("sharedTogether")}` : ""}
+                                  </p>
+                                </div>
+                                <p className="font-medium tabular-nums">{formatEur(price)}</p>
+                              </div>
+                              {group.map((item) =>
+                                item.petNotes ? (
+                                  <PetNotes key={item.id} notes={item.petNotes} label={tp("notes")} />
+                                ) : null,
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </section>
+
                     {b.client ? (
                       <section className="space-y-2">
-                        <h3 className="text-muted text-xs font-semibold tracking-wider uppercase">
-                          {t("client")}
-                        </h3>
+                        <h3 className="text-foreground-soft text-[0.9375rem] font-semibold">{t("client")}</h3>
                         <p className="text-lg font-semibold">{b.client.fullName}</p>
                         <div className="flex flex-wrap gap-2">
                           {b.client.phone ? (
@@ -153,33 +204,9 @@ export function BookingDetailSheet({
                       </section>
                     ) : null}
 
-                    <section className="space-y-3">
-                      <h3 className="text-muted text-xs font-semibold tracking-wider uppercase">
-                        {t("pets")}
-                      </h3>
-                      <ul className="space-y-3">
-                        {b.items.map((item) => (
-                          <li key={item.id} className="border-border space-y-2 rounded-lg border p-3">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="font-semibold">{item.petName}</p>
-                                <p className="text-muted text-sm">
-                                  {item.serviceName} · {formatDuration(tu, item.durationMin)}
-                                </p>
-                              </div>
-                              <p className="font-medium tabular-nums">
-                                {formatEur(item.actualPrice ?? item.plannedPrice)}
-                              </p>
-                            </div>
-                            {item.petNotes ? <PetNotes notes={item.petNotes} label={tp("notes")} /> : null}
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
-
                     {b.notes ? (
                       <section className="space-y-1">
-                        <h3 className="text-muted text-xs font-semibold tracking-wider uppercase">
+                        <h3 className="text-foreground-soft text-[0.9375rem] font-semibold">
                           {t("bookingNotes")}
                         </h3>
                         <p className="whitespace-pre-line">{b.notes}</p>
@@ -381,4 +408,15 @@ function RescheduleForm({
       </SheetFooter>
     </form>
   );
+}
+
+/** Rows entered as one shared service (same sharedGroup) are shown as one line. */
+function groupItems(items: CalendarBooking["items"]): CalendarBooking["items"][] {
+  const groups: CalendarBooking["items"][] = [];
+  for (const item of items) {
+    const last = groups[groups.length - 1];
+    if (item.sharedGroup !== null && last && last[0].sharedGroup === item.sharedGroup) last.push(item);
+    else groups.push([item]);
+  }
+  return groups;
 }

@@ -35,12 +35,16 @@ export function PetSheet({
   clientId,
   pet,
   onArchive,
+  openAfterCreate,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  clientId: string;
+  /** Owner, if the pet has one (pet first: optional). */
+  clientId: string | null;
   pet: PetFormValues | null;
   onArchive?: (pet: PetFormValues) => void;
+  /** New pet from the pet list: open its page after saving. */
+  openAfterCreate?: boolean;
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -52,6 +56,7 @@ export function PetSheet({
             pet={pet}
             onSaved={() => onOpenChange(false)}
             onArchive={onArchive}
+            openAfterCreate={openAfterCreate}
           />
         ) : null}
       </SheetContent>
@@ -64,11 +69,13 @@ function PetForm({
   pet,
   onSaved,
   onArchive,
+  openAfterCreate,
 }: {
-  clientId: string;
+  clientId: string | null;
   pet: PetFormValues | null;
   onSaved: () => void;
   onArchive?: (pet: PetFormValues) => void;
+  openAfterCreate?: boolean;
 }) {
   const t = useTranslations("pets");
   const tc = useTranslations("common");
@@ -94,7 +101,8 @@ function PetForm({
         <SheetTitle>{pet ? t("editPet") : t("newPet")}</SheetTitle>
       </SheetHeader>
       <SheetBody className="space-y-5 pb-5">
-        <input type="hidden" name="clientId" value={clientId} />
+        {clientId ? <input type="hidden" name="clientId" value={clientId} /> : null}
+        {!pet && openAfterCreate ? <input type="hidden" name="then" value="open" /> : null}
         {pet ? <input type="hidden" name="id" value={pet.id} /> : null}
         {state?.error && !state.fieldErrors ? (
           <Alert tone="danger" role="alert">
@@ -243,6 +251,8 @@ function PetForm({
             />
           )}
         </Field>
+
+        {!pet && !clientId ? <OwnerContactFields errors={fe} /> : null}
       </SheetBody>
       <SheetFooter>
         {pet && onArchive ? (
@@ -311,6 +321,61 @@ export function SpeciesToggle({
         ))}
       </div>
       {error ? <p className="text-danger mt-1.5 text-sm">{error}</p> : null}
+    </fieldset>
+  );
+}
+
+/**
+ * Optional owner contact for a new pet (pet first): any of name / phone / e-mail, or
+ * nothing at all. Filled in → a client card is created and linked to the pet.
+ */
+function OwnerContactFields({ errors }: { errors: Record<string, string> }) {
+  const t = useTranslations("pets");
+  const tc = useTranslations("common");
+  const tcl = useTranslations("clients");
+  return (
+    <fieldset className="border-border space-y-4 rounded-lg border p-3.5">
+      <legend className="px-1 text-sm font-semibold">
+        {t("ownerContact")} <span className="text-muted font-normal">({tc("optional")})</span>
+      </legend>
+      <p className="text-muted -mt-1 text-sm">{t("ownerContactHint")}</p>
+      <Field
+        id="pet-owner-name"
+        name="ownerName"
+        label={tcl("fullName")}
+        optional={tc("optional")}
+        error={errors.ownerName}
+      >
+        {(p) => <Input {...p} autoComplete="off" autoCapitalize="words" maxLength={100} />}
+      </Field>
+      <Field
+        id="pet-owner-phone"
+        name="ownerPhone"
+        label={tcl("phone")}
+        hint={tcl("phoneHint")}
+        optional={tc("optional")}
+        error={errors.ownerPhone}
+      >
+        {(p) => <Input {...p} type="tel" inputMode="tel" autoComplete="off" />}
+      </Field>
+      <Field
+        id="pet-owner-email"
+        name="ownerEmail"
+        label={tcl("email")}
+        optional={tc("optional")}
+        error={errors.ownerEmail}
+      >
+        {(p) => (
+          <Input
+            {...p}
+            type="email"
+            inputMode="email"
+            autoCapitalize="none"
+            autoComplete="off"
+            spellCheck={false}
+          />
+        )}
+      </Field>
     </fieldset>
   );
 }

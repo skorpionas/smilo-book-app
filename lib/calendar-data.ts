@@ -1,11 +1,13 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { formatPhone } from "@/lib/phone";
+import { contactLabel, formatPhone } from "@/lib/phone";
+import { gridWindowFor } from "@/lib/clock";
 import { lanesForDate } from "@/lib/schedule";
 import {
   addDays,
   dayBoundsUtc,
   durationMinutes,
+  daySpan,
   gridPosition,
   toVilniusDate,
   toVilniusTime,
@@ -31,9 +33,19 @@ export type CalendarBooking = {
   status: "scheduled" | "completed" | "cancelled" | "no_show";
   notes: string;
   blockReason: string;
-  client: { id: string; fullName: string; phone: string | null; phoneDisplay: string } | null;
+  client: {
+    id: string;
+    fullName: string;
+    phone: string | null;
+    phoneDisplay: string;
+    /** false = a family without contact (shown by its pets): no separate client line */
+    hasContact: boolean;
+  } | null;
   items: {
     id: string;
+    /** Same number = one shared service for several pets (see booking detail). */
+    sharedGroup: number | null;
+    petId: string;
     petName: string;
     species: "dog" | "cat";
     petNotes: string;
@@ -69,7 +81,7 @@ export async function loadRange(from: DateStr, to: DateStr, gridDate?: DateStr) 
     supabase
       .from("bookings")
       .select(
-        "id, kind, groomer_id, start_at, end_at, status, notes, block_reason, clients(id, full_name, phone_e164), booking_items(id, position, duration_min, planned_price, actual_price, pets(name, species, notes), services(name))",
+        "id, kind, groomer_id, start_at, end_at, status, notes, block_reason, clients(id, full_name, phone_e164, email, pets(name, archived_at)), booking_items(id, position, duration_min, planned_price, actual_price, shared_group, pets(id, name, species, notes), services(name))",
       )
       .neq("status", "cancelled")
       .lt("start_at", end.toISOString())
@@ -80,6 +92,15 @@ export async function loadRange(from: DateStr, to: DateStr, gridDate?: DateStr) 
   for (const r of [groomers, services, bookings]) {
     if (r.error) console.error("[calendar] load failed", { code: r.error.code });
   }
+
+  // Widen the grid's hours when something is booked before 08:00 or after 19:00
+  const rows = bookings.data ?? [];
+  const hours = gridWindowFor(
+    rows.flatMap((b) => {
+      const span = daySpan(b.start_at, b.end_at, gridDate ?? toVilniusDate(b.start_at));
+      return span ? [span] : [];
+    }),
+  );
 
   return {
     groomers: (groomers.data ?? []).map((g): CalendarGroomer => ({
@@ -94,7 +115,8 @@ export async function loadRange(from: DateStr, to: DateStr, gridDate?: DateStr) 
       defaultDurationMin: s.default_duration_min,
       defaultPrice: Number(s.default_price),
     })) satisfies CalendarService[],
-    bookings: (bookings.data ?? []).map((b): CalendarBooking => {
+    hours,
+    bookings: rows.map((b): CalendarBooking => {
       const date = toVilniusDate(b.start_at);
       return {
         id: b.id,
@@ -104,22 +126,25 @@ export async function loadRange(from: DateStr, to: DateStr, gridDate?: DateStr) 
         startTime: toVilniusTime(b.start_at),
         endTime: toVilniusTime(b.end_at),
         durationMin: durationMinutes(b.start_at, b.end_at),
-        grid: gridPosition(b.start_at, b.end_at, gridDate ?? date),
+        grid: gridPosition(b.start_at, b.end_at, gridDate ?? date, hours),
         status: b.status,
         notes: b.notes,
         blockReason: b.block_reason,
         client: b.clients
           ? {
               id: b.clients.id,
-              fullName: b.clients.full_name,
+              fullName: contactLabel(b.clients),
               phone: b.clients.phone_e164,
               phoneDisplay: formatPhone(b.clients.phone_e164),
+              hasContact: Boolean(b.clients.full_name?.trim() || b.clients.phone_e164 || b.clients.email),
             }
           : null,
         items: [...b.booking_items]
           .sort((x, y) => x.position - y.position)
           .map((i) => ({
             id: i.id,
+            sharedGroup: i.shared_group,
+            petId: i.pets?.id ?? "",
             petName: i.pets?.name ?? "",
             species: i.pets?.species ?? "dog",
             petNotes: i.pets?.notes ?? "",

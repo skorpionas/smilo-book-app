@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_WINDOW,
   GRID_ROWS,
+  edgeLabel,
+  gridWindowFor,
+  windowRows,
   addDays,
   dayBoundsUtc,
   durationMinutes,
@@ -188,6 +192,37 @@ describe("15-minute grid", () => {
     expect(
       gridPosition(vilniusToUtc("2026-10-21", "10:00"), vilniusToUtc("2026-10-21", "11:00"), "2026-10-20"),
     ).toBeNull();
+  });
+
+  it("shows a late booking when the window is widened", () => {
+    const late = gridWindowFor([{ from: 20 * 60, to: 21 * 60 + 30 }]);
+    expect(late).toEqual({ open: 8 * 60, close: 22 * 60 });
+    expect(
+      gridPosition(
+        vilniusToUtc("2026-10-20", "20:00"),
+        vilniusToUtc("2026-10-20", "21:30"),
+        "2026-10-20",
+        late,
+      ),
+    ).toEqual({ row: 48, span: 6 });
+  });
+
+  it("widens the window to whole hours, never narrower than 08:00–19:00", () => {
+    expect(gridWindowFor([])).toEqual(DEFAULT_WINDOW);
+    expect(gridWindowFor([{ from: 9 * 60, to: 10 * 60 }])).toEqual(DEFAULT_WINDOW);
+    expect(
+      gridWindowFor([
+        { from: 6 * 60 + 30, to: 8 * 60 },
+        { from: 18 * 60, to: 19 * 60 + 15 },
+      ]),
+    ).toEqual({
+      open: 6 * 60,
+      close: 20 * 60,
+    });
+    // a block running past midnight stops at 24:00
+    expect(gridWindowFor([{ from: 22 * 60, to: 24 * 60 }]).close).toBe(24 * 60);
+    expect(windowRows({ open: 6 * 60, close: 20 * 60 })).toBe(56);
+    expect(edgeLabel(24 * 60)).toBe("24:00");
   });
 
   it("handles multi-day blocks", () => {

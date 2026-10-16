@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { lanesFor, loadRange } from "@/lib/calendar-data";
 import type { IsoDay } from "@/lib/clock";
-import { addDays, isoWeekday, todayInVilnius } from "@/lib/time";
+import { addDays, isoWeekday, todayInVilnius, toVilniusTime } from "@/lib/time";
 import { UPCOMING_DAYS, groupUpcoming } from "@/lib/upcoming";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -30,13 +30,17 @@ export default async function UpcomingPage() {
   const groups = groupUpcoming(bookings, today);
   const total = groups.reduce((n, g) => n + g.bookings.length, 0);
 
-  const days: UpcomingDay[] = groups.map((g) => ({
-    date: g.date,
-    weekdayLong: tw(`long.${isoWeekday(g.date) as IsoDay}`),
-    relative: g.date === today ? "today" : g.date === tomorrow ? "tomorrow" : null,
-    firstLaneId: lanesFor(groomers, g.date, bookings)[0]?.id ?? null,
-    bookings: g.bookings,
-  }));
+  // Every day of the window: busy days with their bookings, free days as one short line
+  const byDate = new Map(groups.map((g) => [g.date, g.bookings]));
+  const days: UpcomingDay[] = Array.from({ length: UPCOMING_DAYS }, (_, i) => addDays(today, i)).map(
+    (date) => ({
+      date,
+      weekdayLong: tw(`long.${isoWeekday(date) as IsoDay}`),
+      relative: date === today ? "today" : date === tomorrow ? "tomorrow" : null,
+      firstLaneId: lanesFor(groomers, date, bookings)[0]?.id ?? null,
+      bookings: byDate.get(date) ?? [],
+    }),
+  );
 
   return (
     <>
@@ -75,7 +79,7 @@ export default async function UpcomingPage() {
               </Button>
             }
           />
-        ) : days.length === 0 ? (
+        ) : total === 0 ? (
           failed ? null : (
             <EmptyState
               icon={Clock}
@@ -92,7 +96,13 @@ export default async function UpcomingPage() {
             />
           )
         ) : (
-          <UpcomingList days={days} groomers={groomers} services={services} today={today} />
+          <UpcomingList
+            days={days}
+            groomers={groomers}
+            services={services}
+            today={today}
+            nowTime={toVilniusTime(new Date())}
+          />
         )}
       </PageBody>
     </>

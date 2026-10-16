@@ -28,7 +28,7 @@ export default async function WeekPage({ searchParams }: PageProps<"/calendar/we
   const tw = await getTranslations("weekdays");
   const ts = await getTranslations("settings");
 
-  const { groomers, services, bookings, failed } = await loadRange(monday, addDays(sunday, 1));
+  const { groomers, services, bookings, hours, failed } = await loadRange(monday, addDays(sunday, 1));
 
   const days: WeekDay[] = dates.map((d) => {
     const n = isoWeekday(d) as IsoDay;
@@ -69,7 +69,7 @@ export default async function WeekPage({ searchParams }: PageProps<"/calendar/we
       ) : null}
 
       {groomers.length > 0 ? (
-        <WeekView days={days} today={today} groomers={groomers} services={services} />
+        <WeekView days={days} today={today} groomers={groomers} services={services} hours={hours} />
       ) : failed ? null : (
         <EmptyState
           icon={UserRound}

@@ -85,7 +85,15 @@ function ClientForm({
             {state.error}
           </Alert>
         ) : null}
-        <Field id="client-name" name="fullName" label={t("fullName")} error={fe.fullName}>
+        {/* Name, phone, e-mail: each optional, at least one (a contact card) */}
+        <p className="text-muted text-sm">{t("contactHint")}</p>
+        <Field
+          id="client-name"
+          name="fullName"
+          label={t("fullName")}
+          optional={tc("optional")}
+          error={fe.fullName}
+        >
           {(p) => (
             <Input
               {...p}
@@ -94,7 +102,6 @@ function ClientForm({
               autoComplete="off"
               autoCapitalize="words"
               maxLength={100}
-              required
               autoFocus={!client}
             />
           )}

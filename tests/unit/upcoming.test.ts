@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { UPCOMING_DAYS, groupUpcoming } from "@/lib/upcoming";
+import { UPCOMING_DAYS, groupUpcoming, nowOrNext } from "@/lib/upcoming";
 
 type B = { id: string; kind: "booking" | "block"; status: string; date: string; startTime: string };
 const b = (id: string, date: string, startTime: string, extra: Partial<B> = {}): B => ({
@@ -61,5 +61,27 @@ describe("groupUpcoming", () => {
       "2026-10-16",
     );
     expect(groups.flatMap((g) => g.bookings.map((x) => x.id))).toEqual(["first", "dst", "last"]);
+  });
+});
+
+describe("nowOrNext", () => {
+  const b = (id: string, startTime: string, endTime: string, status = "scheduled") => ({
+    id,
+    kind: "booking" as const,
+    status,
+    startTime,
+    endTime,
+  });
+  const day = [b("a", "09:00", "10:30", "completed"), b("b", "11:30", "13:00"), b("c", "14:30", "16:00")];
+
+  it("marks the booking in progress", () => {
+    expect(nowOrNext(day, "12:00")).toEqual({ id: "b", label: "now" });
+  });
+  it("otherwise the next one to start", () => {
+    expect(nowOrNext(day, "08:00")).toEqual({ id: "b", label: "next" }); // a is done
+    expect(nowOrNext(day, "13:00")).toEqual({ id: "c", label: "next" });
+  });
+  it("nothing after the last one", () => {
+    expect(nowOrNext(day, "17:00")).toBeNull();
   });
 });

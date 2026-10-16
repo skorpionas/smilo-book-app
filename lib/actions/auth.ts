@@ -1,6 +1,5 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { z } from "zod";
@@ -43,19 +42,7 @@ export async function signOut(): Promise<void> {
   redirect("/login");
 }
 
-export async function requestPasswordReset(_prev: FormState, formData: FormData): Promise<FormState> {
-  const t = await getTranslations("auth");
-  const email = z.email().safeParse(formData.get("email"));
-  // Same answer whether or not the address exists.
-  if (!email.success) return { success: t("resetSent") };
-
-  const supabase = await createClient();
-  await supabase.auth.resetPasswordForEmail(email.data, {
-    redirectTo: `${await siteOrigin()}/auth/confirm?next=/account/new-password`,
-  });
-  return { success: t("resetSent") };
-}
-
+/** "Keisti slaptažodį" in Nustatymai, for the signed-in owner (no e-mail involved). */
 export async function updatePassword(_prev: FormState, formData: FormData): Promise<FormState> {
   const t = await getTranslations("auth");
   const password = z.string().min(12).max(72).safeParse(formData.get("password"));
@@ -65,11 +52,4 @@ export async function updatePassword(_prev: FormState, formData: FormData): Prom
   const { error } = await supabase.auth.updateUser({ password: password.data });
   if (error) return { error: error.code === "weak_password" ? t("passwordTooShort") : t("genericError") };
   redirect("/calendar");
-}
-
-async function siteOrigin(): Promise<string> {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
 }

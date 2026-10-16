@@ -310,7 +310,7 @@ export function SectionHeading({
   return (
     <div className="flex items-end justify-between gap-3 px-1">
       <div className="min-w-0">
-        <h2 id={id} className="text-muted text-xs font-semibold tracking-wider uppercase">
+        <h2 id={id} className="text-foreground-soft text-[0.9375rem] font-semibold">
           {title}
         </h2>
         {hint ? <p className="text-muted mt-0.5 text-sm">{hint}</p> : null}

@@ -9,12 +9,21 @@ import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { CalendarBooking, CalendarGroomer, CalendarLane, CalendarService } from "@/lib/calendar-data";
-import { DAY_CLOSE, DAY_OPEN, GRID_ROWS, SLOT_MINUTES, minutesToTime, type DateStr } from "@/lib/clock";
+import {
+  DAY_OPEN,
+  DEFAULT_WINDOW,
+  SLOT_MINUTES,
+  edgeLabel,
+  minutesToTime,
+  type DateStr,
+  type GridWindow,
+} from "@/lib/clock";
 import { cn } from "@/lib/utils";
 import { CALENDAR_STICKY_TOP } from "./sticky";
 import { BookingDetailSheet } from "./booking-detail";
 import type { BookingDefaults } from "./booking-form";
-import { CLOSE, GroomerColumn, OPEN, ROW_REM, SLOTS, useNowMinutes } from "./day-view";
+import { GroomerColumn, ROW_REM, useNowMinutes } from "./day-view";
+import { GridWindowProvider, useGridWindow } from "./grid-window";
 import { useBookingDrag } from "./drag-move";
 
 const BookingSheet = dynamic(() => import("./booking-form").then((m) => m.BookingSheet));
@@ -39,11 +48,14 @@ export function WeekView({
   today,
   groomers,
   services,
+  hours = DEFAULT_WINDOW,
 }: {
   days: WeekDay[];
   today: DateStr;
   groomers: CalendarGroomer[];
   services: CalendarService[];
+  /** Hours shown in the desktop grid (widened for bookings outside 08:00–19:00). */
+  hours?: GridWindow;
 }) {
   const router = useRouter();
   const [newBooking, setNewBooking] = React.useState<BookingDefaults | null>(null);
@@ -59,16 +71,18 @@ export function WeekView({
   return (
     <>
       <WeekAgenda days={days} today={today} colorOf={colorOf} onOpen={setSelected} onBook={book} />
-      <WeekGrid
-        days={days}
-        today={today}
-        nowMinutes={nowMinutes}
-        onOpen={drag.guardClick(setSelected)}
-        onSlot={drag.guardClick((date: DateStr, groomerId: string, time: string) =>
-          book(date, groomerId, time),
-        )}
-        drag={drag}
-      />
+      <GridWindowProvider hours={hours}>
+        <WeekGrid
+          days={days}
+          today={today}
+          nowMinutes={nowMinutes}
+          onOpen={drag.guardClick(setSelected)}
+          onSlot={drag.guardClick((date: DateStr, groomerId: string, time: string) =>
+            book(date, groomerId, time),
+          )}
+          drag={drag}
+        />
+      </GridWindowProvider>
       {drag.dialog}
 
       <BookingSheet
@@ -106,7 +120,10 @@ function WeekAgenda({
   const t = useTranslations("calendar");
 
   return (
-    <ol className="space-y-3 px-4 pt-1 pb-28 sm:px-6 lg:hidden" aria-label={t("weekGrid")}>
+    <ol
+      className="space-y-3 px-4 pt-1 pb-28 sm:px-6 md:grid md:grid-cols-2 md:items-start md:gap-3 md:space-y-0 lg:hidden"
+      aria-label={t("weekGrid")}
+    >
       {days.map((day) => {
         const visible = day.bookings
           .filter((b) => b.status !== "cancelled")
@@ -227,7 +244,9 @@ export function AgendaRow({
       type="button"
       onClick={() => onOpen(booking)}
       aria-label={[
-        t("openBooking", { time: range, pets, client: booking.client?.fullName ?? "" }),
+        booking.client?.hasContact
+          ? t("openBooking", { time: range, pets, client: booking.client.fullName })
+          : t("openBookingNoClient", { time: range, pets }),
         groomerName,
       ]
         .filter(Boolean)
@@ -243,7 +262,7 @@ export function AgendaRow({
         <span className="truncate font-semibold">{pets}</span>
         <span className="text-muted truncate text-sm">
           {servicesText}
-          {booking.client ? ` · ${booking.client.fullName}` : ""}
+          {booking.client?.hasContact ? ` · ${booking.client.fullName}` : ""}
         </span>
         {groomerName ? (
           <span className="text-muted flex items-center gap-1.5 text-xs">
@@ -287,6 +306,7 @@ function WeekGrid({
   drag: ReturnType<typeof useBookingDrag>;
 }) {
   const t = useTranslations("calendar");
+  const { open: OPEN, close: CLOSE, rows: GRID_ROWS, slots: SLOTS } = useGridWindow();
   const template = "3.5rem repeat(7, minmax(0, 1fr))";
   const nowTop =
     nowMinutes !== null && nowMinutes >= OPEN && nowMinutes <= CLOSE
@@ -366,7 +386,7 @@ function WeekGrid({
             className="text-muted absolute right-2 -translate-y-2 text-xs tabular-nums"
             style={{ top: `${GRID_ROWS * ROW_REM}rem` }}
           >
-            {DAY_CLOSE}
+            {edgeLabel(CLOSE)}
           </span>
         </div>
 
