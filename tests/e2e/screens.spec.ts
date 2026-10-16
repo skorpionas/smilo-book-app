@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
 // Screenshots of every main screen for the UI/UX review (iPhone, iPad portrait +
-// landscape, desktop). Off by default; CI runs it with SCREENSHOTS=1 and uploads
-// the images as the "screenshots" artifact.
+// landscape, desktop). Off by default; .github/workflows/ui-screens.yml runs it with
+// SCREENSHOTS=1 and commits the images to docs/screenshots/.
 test.skip(!process.env.SCREENSHOTS, "set SCREENSHOTS=1 to capture review screenshots");
 
 const OWNER = { email: "owner@smilo.local", password: "smilo-dev-password" };
@@ -15,7 +15,14 @@ const REKSAS = "0d000000-0000-4000-8000-000000000003";
 
 async function shot(page: Page, project: string, name: string, fullPage = true) {
   await page.waitForLoadState("networkidle");
-  await page.screenshot({ path: `screenshots/${project}/${name}.png`, fullPage });
+  // JPEG at CSS pixel size: a full set stays a few MB when committed to docs/screenshots/
+  await page.screenshot({
+    path: `screenshots/${project}/${name}.jpg`,
+    fullPage,
+    type: "jpeg",
+    quality: 70,
+    scale: "css",
+  });
 }
 
 test("capture main screens", async ({ page }, testInfo) => {

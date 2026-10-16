@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # started by ui-screens.yml after it commits screenshots (GITHUB_TOKEN pushes trigger nothing)
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
