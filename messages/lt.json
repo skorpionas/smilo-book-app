@@ -83,7 +83,16 @@
     "total": "vizitų: {count}",
     "tomorrow": "Rytoj",
     "emptyTitle": "Artimiausių vizitų nėra",
-    "emptyText": "Per artimiausias {days} dienų neužregistruotas nė vienas vizitas."
+    "emptyText": "Per artimiausias {days} dienų neužregistruotas nė vienas vizitas.",
+    "filterLabel": "Rodyti meistrę",
+    "allGroomers": "Visos",
+    "daySummary": "{count, plural, one {# vizitas} few {# vizitai} other {# vizitų}} · {hours}",
+    "free": "vizitų nėra",
+    "now": "Dabar",
+    "next": "Kitas",
+    "completed": "Įvykdyta",
+    "noShow": "Neatvyko",
+    "callNamed": "Skambinti {phone}"
   },
   "pages": {
     "upcoming": "Artimiausi vizitai",
@@ -234,7 +243,7 @@
     "years": "{y} m.",
     "months": "{mo} mėn.",
     "kg": "{kg} kg",
-    "underYear": "iki 1\u00a0m."
+    "underYear": "iki 1 m."
   },
   "species": {
     "dog": "Šuo",
