@@ -476,7 +476,7 @@ function BookingBlock({
       type="button"
       onClick={() => onOpen(booking)}
       aria-label={
-        booking.client
+        booking.client?.hasContact
           ? t("openBooking", { time: range, pets, client: booking.client.fullName })
           : t("openBookingNoClient", { time: range, pets })
       }
@@ -533,7 +533,9 @@ function BookingBlock({
         <>
           <span className="text-foreground mt-0.5 truncate text-sm font-semibold">{pets}</span>
           <span className="text-foreground-soft truncate">{servicesText}</span>
-          {span >= 6 ? <span className="text-muted truncate">{booking.client?.fullName}</span> : null}
+          {span >= 6 && booking.client?.hasContact ? (
+            <span className="text-muted truncate">{booking.client.fullName}</span>
+          ) : null}
         </>
       ) : null}
     </button>

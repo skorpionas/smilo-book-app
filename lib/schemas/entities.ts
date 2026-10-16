@@ -8,7 +8,6 @@ import {
   optionalName,
   optionalPhone,
   optionalText,
-  requireContact,
   price,
   requiredText,
   uuid,
@@ -46,16 +45,17 @@ export type GroomerInput = z.output<typeof groomerSchema>;
 // ---------------------------------------------------------------------------
 // Clients (issue #15)
 // ---------------------------------------------------------------------------
-/** Client = contact card: name, phone and e-mail each optional, at least one required. */
-export const clientSchema = z
-  .object({
-    id: optionalId,
-    fullName: optionalName(100),
-    phone: optionalPhone,
-    email: optionalEmail,
-    notes: optionalText(2000),
-  })
-  .superRefine((v, ctx) => requireContact(v, ctx));
+/**
+ * Family (account) contact: owner name, phone and e-mail — all optional. A family
+ * without any contact is shown by its pets' names.
+ */
+export const clientSchema = z.object({
+  id: optionalId,
+  fullName: optionalName(100),
+  phone: optionalPhone,
+  email: optionalEmail,
+  notes: optionalText(2000),
+});
 export type ClientInput = z.output<typeof clientSchema>;
 
 // ---------------------------------------------------------------------------
@@ -143,10 +143,12 @@ export const clientServiceSchema = z.object({
   price,
 });
 
-/** A new owner / contact for an existing pet: at least one of name, phone, e-mail. */
-export const petOwnerContactSchema = z
-  .object({ fullName: optionalName(100), phone: optionalPhone, email: optionalEmail })
-  .superRefine((v, ctx) => requireContact(v, ctx));
+/** Moving a pet to a new family: its contact is optional too. */
+export const petOwnerContactSchema = z.object({
+  fullName: optionalName(100),
+  phone: optionalPhone,
+  email: optionalEmail,
+});
 
 /** Several new pets at once (a household): name + species per row, owner optional. */
 export const newPetsSchema = z.object({

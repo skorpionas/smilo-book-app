@@ -27,10 +27,11 @@ async function login(page: Page, next: string) {
 test("pet list: species filter and search, one row per pet with its owner", async ({ page }) => {
   await login(page, "/clients");
   await expect(page.getByRole("heading", { level: 1, name: "Augintiniai" })).toBeVisible();
-  // Rasa has a dog and a cat: two rows, both naming her
-  await page.getByLabel("Ieškoti augintinio ar šeimininko").fill("petrausk");
-  await expect(page.getByRole("link", { name: /Maksas.*Rasa Petrauskienė/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Žuikis.*Rasa Petrauskienė/ })).toBeVisible();
+  await page.getByLabel("Ieškoti augintinio ar šeimos").fill("petrausk");
+  // Rasa has a dog and a cat: one family block with both pets
+  const family = page.getByRole("list", { name: "Šeimos Rasa Petrauskienė augintiniai" });
+  await expect(family.getByRole("link", { name: /Maksas/ })).toBeVisible();
+  await expect(family.getByRole("link", { name: /Žuikis/ })).toBeVisible();
   await page.getByRole("button", { name: /^Katės/ }).click();
   await expect(page.getByRole("link", { name: /Maksas/ })).toHaveCount(0);
   await expect(page.getByRole("link", { name: /Žuikis/ })).toBeVisible();
@@ -41,8 +42,8 @@ test("pet list: species filter and search, one row per pet with its owner", asyn
 test("pet's own service pre-fills the booking sheet", async ({ page }, testInfo) => {
   const p = PETS[testInfo.project.name] ?? PETS.desktop;
   await login(page, "/clients");
-  await page.getByLabel("Ieškoti augintinio ar šeimininko").fill(p.own);
-  await page.getByRole("link", { name: new RegExp(`${p.own}.*${p.owner}`) }).click();
+  await page.getByLabel("Ieškoti augintinio ar šeimos").fill(p.own);
+  await page.getByRole("link", { name: new RegExp(`^(Šuo|Katė) ${p.own}`) }).click();
   await expect(page).toHaveURL(/\/pets\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("heading", { level: 1, name: p.own })).toBeVisible();
   await expect(page.getByRole("link", { name: new RegExp(p.owner) })).toBeVisible();
@@ -90,7 +91,7 @@ test("remember a custom price while booking", async ({ page }, testInfo) => {
   await expect(page.getByText("Registracija išsaugota").first()).toBeVisible();
 
   await page.goto("/clients");
-  await page.getByLabel("Ieškoti augintinio ar šeimininko").fill(p.remember);
+  await page.getByLabel("Ieškoti augintinio ar šeimos").fill(p.remember);
   await page
     .getByRole("link", { name: new RegExp(`^.*${p.remember}`) })
     .first()
@@ -148,8 +149,8 @@ test("book two pets that always come together in one tap", async ({ page }, test
 
 test("pet page books the whole family together", async ({ page }) => {
   await login(page, "/clients");
-  await page.getByLabel("Ieškoti augintinio ar šeimininko").fill("Bela");
-  await page.getByRole("link", { name: /Bela.*Jonas Kazlauskas/ }).click();
+  await page.getByLabel("Ieškoti augintinio ar šeimos").fill("Bela");
+  await page.getByRole("link", { name: /^Šuo Bela/ }).click();
   await page.getByRole("link", { name: "Registruoti kartu su Reksas" }).click();
   const sheet = page.getByRole("dialog");
   await expect(sheet.getByLabel("Augintinis", { exact: true })).toHaveCount(2);
@@ -162,7 +163,7 @@ test("pet page books the whole family together", async ({ page }) => {
 // Pet first, client optional (owner feedback 2026-10-16)
 const WEEKS_NO_CLIENT: Record<string, number> = { mobile: 15, tablet: 16, desktop: 17 };
 
-test("a new pet needs no owner; a phone-only owner can be added later", async ({ page }) => {
+test("a new pet gets its own family; its contact can be added later", async ({ page }) => {
   const name = `Testukas${Date.now().toString().slice(-6)}`;
   const phone = `86${String(Date.now()).slice(-7)}`;
   await login(page, "/clients");
@@ -173,19 +174,17 @@ test("a new pet needs no owner; a phone-only owner can be added later", async ({
 
   await expect(page).toHaveURL(/\/pets\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
-  await expect(page.getByText(/Šeimininkas nenurodytas/)).toBeVisible();
+  // the family exists, without contact, shown by the pet's name
+  const family = page.getByRole("region", { name: "Šeima" });
+  await expect(family.getByText("Kontaktų nėra")).toBeVisible();
+  await family.getByRole("link", { name: new RegExp(name) }).click();
 
-  await page.getByRole("button", { name: "Pridėti šeimininką" }).click();
-  const owner = page.getByRole("dialog");
-  await owner.getByRole("button", { name: "Nauji kontaktai" }).click();
-  await owner.getByRole("button", { name: "Išsaugoti" }).click();
-  await expect(
-    owner.getByText("Įrašykite bent vieną: vardą, telefoną arba el. paštą.").first(),
-  ).toBeVisible();
-  await owner.getByLabel("Telefonas").fill(phone);
-  await owner.getByRole("button", { name: "Išsaugoti" }).click();
-  await expect(page.getByText("Šeimininkas išsaugotas").first()).toBeVisible();
-  await expect(page.getByRole("link", { name: /\+370 6/ }).first()).toBeVisible();
+  await expect(page).toHaveURL(/\/clients\/[0-9a-f-]{36}$/);
+  await page.getByRole("button", { name: "Pridėti kontaktus" }).click();
+  const contact = page.getByRole("dialog");
+  await contact.getByLabel("Telefonas").fill(phone);
+  await contact.getByRole("button", { name: "Išsaugoti" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: /\+370 6/ })).toBeVisible();
 });
 
 test("book a brand-new pet with no contact details at all", async ({ page }, testInfo) => {
@@ -202,6 +201,7 @@ test("book a brand-new pet with no contact details at all", async ({ page }, tes
   await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
   await sheet.getByRole("button", { name: "Išsaugoti" }).click();
   await expect(page.getByText("Registracija išsaugota").first()).toBeVisible();
+  // a family without contact: the card shows the pet only, not its name twice
   await expect(page.getByRole("button", { name: `${start}–${end}, ${name}` })).toBeVisible();
 });
 
@@ -222,7 +222,9 @@ test("add a household of three pets in one go", async ({ page }) => {
     .getByRole("group", { name: "Augintinio 3 rūšis" })
     .getByRole("button", { name: "Katė" })
     .click();
-  await expect(sheet.getByText(`„${names.join(", ")}“`)).toBeVisible(); // family hint
+  await expect(
+    sheet.getByText(`Visi bus vienoje šeimoje: ${names.join(", ")}.`, { exact: false }),
+  ).toBeVisible();
   await sheet.getByRole("button", { name: "Išsaugoti (3)" }).click();
 
   // no contact: kept together as one family card named after them
@@ -246,7 +248,7 @@ test("one shared service for two pets: family price, one line, split per pet", a
 
   // 1. the family's usual shared service: bath for both, 2 h, 50 €
   await login(page, "/clients?view=owners");
-  await page.getByLabel("Ieškoti klientų").fill(f.client);
+  await page.getByLabel("Ieškoti šeimos").fill(f.client);
   await page
     .getByRole("link", { name: new RegExp(f.client) })
     .first()

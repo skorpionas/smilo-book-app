@@ -10,6 +10,7 @@ import {
   SearchX,
   TriangleAlert,
   UserRound,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -152,52 +153,60 @@ export function PetsList({
       ) : (
         <>
           {visible.length > 0 ? (
-            <Card className="overflow-hidden">
-              <ul className="divide-border divide-y md:grid md:grid-cols-2 md:divide-y-0 xl:grid-cols-3">
-                {visible.map((p) => (
-                  <li key={p.id} className="md:border-border flex items-stretch md:border-b">
-                    <Link
-                      href={`/pets/${p.id}`}
-                      className="hover:bg-surface-muted flex min-h-16 min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 transition-colors"
-                    >
-                      <Avatar
-                        name={p.name}
-                        icon={p.species === "cat" ? <Cat aria-hidden /> : <Dog aria-hidden />}
-                        label={p.species === "cat" ? t("cat") : t("dog")}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-1.5">
-                          <span className="truncate font-medium">{p.name}</span>
-                          {p.hasNotes ? (
-                            <TriangleAlert
-                              aria-label={t("hasNotes")}
-                              className="text-warning-foreground size-4 shrink-0"
-                            />
-                          ) : null}
-                        </span>
-                        {/* breed and owner on the second line, so the name is never the part that gets cut */}
-                        <span className="text-muted block truncate text-sm">
-                          {[p.breed, p.clientName || t("noOwner")].filter(Boolean).join(" · ")}
-                        </span>
-                      </span>
-                    </Link>
-                    {p.phone ? (
-                      <a
-                        href={`tel:+${phoneDigits(p.phone)}`}
-                        aria-label={tc("callNamed", { phone: p.phoneDisplay })}
-                        className="text-primary hover:bg-surface-muted flex w-14 shrink-0 items-center justify-center transition-colors"
+            // Pets grouped by family: a family with 2+ pets is one block with its
+            // contact on top; a single pet is one row with its family underneath.
+            <ul className="gap-3 space-y-3 md:columns-2 xl:columns-3 [&>li]:break-inside-avoid">
+              {groupByFamily(visible).map((g) =>
+                g.pets.length > 1 ? (
+                  <li key={g.clientId}>
+                    <Card className="overflow-hidden">
+                      <div className="border-border bg-surface-muted/40 flex items-stretch border-b">
+                        <Link
+                          href={`/clients/${g.clientId}`}
+                          className="hover:bg-surface-muted flex min-h-12 min-w-0 flex-1 items-center gap-2 py-2 pl-4 transition-colors"
+                        >
+                          <Users aria-hidden className="text-muted size-4 shrink-0" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold">{g.clientName}</span>
+                            <span className="text-muted block truncate text-xs">
+                              {t("familyOf", { count: g.pets.length })}
+                              {g.phoneDisplay && g.phoneDisplay !== g.clientName
+                                ? ` · ${g.phoneDisplay}`
+                                : ""}
+                            </span>
+                          </span>
+                        </Link>
+                        <CallOrOpen
+                          phone={g.phone}
+                          phoneDisplay={g.phoneDisplay}
+                          label={tc("callNamed", { phone: g.phoneDisplay })}
+                        />
+                      </div>
+                      <ul
+                        className="divide-border divide-y"
+                        aria-label={t("familyPets", { name: g.clientName })}
                       >
-                        <Phone aria-hidden className="size-5" />
-                      </a>
-                    ) : (
-                      <span className="flex w-14 shrink-0 items-center justify-center">
-                        <ChevronRight aria-hidden className="text-muted size-5" />
-                      </span>
-                    )}
+                        {g.pets.map((p) => (
+                          <PetRow key={p.id} pet={p} sub={p.breed} />
+                        ))}
+                      </ul>
+                    </Card>
                   </li>
-                ))}
-              </ul>
-            </Card>
+                ) : (
+                  <li key={g.clientId}>
+                    <Card className="overflow-hidden">
+                      <ul>
+                        <PetRow
+                          pet={g.pets[0]}
+                          sub={[g.pets[0].breed, g.clientName].filter(Boolean).join(" · ")}
+                          call={{ phone: g.phone, phoneDisplay: g.phoneDisplay }}
+                        />
+                      </ul>
+                    </Card>
+                  </li>
+                ),
+              )}
+            </ul>
           ) : null}
 
           {orphans.length > 0 ? (
@@ -235,5 +244,96 @@ export function PetsList({
       {/* Pet first: a new pet needs no owner; contact details are optional in the form */}
       <NewPetsSheet open={creating} onOpenChange={setCreating} openAfterCreate />
     </div>
+  );
+}
+
+type FamilyGroup = {
+  clientId: string;
+  clientName: string;
+  phone: string | null;
+  phoneDisplay: string;
+  pets: PetListRow[];
+};
+
+/** Keep the list's order (by pet name); a family appears where its first pet does. */
+function groupByFamily(pets: PetListRow[]): FamilyGroup[] {
+  const groups = new Map<string, FamilyGroup>();
+  for (const p of pets) {
+    const key = p.clientId ?? `pet:${p.id}`;
+    const g = groups.get(key);
+    if (g) g.pets.push(p);
+    else
+      groups.set(key, {
+        clientId: key,
+        clientName: p.clientName,
+        phone: p.phone,
+        phoneDisplay: p.phoneDisplay,
+        pets: [p],
+      });
+  }
+  return [...groups.values()];
+}
+
+function PetRow({
+  pet,
+  sub,
+  call,
+}: {
+  pet: PetListRow;
+  sub: string;
+  call?: { phone: string | null; phoneDisplay: string };
+}) {
+  const t = useTranslations("directory");
+  const tc = useTranslations("clients");
+  return (
+    <li className="flex items-stretch">
+      <Link
+        href={`/pets/${pet.id}`}
+        className="hover:bg-surface-muted flex min-h-16 min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 transition-colors"
+      >
+        <Avatar
+          name={pet.name}
+          icon={pet.species === "cat" ? <Cat aria-hidden /> : <Dog aria-hidden />}
+          label={pet.species === "cat" ? t("cat") : t("dog")}
+        />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span className="truncate font-medium">{pet.name}</span>
+            {pet.hasNotes ? (
+              <TriangleAlert aria-label={t("hasNotes")} className="text-warning-foreground size-4 shrink-0" />
+            ) : null}
+          </span>
+          {/* breed (and family) on the second line, so the name is never the part that gets cut */}
+          {sub ? <span className="text-muted block truncate text-sm">{sub}</span> : null}
+        </span>
+      </Link>
+      {call ? (
+        <CallOrOpen
+          phone={call.phone}
+          phoneDisplay={call.phoneDisplay}
+          label={tc("callNamed", { phone: call.phoneDisplay })}
+        />
+      ) : (
+        <span className="flex w-14 shrink-0 items-center justify-center">
+          <ChevronRight aria-hidden className="text-muted size-5" />
+        </span>
+      )}
+    </li>
+  );
+}
+
+function CallOrOpen({ phone, label }: { phone: string | null; phoneDisplay: string; label: string }) {
+  return phone ? (
+    <a
+      href={`tel:+${phoneDigits(phone)}`}
+      aria-label={label}
+      className="text-primary hover:bg-surface-muted flex w-14 shrink-0 items-center justify-center transition-colors"
+    >
+      <Phone aria-hidden className="size-5" />
+    </a>
+  ) : (
+    <span className="flex w-14 shrink-0 items-center justify-center">
+      <ChevronRight aria-hidden className="text-muted size-5" />
+    </span>
   );
 }

@@ -300,22 +300,22 @@
     "everyDay": "Kasdien"
   },
   "clients": {
-    "add": "Naujas klientas",
-    "searchLabel": "Ieškoti klientų",
+    "add": "Nauja šeima",
+    "searchLabel": "Ieškoti šeimos",
     "searchPlaceholder": "Vardas, augintinis ar telefonas",
     "emptyTitle": "Klientų dar nėra",
     "emptyText": "Pridėkite pirmą klientą čia arba registruodama vizitą kalendoriuje.",
     "noResultsTitle": "Nieko nerasta",
     "noResultsText": "Pabandykite kitą vardą ar telefono numerio dalį.",
-    "fullName": "Vardas ir pavardė",
+    "fullName": "Šeimininko vardas ir pavardė",
     "fullNamePlaceholder": "Pvz. Rasa Petrauskienė",
     "phone": "Telefonas",
     "phoneHint": "Pvz. +370 612 34567 arba 8 612 34567",
     "email": "El. paštas",
     "notes": "Pastabos",
     "notesPlaceholder": "Pvz. skambinti po 17 val.",
-    "newClient": "Naujas klientas",
-    "editClient": "Redaguoti klientą",
+    "newClient": "Nauja šeima",
+    "editClient": "Šeimos kontaktai",
     "edit": "Redaguoti",
     "saved": "Klientas išsaugotas",
     "archive": "Archyvuoti klientą",
@@ -340,10 +340,12 @@
     "cancelledCount": "Atšaukta: {count}",
     "noShowCount": "Neatvyko: {count}",
     "book": "Registruoti vizitą",
-    "back": "Šeimininkai",
+    "back": "Šeimos",
     "noPetsShort": "be augintinių",
     "openPet": "Atidaryti {name}",
-    "contactHint": "Užtenka vieno: vardo, telefono arba el. pašto."
+    "contactHint": "Visi laukai neprivalomi – šeima gali būti ir be kontaktų.",
+    "noContact": "Kontaktų nėra – šeima rodoma pagal augintinius. Telefoną ar el. paštą galite pridėti bet kada.",
+    "addContact": "Pridėti kontaktus"
   },
   "pets": {
     "add": "Pridėti augintinį",
@@ -377,8 +379,8 @@
     "restore": "Grąžinti augintinį",
     "restored": "Augintinis grąžintas",
     "archivedBadge": "Archyvuotas",
-    "ownerContact": "Šeimininko kontaktai",
-    "ownerContactHint": "Galite palikti tuščią arba įrašyti tik telefoną ar el. paštą. Šeimininką galėsite pridėti ir vėliau."
+    "ownerContact": "Šeimos kontaktai",
+    "ownerContactHint": "Galite palikti tuščią arba įrašyti tik telefoną ar el. paštą – kontaktus pridėsite ir vėliau."
   },
   "booking": {
     "title": "Nauja registracija",
@@ -526,9 +528,9 @@
     "title": "Augintiniai",
     "viewLabel": "Rodyti",
     "pets": "Augintiniai",
-    "owners": "Šeimininkai",
-    "searchLabel": "Ieškoti augintinio ar šeimininko",
-    "searchPlaceholder": "Augintinis, veislė, šeimininkas ar telefonas",
+    "owners": "Šeimos",
+    "searchLabel": "Ieškoti augintinio ar šeimos",
+    "searchPlaceholder": "Augintinis, veislė, šeima ar telefonas",
     "speciesFilter": "Rūšis",
     "all": "Visi",
     "dogs": "Šunys",
@@ -536,16 +538,18 @@
     "dog": "Šuo",
     "cat": "Katė",
     "hasNotes": "Yra pastabų (elgesys, alergijos)",
-    "withoutPets": "Klientai be augintinių",
+    "withoutPets": "Šeimos be augintinių",
     "addPetHint": "Pridėkite augintinį",
     "emptyTitle": "Augintinių dar nėra",
     "emptyText": "Pridėkite šunį ar katę – šeimininko kontaktai neprivalomi. Arba registruokite vizitą kalendoriuje.",
-    "noOwner": "be šeimininko"
+    "noOwner": "be šeimininko",
+    "familyOf": "{count, plural, one {# augintinis} few {# augintiniai} other {# augintinių}}",
+    "familyPets": "Šeimos {name} augintiniai"
   },
   "petPage": {
     "back": "Augintiniai",
     "book": "Registruoti {name}",
-    "owner": "Šeimininkas",
+    "owner": "Šeima",
     "family": "Kiti šeimos augintiniai",
     "call": "Skambinti",
     "callNamed": "Skambinti {phone}",
@@ -557,7 +561,11 @@
     "history": "Vizitų istorija",
     "noHistory": "Ankstesnių vizitų dar nėra.",
     "bookTogether": "Registruoti kartu su {names}",
-    "noOwner": "Šeimininkas nenurodytas. Jį – ar tik telefoną / el. paštą – galite pridėti bet kada."
+    "noOwner": "Šeimininkas nenurodytas. Jį – ar tik telefoną / el. paštą – galite pridėti bet kada.",
+    "noContact": "Kontaktų nėra",
+    "familyServices": "Šeimos paslaugos",
+    "forAll": "visiems kartu",
+    "editFamilyServices": "Keisti šeimos paslaugas"
   },
   "petServices": {
     "title": "Paslaugos ir kainos",
@@ -579,24 +587,25 @@
     "remove": "Pašalinti",
     "removeTitle": "Pašalinti savą kainą?",
     "removeText": "Registruojant bus siūloma paskutinė arba įprasta paslaugos kaina.",
-    "removed": "Paslauga pašalinta"
+    "removed": "Paslauga pašalinta",
+    "removeNamed": "Pašalinti {name}"
   },
   "petOwner": {
     "add": "Pridėti šeimininką",
-    "change": "Keisti šeimininką",
-    "addTitle": "Pridėti šeimininką",
-    "changeTitle": "Keisti šeimininką",
-    "description": "Šeimininkas – {name} kontaktai. Užtenka vardo, telefono ar el. pašto.",
+    "change": "Perkelti į kitą šeimą",
+    "addTitle": "Perkelti į kitą šeimą",
+    "changeTitle": "Perkelti į kitą šeimą",
+    "description": "{name} bus kitos šeimos augintinis. Artimiausi jo vizitai keliaus kartu.",
     "how": "Kaip pridėti",
-    "existing": "Esamas klientas",
-    "newContact": "Nauji kontaktai",
-    "newContactHint": "Įrašykite bent vieną: vardą, telefoną arba el. paštą.",
-    "searchLabel": "Ieškoti kliento",
-    "searchPlaceholder": "Vardas, telefonas ar el. paštas",
+    "existing": "Esama šeima",
+    "newContact": "Nauja šeima",
+    "newContactHint": "Kontaktai neprivalomi – šeima gali būti ir be jų.",
+    "searchLabel": "Ieškoti šeimos",
+    "searchPlaceholder": "Vardas, telefonas, el. paštas ar augintinis",
     "searchHint": "Įveskite bent 2 simbolius.",
-    "noneFound": "Klientas nerastas – įrašykite naujus kontaktus.",
+    "noneFound": "Šeima nerasta – sukurkite naują.",
     "choose": "Pasirinkti {name}",
-    "saved": "Šeimininkas išsaugotas",
+    "saved": "Augintinis perkeltas",
     "remove": "Pašalinti šeimininką",
     "removed": "Šeimininkas pašalintas"
   },
@@ -610,7 +619,7 @@
     "removeN": "Pašalinti augintinį {n}",
     "addRow": "Dar vienas augintinis",
     "laterHint": "Veislę, dydį, pastabas ir kainas galėsite įrašyti vėliau kiekvieno augintinio kortelėje.",
-    "familyHint": "Be kontaktų jie bus laikomi kartu kaip viena šeima „{names}“ – pavadinimą ar telefoną galėsite pakeisti vėliau.",
+    "familyHint": "Visi bus vienoje šeimoje: {names}. Kontaktus galėsite pridėti vėliau.",
     "save": "{count, plural, one {Išsaugoti} other {Išsaugoti (#)}}",
     "saved": "{count, plural, one {Augintinis išsaugotas} few {Išsaugoti # augintiniai} other {Išsaugota # augintinių}}"
   },
@@ -620,7 +629,7 @@
     "usual": "Įprasta",
     "standard": "įprastai {duration}, {price}",
     "hint": "Viena paslauga visiems augintiniams kartu: trukmė ir kaina – bendra. Registruojant „Kartu“ ji užpildoma automatiškai.",
-    "emptyText": "Jei {name} kerpami ar maudomi kartu už vieną kainą – pridėkite paslaugą su bendra trukme ir kaina.",
+    "emptyText": "Viena paslauga visiems šeimos augintiniams kartu (pvz. „Maudymas abiem, 2 val., 50 €“). Registruojant „Kartu“ ji užpildoma automatiškai.",
     "makeUsualNamed": "Padaryti įprasta: {name}",
     "madeUsual": "Įprasta paslauga pakeista",
     "editNamed": "Redaguoti {name}",
@@ -634,6 +643,7 @@
     "remove": "Pašalinti",
     "removeTitle": "Pašalinti šeimos paslaugą?",
     "removeText": "Registruojant „Kartu“ kiekvienam augintiniui bus siūloma jo paties kaina.",
-    "removed": "Paslauga pašalinta"
+    "removed": "Paslauga pašalinta",
+    "removeNamed": "Pašalinti {name}"
   }
 }

@@ -97,10 +97,10 @@ export async function savePet(_prev: FormState, formData: FormData): Promise<For
     return { ok: true, savedAt: Date.now(), id };
   }
 
-  // Pet first: the owner is optional. A contact typed into the form (any of name /
-  // phone / e-mail) becomes a new client card linked to the pet.
+  // Every pet lives in a family. No family given: a new one, with whatever contact
+  // was typed (name / phone / e-mail — all optional).
   let ownerId = clientId ?? null;
-  if (!ownerId && (ownerName || ownerPhone || ownerEmail)) {
+  if (!ownerId) {
     const { data: client, error } = await supabase
       .from("clients")
       .insert({ full_name: ownerName, phone_e164: ownerPhone, email: ownerEmail })

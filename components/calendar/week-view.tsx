@@ -230,7 +230,9 @@ export function AgendaRow({
       type="button"
       onClick={() => onOpen(booking)}
       aria-label={[
-        t("openBooking", { time: range, pets, client: booking.client?.fullName ?? "" }),
+        booking.client?.hasContact
+          ? t("openBooking", { time: range, pets, client: booking.client.fullName })
+          : t("openBookingNoClient", { time: range, pets }),
         groomerName,
       ]
         .filter(Boolean)
@@ -246,7 +248,7 @@ export function AgendaRow({
         <span className="truncate font-semibold">{pets}</span>
         <span className="text-muted truncate text-sm">
           {servicesText}
-          {booking.client ? ` · ${booking.client.fullName}` : ""}
+          {booking.client?.hasContact ? ` · ${booking.client.fullName}` : ""}
         </span>
         {groomerName ? (
           <span className="text-muted flex items-center gap-1.5 text-xs">

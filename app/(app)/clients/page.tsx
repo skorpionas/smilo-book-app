@@ -14,9 +14,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Pet-first directory (owner feedback 2026-10-16): the salon thinks in dogs and
- * cats, so the default view lists pets with their owner; "Šeimininkai" lists
- * clients (one client can have several pets).
+ * Pet-first directory (owner feedback 2026-10-16): the default view lists pets,
+ * grouped by family (the root: owner contact, pets, family services); "Šeimos"
+ * lists the families.
  */
 export default async function Page({ searchParams }: PageProps<"/clients">) {
   const { view } = await searchParams;
@@ -25,24 +25,13 @@ export default async function Page({ searchParams }: PageProps<"/clients">) {
   const supabase = await createClient();
 
   // A two-groomer salon has hundreds of clients, not tens of thousands: load them all and filter on the device.
-  const [{ data }, { data: ownerless }] = await Promise.all([
-    supabase
-      .from("clients")
-      .select("id, full_name, phone_e164, email, pets(id, name, species, breed, notes, archived_at)")
-      .is("archived_at", null)
-      .is("anonymized_at", null)
-      .order("full_name")
-      .limit(2000),
-    // Pet first: pets without an owner are first-class rows too
-    owners
-      ? Promise.resolve({ data: [] })
-      : supabase
-          .from("pets")
-          .select("id, name, species, breed, notes")
-          .is("client_id", null)
-          .is("archived_at", null)
-          .limit(2000),
-  ]);
+  const { data } = await supabase
+    .from("clients")
+    .select("id, full_name, phone_e164, email, pets(id, name, species, breed, notes, archived_at)")
+    .is("archived_at", null)
+    .is("anonymized_at", null)
+    .order("full_name")
+    .limit(2000);
   const rows = (data ?? []).map((c) => ({ ...c, label: contactLabel(c) }));
 
   return (
@@ -93,24 +82,11 @@ export default async function Page({ searchParams }: PageProps<"/clients">) {
                     species: p.species,
                     breed: p.breed,
                     hasNotes: p.notes.trim().length > 0,
-                    clientId: c.id as string | null,
+                    clientId: c.id,
                     clientName: c.label,
                     phone: c.phone_e164,
                     phoneDisplay: formatPhone(c.phone_e164),
                   })),
-              )
-              .concat(
-                (ownerless ?? []).map((p) => ({
-                  id: p.id,
-                  name: p.name,
-                  species: p.species,
-                  breed: p.breed,
-                  hasNotes: p.notes.trim().length > 0,
-                  clientId: null,
-                  clientName: "",
-                  phone: null,
-                  phoneDisplay: "",
-                })),
               )
               .sort((a, b) => a.name.localeCompare(b.name, "lt"))}
             clientsWithoutPets={rows

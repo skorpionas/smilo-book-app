@@ -13,7 +13,7 @@ import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { GroomerDot } from "@/components/ui/groomer-chip";
-import { formatAge } from "@/lib/format";
+import { formatAge, formatDuration } from "@/lib/format";
 import { formatEur } from "@/lib/money";
 import { contactLabel, formatPhone, phoneDigits } from "@/lib/phone";
 import { uuid } from "@/lib/schemas/common";
@@ -69,6 +69,13 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
       .limit(300),
   ]);
   if (!pet) notFound();
+
+  // Family services this pet is part of (one time and price for all the family's pets)
+  const { data: familyServices } = await supabase
+    .from("client_services")
+    .select("id, duration_min, price, position, services(name, archived_at)")
+    .eq("client_id", pet.client_id)
+    .order("position");
 
   // Pet first: the owner (contact card) is optional
   const client = pet.clients;
@@ -205,13 +212,15 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
                   <span className="min-w-0 flex-1">
                     <span className="block font-medium">{contactLabel(client)}</span>
                     <span className="text-muted block truncate text-sm tabular-nums">
-                      {client.full_name
-                        ? client.phone_e164
-                          ? formatPhone(client.phone_e164)
-                          : client.email || t("noPhone")
-                        : client.phone_e164
-                          ? client.email
-                          : null}
+                      {!client.full_name && !client.phone_e164 && !client.email
+                        ? t("noContact")
+                        : client.full_name
+                          ? client.phone_e164
+                            ? formatPhone(client.phone_e164)
+                            : client.email || t("noPhone")
+                          : client.phone_e164
+                            ? client.email
+                            : null}
                     </span>
                   </span>
                   <ChevronRight aria-hidden className="text-muted size-5 shrink-0" />
@@ -237,6 +246,37 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
               <PetOwnerButton petId={pet.id} petName={pet.name} hasOwner={client !== null} />
             ) : null}
           </section>
+
+          {client && (familyServices ?? []).some((f) => f.services && !f.services.archived_at) ? (
+            <section aria-labelledby="family-services-heading" className="space-y-2">
+              <h2
+                id="family-services-heading"
+                className="text-muted px-1 text-xs font-semibold tracking-wider uppercase"
+              >
+                {t("familyServices")}
+              </h2>
+              <Card className="overflow-hidden">
+                <ul className="divide-border divide-y">
+                  {(familyServices ?? [])
+                    .filter((f) => f.services && !f.services.archived_at)
+                    .map((f) => (
+                      <li key={f.id} className="px-4 py-2.5">
+                        <p className="font-medium">{f.services?.name}</p>
+                        <p className="text-muted text-sm tabular-nums">
+                          {formatDuration(tu, f.duration_min)} · {formatEur(Number(f.price))} · {t("forAll")}
+                        </p>
+                      </li>
+                    ))}
+                </ul>
+                <Link
+                  href={`/clients/${client.id}`}
+                  className="text-primary border-border hover:bg-surface-muted flex min-h-11 items-center justify-center border-t text-sm font-medium"
+                >
+                  {t("editFamilyServices")}
+                </Link>
+              </Card>
+            </section>
+          ) : null}
 
           {siblings.length > 0 ? (
             <section aria-labelledby="family-heading" className="space-y-2">

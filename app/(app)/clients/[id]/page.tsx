@@ -76,7 +76,7 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
   return (
     <>
       <PageHeader
-        title={contactLabel(client)}
+        title={contactLabel({ ...client, pets: pets ?? [] })}
         eyebrow={
           <Link href="/clients?view=owners" className="hover:text-foreground inline-flex items-center gap-1">
             <ArrowLeft aria-hidden className="size-4" />
@@ -101,7 +101,7 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
       <PageBody className="max-w-3xl space-y-8">
         <Card className="space-y-4 p-4 sm:p-5">
           <div className="flex items-center gap-3">
-            <Avatar name={contactLabel(client)} size="lg" />
+            <Avatar name={contactLabel({ ...client, pets: pets ?? [] })} size="lg" />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap gap-1.5">
                 {client.anonymized_at ? <Badge tone="neutral">{t("anonymizedBadge")}</Badge> : null}
@@ -115,11 +115,15 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
                   {t("noShowCount", { count: noShows })}
                 </Badge>
               </div>
+              {client.full_name && (client.phone_e164 || client.email) ? (
+                <p className="mt-1.5 font-medium">{client.full_name}</p>
+              ) : null}
               {client.phone_e164 ? (
-                <p className="mt-1.5 text-base tabular-nums">{formatPhone(client.phone_e164)}</p>
-              ) : (
-                <p className="text-muted mt-1.5 text-sm">{t("noPhone")}</p>
-              )}
+                <p className="mt-1 text-base tabular-nums">{formatPhone(client.phone_e164)}</p>
+              ) : !client.full_name && !client.email ? (
+                // A family without any contact is fine: it is shown by its pets
+                <p className="text-muted mt-1.5 text-sm">{t("noContact")}</p>
+              ) : null}
               {client.email ? <p className="text-muted truncate text-sm">{client.email}</p> : null}
             </div>
           </div>
@@ -175,7 +179,8 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
         />
 
         {/* One service for all the pets together (e.g. "Maudymas abiem, 2 h, 50 €") */}
-        {(pets ?? []).length > 1 || (family ?? []).length > 0 ? (
+        {/* Always visible: see, add, edit and remove the family's shared services */}
+        {!client.anonymized_at ? (
           <PetServicesSection
             kind="family"
             petId={client.id}

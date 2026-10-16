@@ -187,6 +187,14 @@ export function PetServicesSection({
                     >
                       <Pencil aria-hidden />
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={t("removeNamed", { name: row.serviceName })}
+                      onClick={() => setRemoving(row)}
+                    >
+                      <Trash2 aria-hidden />
+                    </Button>
                   </>
                 ) : null}
               </li>

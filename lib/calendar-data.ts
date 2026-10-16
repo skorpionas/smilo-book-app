@@ -31,7 +31,14 @@ export type CalendarBooking = {
   status: "scheduled" | "completed" | "cancelled" | "no_show";
   notes: string;
   blockReason: string;
-  client: { id: string; fullName: string; phone: string | null; phoneDisplay: string } | null;
+  client: {
+    id: string;
+    fullName: string;
+    phone: string | null;
+    phoneDisplay: string;
+    /** false = a family without contact (shown by its pets): no separate client line */
+    hasContact: boolean;
+  } | null;
   items: {
     id: string;
     /** Same number = one shared service for several pets (see booking detail). */
@@ -72,7 +79,7 @@ export async function loadRange(from: DateStr, to: DateStr, gridDate?: DateStr) 
     supabase
       .from("bookings")
       .select(
-        "id, kind, groomer_id, start_at, end_at, status, notes, block_reason, clients(id, full_name, phone_e164, email), booking_items(id, position, duration_min, planned_price, actual_price, shared_group, pets(id, name, species, notes), services(name))",
+        "id, kind, groomer_id, start_at, end_at, status, notes, block_reason, clients(id, full_name, phone_e164, email, pets(name, archived_at)), booking_items(id, position, duration_min, planned_price, actual_price, shared_group, pets(id, name, species, notes), services(name))",
       )
       .neq("status", "cancelled")
       .lt("start_at", end.toISOString())
@@ -117,6 +124,7 @@ export async function loadRange(from: DateStr, to: DateStr, gridDate?: DateStr) 
               fullName: contactLabel(b.clients),
               phone: b.clients.phone_e164,
               phoneDisplay: formatPhone(b.clients.phone_e164),
+              hasContact: Boolean(b.clients.full_name?.trim() || b.clients.phone_e164 || b.clients.email),
             }
           : null,
         items: [...b.booking_items]

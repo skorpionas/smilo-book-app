@@ -330,7 +330,7 @@ export type Database = {
           birth_month: number | null;
           birth_year: number | null;
           breed: string;
-          client_id: string | null;
+          client_id: string;
           created_at: string;
           id: string;
           name: string;
@@ -346,7 +346,7 @@ export type Database = {
           birth_month?: number | null;
           birth_year?: number | null;
           breed?: string;
-          client_id?: string | null;
+          client_id: string;
           created_at?: string;
           id?: string;
           name: string;
@@ -362,7 +362,7 @@ export type Database = {
           birth_month?: number | null;
           birth_year?: number | null;
           breed?: string;
-          client_id?: string | null;
+          client_id?: string;
           created_at?: string;
           id?: string;
           name?: string;
@@ -439,6 +439,10 @@ export type Database = {
       get_price_prefill: {
         Args: { p_pet_id: string; p_service_id: string };
         Returns: number;
+      };
+      client_label: {
+        Args: { c: Database["public"]["Tables"]["clients"]["Row"] };
+        Returns: string;
       };
       create_pets: {
         Args: { p_client_id?: string; p_new_client?: Json; p_pets: Json };

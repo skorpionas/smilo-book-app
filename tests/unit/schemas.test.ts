@@ -105,11 +105,18 @@ describe("clientSchema", () => {
   });
 
   it.each([
-    [{ fullName: "", phone: "", email: "" }, "fullName", "contactRequired"],
     [{ fullName: "Rasa", phone: "123", email: "" }, "phone", "invalidPhone"],
     [{ fullName: "Rasa", phone: "", email: "rasa@" }, "email", "invalidEmail"],
   ])("rejects %j", (input, field, key) => {
     expect(errors(clientSchema.safeParse(input))[field]).toBe(key);
+  });
+
+  it("a family may have no contact at all", () => {
+    expect(clientSchema.parse({ fullName: "", phone: "", email: "", notes: "" })).toMatchObject({
+      fullName: null,
+      phone: null,
+      email: null,
+    });
   });
 
   it("accepts a contact card with only a phone or only an e-mail (pet first)", () => {

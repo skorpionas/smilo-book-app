@@ -21,15 +21,15 @@ select is((select count(*)::int from public.pets p join public.clients c on c.id
 -- two pets, no contact: a family card named after them
 select is(
   (select count(distinct client_id)::int from public.create_pets('[{"name":"Aras","species":"dog"},{"name":"Bars","species":"dog"}]')),
-  1, 'no contact, two pets: one shared card');
+  1, 'no contact, two pets: one family');
 -- (a separate statement: rows inserted by the function are not visible to the same SELECT)
-select is((select c.full_name from public.pets p join public.clients c on c.id = p.client_id where p.name = 'Aras'),
-  'Aras, Bars', 'family card named after the pets');
+select is((select public.client_label(c) from public.pets p join public.clients c on c.id = p.client_id where p.name = 'Aras'),
+  'Aras, Bars', 'contact-less family shown by its pets');
 
--- one pet, no contact: no card
-select is(
+-- one pet, no contact: still its own family
+select isnt(
   (select client_id from public.create_pets('[{"name":"Vienas","species":"cat"}]')),
-  null::uuid, 'single pet without contact has no owner');
+  null::uuid, 'a single new pet gets a family too');
 
 -- under an existing client
 select is(
@@ -52,8 +52,8 @@ select isnt(
                       {"new_pet":{"name":"Pupytė","species":"dog"},"service_id":"e1000000-0000-4000-8000-000000000001","duration_min":60,"planned_price":30}]'
   ), null, 'booking two new pets without contact');
 select is(
-  (select c.full_name from public.pets p join public.clients c on c.id = p.client_id where p.name = 'Pupytė'),
-  'Pupa, Pupytė', 'booked pets grouped on one family card');
+  (select count(distinct client_id)::int from public.pets where name in ('Pupa', 'Pupytė')),
+  1, 'booked new pets share one family');
 
 select * from finish();
 rollback;

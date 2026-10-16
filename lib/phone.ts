@@ -32,13 +32,23 @@ export function phoneDigits(input: string): string {
 }
 
 /**
- * How a client (contact card) is shown: the name, else the phone, else the e-mail.
- * Name, phone and e-mail are each optional, but a card always has one of them.
+ * How a family (account) is shown: the owner's name, else the phone, else the
+ * e-mail, else its pets' names ("Bim, Bom"). Same order as SQL client_label().
  */
 export function contactLabel(c: {
   full_name?: string | null;
   phone_e164?: string | null;
   email?: string | null;
+  pets?: { name: string; archived_at?: string | null }[];
 }): string {
-  return c.full_name?.trim() || formatPhone(c.phone_e164) || c.email?.trim() || "";
+  return (
+    c.full_name?.trim() ||
+    formatPhone(c.phone_e164) ||
+    c.email?.trim() ||
+    (c.pets ?? [])
+      .filter((p) => !p.archived_at)
+      .map((p) => p.name)
+      .sort((a, b) => a.localeCompare(b, "lt"))
+      .join(", ")
+  );
 }

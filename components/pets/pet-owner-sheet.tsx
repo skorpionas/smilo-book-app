@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, UserMinus, UserPlus, UserRound, X } from "lucide-react";
+import { Search, UserRound, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import * as React from "react";
@@ -42,8 +42,8 @@ export function PetOwnerButton({
   return (
     <>
       <Button variant={hasOwner ? "ghost" : "secondary"} className="w-full" onClick={() => setOpen(true)}>
-        {hasOwner ? <UserRound aria-hidden /> : <UserPlus aria-hidden />}
-        {hasOwner ? t("change") : t("add")}
+        <UserRound aria-hidden />
+        {t("change")}
       </Button>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent>
@@ -283,18 +283,6 @@ function PetOwnerForm({
         )}
       </SheetBody>
       <SheetFooter>
-        {hasOwner ? (
-          <Button
-            type="button"
-            variant="ghost"
-            className="text-danger mr-auto"
-            disabled={pending}
-            onClick={() => save({ mode: "none" }, t("removed"))}
-          >
-            <UserMinus aria-hidden />
-            {t("remove")}
-          </Button>
-        ) : null}
         {mode === "new" ? (
           <Button type="submit" size="lg" loading={pending}>
             {pending ? tc("saving") : tc("save")}

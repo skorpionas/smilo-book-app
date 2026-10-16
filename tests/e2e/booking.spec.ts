@@ -33,9 +33,9 @@ test("settings lists the seeded services and both groomers", async ({ page }) =>
 test("add a client and a pet (issues #15, #16)", async ({ page }) => {
   const name = `Testas Klientas ${Date.now().toString().slice(-6)}`;
   await login(page, "/clients?view=owners");
-  await page.getByRole("button", { name: "Naujas klientas" }).first().click();
+  await page.getByRole("button", { name: "Nauja šeima" }).first().click();
   const sheet = page.getByRole("dialog");
-  await sheet.getByLabel("Vardas ir pavardė").fill(name);
+  await sheet.getByLabel("Šeimininko vardas ir pavardė").fill(name);
   await sheet.getByLabel("Telefonas").fill("123");
   await sheet.getByRole("button", { name: "Išsaugoti" }).click();
   await expect(sheet.getByText("Neteisingas telefono numeris.")).toBeVisible();
@@ -60,11 +60,11 @@ test("add a client and a pet (issues #15, #16)", async ({ page }) => {
 
   // pet-first list: local, accent-insensitive filter finds the pet with its owner
   await page.goto("/clients");
-  await page.getByLabel("Ieškoti augintinio ar šeimininko").fill("zuikis");
+  await page.getByLabel("Ieškoti augintinio ar šeimos").fill("zuikis");
   await expect(page.getByRole("link", { name: new RegExp(`Žuikis.*${name}`) })).toBeVisible();
   // owners view still lists the client
   await page.goto("/clients?view=owners");
-  await page.getByLabel("Ieškoti klientų").fill("zuikis");
+  await page.getByLabel("Ieškoti šeimos").fill("zuikis");
   await expect(page.getByRole("link", { name: new RegExp(name) })).toBeVisible();
 });
 

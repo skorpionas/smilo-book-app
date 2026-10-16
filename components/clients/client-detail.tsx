@@ -46,7 +46,7 @@ export function ClientActions({ client, archived }: { client: ClientFormValues; 
           </Button>
           <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
             <Pencil aria-hidden />
-            {t("edit")}
+            {client.fullName || client.phone || client.email ? t("edit") : t("addContact")}
           </Button>
         </>
       )}
