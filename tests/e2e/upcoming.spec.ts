@@ -63,7 +63,9 @@ test("groomer filter keeps only that groomer's bookings", async ({ page }) => {
     .click();
   const rows = list.locator(":scope > li ul > li").getByRole("button");
   await expect(rows.first()).toBeVisible();
-  const names = await rows.evaluateAll((els) => els.map((el) => el.getAttribute("aria-label") ?? el.textContent ?? ""));
+  const names = await rows.evaluateAll((els) =>
+    els.map((el) => el.getAttribute("aria-label") ?? el.textContent ?? ""),
+  );
   expect(names.every((n) => n.includes("Meistrė A"))).toBe(true);
   await page.getByRole("button", { name: /^Visos/ }).click();
   await expect(list.getByRole("button", { name: /Meistrė B/ }).first()).toBeVisible();
