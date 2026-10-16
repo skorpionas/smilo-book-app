@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { bookingSchema, rescheduleSchema, sumDurations } from "@/lib/schemas/booking";
+import { bookingSchema, completeVisitSchema, rescheduleSchema, sumDurations } from "@/lib/schemas/booking";
 import { issuesToFieldErrors } from "@/lib/schemas/common";
 import { clientSchema, groomerSchema, petSchema, serviceSchema } from "@/lib/schemas/entities";
 import lt from "@/messages/lt.json";
@@ -360,5 +360,39 @@ describe("error keys", () => {
         { code: "custom", message: "required", path: [], input: 1 },
       ]),
     ).toEqual({ a: "invalid", _form: "required" });
+  });
+});
+
+describe("completeVisitSchema (US-11)", () => {
+  const id = "0e000000-0000-4000-8000-000000000001";
+  const item = "0f000000-0000-4000-8000-000000000001";
+
+  it("needs an actual price when the visit took place", () => {
+    const r = completeVisitSchema.safeParse({
+      id,
+      status: "completed",
+      items: [{ id: item, visitNotes: "" }],
+    });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0].path).toEqual(["items", 0, "actualPrice"]);
+  });
+
+  it("accepts a Lithuanian price and trims notes", () => {
+    const r = completeVisitSchema.parse({
+      id,
+      status: "completed",
+      items: [{ id: item, actualPrice: "45,50", visitNotes: "  Kailis susivėlęs " }],
+    });
+    expect(r.items[0]).toEqual({ id: item, actualPrice: 45.5, visitNotes: "Kailis susivėlęs" });
+  });
+
+  it("no-show needs no price", () => {
+    expect(
+      completeVisitSchema.safeParse({ id, status: "no_show", items: [{ id: item, visitNotes: "" }] }).success,
+    ).toBe(true);
+  });
+
+  it("only visit results are allowed", () => {
+    expect(completeVisitSchema.safeParse({ id, status: "scheduled", items: [] }).success).toBe(false);
   });
 });

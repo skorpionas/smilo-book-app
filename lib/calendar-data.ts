@@ -53,6 +53,7 @@ export type CalendarBooking = {
     durationMin: number;
     plannedPrice: number;
     actualPrice: number | null;
+    visitNotes: string;
   }[];
 };
 
@@ -81,7 +82,7 @@ export async function loadRange(from: DateStr, to: DateStr, gridDate?: DateStr) 
     supabase
       .from("bookings")
       .select(
-        "id, kind, groomer_id, start_at, end_at, status, notes, block_reason, clients(id, full_name, phone_e164, email, pets(name, archived_at)), booking_items(id, position, duration_min, planned_price, actual_price, shared_group, pets(id, name, species, notes), services(name))",
+        "id, kind, groomer_id, start_at, end_at, status, notes, block_reason, clients(id, full_name, phone_e164, email, pets(name, archived_at)), booking_items(id, position, duration_min, planned_price, actual_price, visit_notes, shared_group, pets(id, name, species, notes), services(name))",
       )
       .neq("status", "cancelled")
       .lt("start_at", end.toISOString())
@@ -152,6 +153,7 @@ export async function loadRange(from: DateStr, to: DateStr, gridDate?: DateStr) 
             durationMin: i.duration_min,
             plannedPrice: Number(i.planned_price),
             actualPrice: i.actual_price === null ? null : Number(i.actual_price),
+            visitNotes: i.visit_notes,
           })),
       };
     }),

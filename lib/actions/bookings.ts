@@ -6,8 +6,10 @@ import { dbFailed, validationFailed, type ActionState } from "@/lib/action-helpe
 import { requireUser } from "@/lib/auth";
 import {
   bookingSchema,
+  completeVisitSchema,
   rescheduleSchema,
   type BookingInput,
+  type CompleteVisitInput,
   type RescheduleInput,
 } from "@/lib/schemas/booking";
 import { uuid } from "@/lib/schemas/common";
@@ -397,6 +399,37 @@ export async function deleteBooking(id: string): Promise<ActionState> {
 
   revalidatePath("/upcoming");
   if (data.client_id) revalidatePath(`/clients/${data.client_id}`);
+  revalidatePath("/pets", "layout");
+  return { ok: true, savedAt: Date.now(), id };
+}
+
+/**
+ * US-11: record or correct a visit's result — completed / no-show / cancelled, actual
+ * price and visit notes per item. Visits complete themselves after their end time
+ * (database job); this is for the exceptions: a no-show, another price, notes.
+ */
+export async function completeVisit(input: CompleteVisitInput): Promise<ActionState> {
+  await requireUser();
+  const parsed = completeVisitSchema.safeParse(input);
+  if (!parsed.success) return validationFailed(parsed.error.issues);
+
+  const { id, status, items } = parsed.data;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("complete_visit", {
+    p_booking_id: id,
+    p_status: status,
+    p_items: items.map((i) => ({ id: i.id, actual_price: i.actualPrice, visit_notes: i.visitNotes })),
+  });
+  if (error) {
+    const t = await getTranslations("errors");
+    return dbFailed(error, "completeVisit", { "22008": t("visitInFuture") });
+  }
+
+  const { data } = await supabase.from("bookings").select("client_id").eq("id", id).maybeSingle();
+  revalidatePath("/calendar", "layout");
+  revalidatePath("/upcoming");
+  if (data?.client_id) revalidatePath(`/clients/${data.client_id}`);
+  revalidatePath("/clients", "layout");
   revalidatePath("/pets", "layout");
   return { ok: true, savedAt: Date.now(), id };
 }

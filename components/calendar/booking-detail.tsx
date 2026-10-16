@@ -1,9 +1,21 @@
 "use client";
 
-import { Ban, CalendarClock, Cat, ChevronRight, Dog, Phone, Trash2, UserRound } from "lucide-react";
+import {
+  Ban,
+  CalendarClock,
+  Cat,
+  ChevronRight,
+  CircleCheck,
+  Dog,
+  Pencil,
+  Phone,
+  Trash2,
+  UserRound,
+} from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import * as React from "react";
+import { CompleteVisitForm } from "@/components/calendar/complete-visit-form";
 import { PetNotes } from "@/components/clients/client-detail";
 import { ConfirmDialog } from "@/components/forms/confirm-dialog";
 import { Field } from "@/components/forms/field";
@@ -23,6 +35,7 @@ import {
 } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/toast";
 import { cancelBooking, deleteBooking, rescheduleBooking } from "@/lib/actions/bookings";
+import { groupItems } from "@/lib/booking-groups";
 import type { CalendarBooking, CalendarGroomer } from "@/lib/calendar-data";
 import { BOOKING_START_TIMES, DAY_CLOSE, DAY_OPEN, timeToMinutes, vilniusClock } from "@/lib/clock";
 import { DURATION_OPTIONS, formatDuration } from "@/lib/format";
@@ -50,15 +63,20 @@ export function BookingDetailSheet({
   const [confirming, setConfirming] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [editing, setEditing] = React.useState(false);
+  const [completing, setCompleting] = React.useState(false);
   // Keep the last booking rendered while the sheet animates closed.
   const [shown, setShown] = React.useState(booking);
   if (booking && booking !== shown) {
     setShown(booking);
     setEditing(false);
+    setCompleting(false);
   }
   const b = booking ?? shown;
   const groomer = groomers.find((g) => g.id === b?.groomerId) ?? null;
   const editable = b !== null && b.status === "scheduled";
+  // US-11: a visit that starts today or earlier can get its result (or be corrected).
+  const completable =
+    b !== null && b.kind === "booking" && b.status !== "cancelled" && b.date <= vilniusClock().date;
 
   async function remove() {
     if (!b) return true;
@@ -91,7 +109,9 @@ export function BookingDetailSheet({
     <>
       <Sheet open={booking !== null} onOpenChange={(o) => !o && onClose()}>
         <SheetContent>
-          {b && editing ? (
+          {b && completing ? (
+            <CompleteVisitForm key={b.id} booking={b} onBack={() => setCompleting(false)} onSaved={onClose} />
+          ) : b && editing ? (
             <RescheduleForm
               key={b.id}
               booking={b}
@@ -168,6 +188,22 @@ export function BookingDetailSheet({
                                 <p className="font-medium tabular-nums">{formatEur(price)}</p>
                               </div>
                               {group.map((item) =>
+                                item.visitNotes ? (
+                                  <p
+                                    key={`v-${item.id}`}
+                                    className="text-foreground-soft text-sm whitespace-pre-line"
+                                  >
+                                    <span className="font-medium">
+                                      {group.length > 1
+                                        ? `${t("afterVisit")} (${item.petName})`
+                                        : t("afterVisit")}
+                                      :
+                                    </span>{" "}
+                                    {item.visitNotes}
+                                  </p>
+                                ) : null,
+                              )}
+                              {group.map((item) =>
                                 item.petNotes ? (
                                   <PetNotes key={item.id} notes={item.petNotes} label={tp("notes")} />
                                 ) : null,
@@ -216,8 +252,22 @@ export function BookingDetailSheet({
                 )}
               </SheetBody>
 
+              {completable && b.status !== "scheduled" ? (
+                <SheetFooter>
+                  <Button variant="secondary" onClick={() => setCompleting(true)}>
+                    <Pencil aria-hidden />
+                    {t("correct")}
+                  </Button>
+                </SheetFooter>
+              ) : null}
               {editable ? (
                 <SheetFooter className="flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  {completable ? (
+                    <Button className="w-full" onClick={() => setCompleting(true)}>
+                      <CircleCheck aria-hidden />
+                      {t("complete")}
+                    </Button>
+                  ) : null}
                   <Button variant="secondary" onClick={() => setEditing(true)}>
                     <CalendarClock aria-hidden />
                     {t("reschedule")}
@@ -408,15 +458,4 @@ function RescheduleForm({
       </SheetFooter>
     </form>
   );
-}
-
-/** Rows entered as one shared service (same sharedGroup) are shown as one line. */
-function groupItems(items: CalendarBooking["items"]): CalendarBooking["items"][] {
-  const groups: CalendarBooking["items"][] = [];
-  for (const item of items) {
-    const last = groups[groups.length - 1];
-    if (item.sharedGroup !== null && last && last[0].sharedGroup === item.sharedGroup) last.push(item);
-    else groups.push([item]);
-  }
-  return groups;
 }

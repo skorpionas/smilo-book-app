@@ -422,6 +422,15 @@ export type Database = {
     };
     Functions: {
       anonymize_client: { Args: { p_client_id: string }; Returns: undefined };
+      complete_past_bookings: { Args: never; Returns: number };
+      complete_visit: {
+        Args: {
+          p_booking_id: string;
+          p_items?: Json;
+          p_status: Database["public"]["Enums"]["booking_status"];
+        };
+        Returns: undefined;
+      };
       create_booking_with_items: {
         Args: {
           p_client_id?: string;

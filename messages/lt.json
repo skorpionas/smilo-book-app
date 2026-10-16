@@ -134,7 +134,8 @@
     "workDaysRequired": "Pažymėkite bent vieną darbo dieną.",
     "pastDate": "Praėjusiai dienai registruoti negalima.",
     "contactRequired": "Įrašykite bent vieną: vardą, telefoną arba el. paštą.",
-    "forbidden": "Šio veiksmo atlikti negalima. Atnaujinkite puslapį ir bandykite dar kartą."
+    "forbidden": "Šio veiksmo atlikti negalima. Atnaujinkite puslapį ir bandykite dar kartą.",
+    "visitInFuture": "Vizito, kuris dar neprasidėjo, užbaigti negalima."
   },
   "common": {
     "close": "Uždaryti",
@@ -479,7 +480,21 @@
     "priceFamily": "Kliento kaina",
     "splitAs": "Istorijoje: {parts}",
     "rememberFamily": "Įsiminti kaip kliento paslaugą: {names}",
-    "sharedTogether": "bendra paslauga"
+    "sharedTogether": "bendra paslauga",
+    "complete": "Užbaigti vizitą",
+    "correct": "Pataisyti vizitą",
+    "completeTitle": "Užbaigti vizitą",
+    "correctTitle": "Vizito rezultatas",
+    "result": "Rezultatas",
+    "actualPrice": "Kaina, €",
+    "plannedPrice": "Planuota {price}",
+    "visitNotes": "Pastabos po vizito",
+    "visitNotesFor": "Pastabos po vizito: {name}",
+    "visitNotesPlaceholder": "Pvz. kailis susivėlęs, kitą kartą trumpiau",
+    "noPriceHint": "Kaina nebus įskaičiuota.",
+    "autoCompleteHint": "Pasibaigęs vizitas pažymimas įvykdytu automatiškai. Čia galite pakeisti kainą, įrašyti pastabas arba pažymėti, kad neatvyko.",
+    "visitSaved": "Vizito rezultatas išsaugotas",
+    "afterVisit": "Po vizito"
   },
   "search": {
     "label": "Ieškoti kliento ar augintinio",
