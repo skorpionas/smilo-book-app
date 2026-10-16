@@ -48,14 +48,19 @@ test("pet's own service pre-fills the booking sheet", async ({ page }, testInfo)
   await expect(page.getByRole("link", { name: new RegExp(p.owner) })).toBeVisible();
 
   // Add "Pilnas kirpimas" for this pet: 2 h 30 min, 55 €
-  await page.getByRole("button", { name: "Pridėti paslaugą" }).first().click();
   const sheet = page.getByRole("dialog");
-  await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
+  const existing = page.getByRole("button", { name: "Redaguoti Pilnas kirpimas" });
+  if (await existing.count()) {
+    await existing.click(); // a retry: the row was saved by the first attempt
+  } else {
+    await page.getByRole("button", { name: "Pridėti paslaugą" }).first().click();
+    await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
+  }
   await sheet.getByLabel("Trukmė").selectOption("150");
   await sheet.getByLabel("Kaina, €").fill("55");
   await sheet.getByRole("button", { name: "Išsaugoti" }).click();
   await expect(page.getByText("Paslauga išsaugota").first()).toBeVisible();
-  await expect(page.getByText("Įprasta")).toBeVisible();
+  await expect(page.getByText("Įprasta", { exact: true })).toBeVisible();
   await expect(page.getByText(/2 val\. 30 min\. · 55,00 €/)).toBeVisible();
 
   // Book from the pet page: pet, service, duration and price are filled in
