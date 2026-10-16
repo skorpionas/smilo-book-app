@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Dog,
   PawPrint,
-  Phone,
   Plus,
   SearchX,
   TriangleAlert,
@@ -20,10 +19,18 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { phoneDigits } from "@/lib/phone";
 import { matchesClient } from "@/lib/search";
 import { cn } from "@/lib/utils";
 import { NewPetsSheet } from "@/components/pets/new-pets-sheet";
+import type { VisitSummary } from "@/lib/visits";
+import {
+  CallOrOpen,
+  ColumnHeader,
+  groupByLetter,
+  LetterSection,
+  PET_COLUMNS,
+  VisitCell,
+} from "./directory-parts";
 
 export type PetListRow = {
   id: string;
@@ -36,19 +43,24 @@ export type PetListRow = {
   clientName: string;
   phone: string | null;
   phoneDisplay: string;
+  visits: VisitSummary;
 };
 
 type Filter = "all" | "dog" | "cat";
 
 /**
- * Pet-first directory: one row per dog or cat, owner and phone underneath, a call
- * button on the row. Filtering is local (instant; the query never leaves the device).
+ * Pet-first directory: alphabetical sections, one row per dog or cat (a client's
+ * pets kept together), a call button on the row; on tablet / desktop the rows
+ * become columns (breed, client, next or last visit). Filtering is local
+ * (instant; the query never leaves the device).
  */
 export function PetsList({
   pets,
   clientsWithoutPets,
+  today,
 }: {
   pets: PetListRow[];
+  today: string;
   clientsWithoutPets: { id: string; fullName: string; phoneDisplay: string }[];
 }) {
   const t = useTranslations("directory");
@@ -88,48 +100,52 @@ export function PetsList({
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
+      {/* phone: search + add, filters below; tablet / desktop: one toolbar row */}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-3 md:flex md:items-center">
         <SearchField
           id="pets-search"
           label={t("searchLabel")}
           placeholder={t("searchPlaceholder")}
           value={query}
           onChange={setQuery}
-          className="flex-1"
+          className="md:flex-1"
         />
-        <Button onClick={() => setCreating(true)} className="shrink-0" aria-label={tp("newPet")}>
+        <Button onClick={() => setCreating(true)} className="shrink-0 md:order-3" aria-label={tp("newPet")}>
           <Plus aria-hidden />
           <span className="hidden sm:inline">{tp("newPet")}</span>
         </Button>
-      </div>
-
-      <div role="group" aria-label={t("speciesFilter")} className="flex flex-wrap gap-2">
-        {(
-          [
-            { key: "all", label: t("all"), icon: PawPrint },
-            { key: "dog", label: t("dogs"), icon: Dog },
-            { key: "cat", label: t("cats"), icon: Cat },
-          ] as const
-        ).map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            type="button"
-            aria-pressed={filter === key}
-            onClick={() => setFilter(key)}
-            className={cn(
-              "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors",
-              filter === key
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-surface text-foreground-soft hover:bg-surface-muted",
-            )}
-          >
-            <Icon aria-hidden className="size-4" />
-            {label}
-            <span className={cn("tabular-nums", filter === key ? "opacity-80" : "text-muted")}>
-              {counts[key]}
-            </span>
-          </button>
-        ))}
+        <div
+          role="group"
+          aria-label={t("speciesFilter")}
+          className="col-span-2 flex flex-wrap gap-2 md:order-2 md:flex-nowrap"
+        >
+          {(
+            [
+              { key: "all", label: t("all"), icon: PawPrint },
+              { key: "dog", label: t("dogs"), icon: Dog },
+              { key: "cat", label: t("cats"), icon: Cat },
+            ] as const
+          ).map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={filter === key}
+              onClick={() => setFilter(key)}
+              className={cn(
+                "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors",
+                filter === key
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-surface text-foreground-soft hover:bg-surface-muted",
+              )}
+            >
+              <Icon aria-hidden className="size-4" />
+              {label}
+              <span className={cn("tabular-nums", filter === key ? "opacity-80" : "text-muted")}>
+                {counts[key]}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {pets.length === 0 && clientsWithoutPets.length === 0 ? (
@@ -153,68 +169,47 @@ export function PetsList({
       ) : (
         <>
           {visible.length > 0 ? (
-            // Pets grouped by family: a family with 2+ pets is one block with its
-            // contact on top; a single pet is one row with its family underneath.
-            <ul className="gap-3 space-y-3 md:columns-2 xl:columns-3 [&>li]:break-inside-avoid">
-              {groupByFamily(visible).map((g) =>
-                g.pets.length > 1 ? (
-                  <li key={g.clientId}>
-                    <Card className="overflow-hidden">
-                      <div className="border-border bg-surface-muted/40 flex items-stretch border-b">
-                        <Link
-                          href={`/clients/${g.clientId}`}
-                          className="hover:bg-surface-muted flex min-h-12 min-w-0 flex-1 items-center gap-2 py-2 pl-4 transition-colors"
-                        >
-                          <Users aria-hidden className="text-muted size-4 shrink-0" />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-semibold">{g.clientName}</span>
-                            <span className="text-muted block truncate text-xs">
-                              {t("familyOf", { count: g.pets.length })}
-                              {g.phoneDisplay && g.phoneDisplay !== g.clientName
-                                ? ` · ${g.phoneDisplay}`
-                                : ""}
-                            </span>
-                          </span>
-                        </Link>
-                        <CallOrOpen
-                          phone={g.phone}
-                          phoneDisplay={g.phoneDisplay}
-                          label={tc("callNamed", { phone: g.phoneDisplay })}
-                        />
-                      </div>
-                      <ul
-                        className="divide-border divide-y"
-                        aria-label={t("familyPets", { name: g.clientName })}
-                      >
-                        {g.pets.map((p) => (
-                          <PetRow key={p.id} pet={p} sub={p.breed} />
-                        ))}
-                      </ul>
-                    </Card>
-                  </li>
-                ) : (
-                  <li key={g.clientId}>
-                    <Card className="overflow-hidden">
-                      <ul>
-                        <PetRow
-                          pet={g.pets[0]}
-                          sub={[g.pets[0].breed, g.clientName].filter(Boolean).join(" · ")}
-                          call={{ phone: g.phone, phoneDisplay: g.phoneDisplay }}
-                        />
-                      </ul>
-                    </Card>
-                  </li>
-                ),
-              )}
-            </ul>
+            <div className="space-y-4">
+              <ColumnHeader
+                columns={PET_COLUMNS}
+                labels={[t("colPet"), t("colBreed"), t("colClient"), t("colVisit")]}
+              />
+              {/* Letter sections; a client with 2+ pets is one block (its contact on
+                  top) where its first pet would be, a single pet is one row. */}
+              {groupByLetter(groupByFamily(visible), (g) => g.pets[0].name).map(({ letter, items }) => (
+                <LetterSection
+                  key={letter}
+                  id={`pets-${letter}`}
+                  letter={letter}
+                  label={t("letter", { letter })}
+                >
+                  <Card className="overflow-hidden">
+                    <ul className="divide-border divide-y">
+                      {items.map((g) =>
+                        g.pets.length > 1 ? (
+                          <li key={g.clientId}>
+                            <FamilyBlock group={g} today={today} />
+                          </li>
+                        ) : (
+                          <PetRow
+                            key={g.clientId}
+                            pet={g.pets[0]}
+                            today={today}
+                            client={g.clientName}
+                            call={g.phone}
+                          />
+                        ),
+                      )}
+                    </ul>
+                  </Card>
+                </LetterSection>
+              ))}
+            </div>
           ) : null}
 
           {orphans.length > 0 ? (
             <section aria-labelledby="no-pets-heading" className="space-y-2">
-              <h2
-                id="no-pets-heading"
-                className="text-muted px-1 text-xs font-semibold tracking-wider uppercase"
-              >
+              <h2 id="no-pets-heading" className="text-foreground-soft px-1 text-[0.9375rem] font-semibold">
                 {t("withoutPets")}
               </h2>
               <Card className="overflow-hidden">
@@ -255,7 +250,7 @@ type FamilyGroup = {
   pets: PetListRow[];
 };
 
-/** Keep the list's order (by pet name); a family appears where its first pet does. */
+/** Keep the list's order (by pet name); a client appears where its first pet does. */
 function groupByFamily(pets: PetListRow[]): FamilyGroup[] {
   const groups = new Map<string, FamilyGroup>();
   for (const p of pets) {
@@ -274,14 +269,51 @@ function groupByFamily(pets: PetListRow[]): FamilyGroup[] {
   return [...groups.values()];
 }
 
+/** A client's pets together: a tinted client line (open / call), then one row per pet. */
+function FamilyBlock({ group: g, today }: { group: FamilyGroup; today: string }) {
+  const t = useTranslations("directory");
+  const tc = useTranslations("clients");
+  const showPhone = g.phoneDisplay && g.phoneDisplay !== g.clientName;
+  return (
+    <div className="bg-surface-muted/50">
+      <div className="flex items-stretch">
+        <Link
+          href={`/clients/${g.clientId}`}
+          aria-label={t("openClient", { name: g.clientName })}
+          className="hover:bg-surface-muted flex min-h-11 min-w-0 flex-1 items-center gap-2 py-1.5 pl-4 transition-colors"
+        >
+          <Users aria-hidden className="text-muted size-4 shrink-0" />
+          <span className="min-w-0 truncate text-sm">
+            <span className="font-semibold">{g.clientName}</span>
+            <span className="text-muted">
+              {" · "}
+              {t("familyOf", { count: g.pets.length })}
+              {showPhone ? <span className="tabular-nums">{` · ${g.phoneDisplay}`}</span> : null}
+            </span>
+          </span>
+        </Link>
+        <CallOrOpen phone={g.phone} label={tc("callNamed", { phone: g.phoneDisplay })} />
+      </div>
+      <ul className="divide-border bg-surface divide-y" aria-label={t("familyPets", { name: g.clientName })}>
+        {g.pets.map((p) => (
+          <PetRow key={p.id} pet={p} today={today} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function PetRow({
   pet,
-  sub,
+  today,
+  client,
   call,
 }: {
   pet: PetListRow;
-  sub: string;
-  call?: { phone: string | null; phoneDisplay: string };
+  today: string;
+  /** Shown for a single pet; in a client block the block names the client. */
+  client?: string;
+  call?: string | null;
 }) {
   const t = useTranslations("directory");
   const tc = useTranslations("clients");
@@ -296,44 +328,36 @@ function PetRow({
           icon={pet.species === "cat" ? <Cat aria-hidden /> : <Dog aria-hidden />}
           label={pet.species === "cat" ? t("cat") : t("dog")}
         />
-        <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-1.5">
-            <span className="truncate font-medium">{pet.name}</span>
-            {pet.hasNotes ? (
-              <TriangleAlert aria-label={t("hasNotes")} className="text-warning-foreground size-4 shrink-0" />
-            ) : null}
+        <span className={cn("min-w-0 flex-1 md:items-center", PET_COLUMNS)}>
+          <span className="block min-w-0">
+            <span className="flex items-center gap-1.5">
+              <span className="truncate font-medium">{pet.name}</span>
+              {pet.hasNotes ? (
+                <TriangleAlert
+                  aria-label={t("hasNotes")}
+                  className="text-warning-foreground size-4 shrink-0"
+                />
+              ) : null}
+            </span>
+            {/* phone: breed and client on the second line, so the name is never the part that gets cut */}
+            <span className="text-muted block truncate text-sm md:hidden">
+              {[pet.breed, client].filter(Boolean).join(" · ")}
+            </span>
           </span>
-          {/* breed (and family) on the second line, so the name is never the part that gets cut */}
-          {sub ? <span className="text-muted block truncate text-sm">{sub}</span> : null}
+          <span className="text-foreground-soft hidden truncate text-sm md:block">{pet.breed || "–"}</span>
+          <span className="text-foreground-soft hidden truncate text-sm md:block">{client ?? ""}</span>
+          <span className="hidden md:block">
+            <VisitCell visits={pet.visits} today={today} />
+          </span>
         </span>
       </Link>
-      {call ? (
-        <CallOrOpen
-          phone={call.phone}
-          phoneDisplay={call.phoneDisplay}
-          label={tc("callNamed", { phone: call.phoneDisplay })}
-        />
+      {call !== undefined ? (
+        <CallOrOpen phone={call} label={tc("callNamed", { phone: pet.phoneDisplay })} />
       ) : (
         <span className="flex w-14 shrink-0 items-center justify-center">
           <ChevronRight aria-hidden className="text-muted size-5" />
         </span>
       )}
     </li>
-  );
-}
-
-function CallOrOpen({ phone, label }: { phone: string | null; phoneDisplay: string; label: string }) {
-  return phone ? (
-    <a
-      href={`tel:+${phoneDigits(phone)}`}
-      aria-label={label}
-      className="text-primary hover:bg-surface-muted flex w-14 shrink-0 items-center justify-center transition-colors"
-    >
-      <Phone aria-hidden className="size-5" />
-    </a>
-  ) : (
-    <span className="flex w-14 shrink-0 items-center justify-center">
-      <ChevronRight aria-hidden className="text-muted size-5" />
-    </span>
   );
 }

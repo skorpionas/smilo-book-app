@@ -96,7 +96,7 @@ export function PetsSection({
   return (
     <section aria-labelledby="pets-heading" className="space-y-2">
       <div className="flex min-h-11 items-center justify-between gap-2 px-1">
-        <h2 id="pets-heading" className="text-muted text-xs font-semibold tracking-wider uppercase">
+        <h2 id="pets-heading" className="text-foreground-soft text-[0.9375rem] font-semibold">
           {t("pets")}
         </h2>
         {!readOnly ? (

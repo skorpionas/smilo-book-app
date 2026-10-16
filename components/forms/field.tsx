@@ -70,7 +70,7 @@ export function FormSection({
   return (
     <section className={cn("space-y-4", className)}>
       <div className="flex min-h-11 items-center justify-between gap-2">
-        <h3 className="text-muted text-xs font-semibold tracking-wider uppercase">{title}</h3>
+        <h3 className="text-foreground-soft text-[0.9375rem] font-semibold">{title}</h3>
         {action}
       </div>
       {children}

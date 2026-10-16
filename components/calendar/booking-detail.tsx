@@ -126,7 +126,7 @@ export function BookingDetailSheet({
                 ) : (
                   <>
                     <section className="space-y-3">
-                      <h3 className="text-muted text-xs font-semibold tracking-wider uppercase">
+                      <h3 className="text-foreground-soft text-[0.9375rem] font-semibold">
                         {t("pets")}
                       </h3>
                       <ul className="space-y-3">
@@ -182,7 +182,7 @@ export function BookingDetailSheet({
 
                     {b.client ? (
                       <section className="space-y-2">
-                        <h3 className="text-muted text-xs font-semibold tracking-wider uppercase">
+                        <h3 className="text-foreground-soft text-[0.9375rem] font-semibold">
                           {t("client")}
                         </h3>
                         <p className="text-lg font-semibold">{b.client.fullName}</p>
@@ -210,7 +210,7 @@ export function BookingDetailSheet({
 
                     {b.notes ? (
                       <section className="space-y-1">
-                        <h3 className="text-muted text-xs font-semibold tracking-wider uppercase">
+                        <h3 className="text-foreground-soft text-[0.9375rem] font-semibold">
                           {t("bookingNotes")}
                         </h3>
                         <p className="whitespace-pre-line">{b.notes}</p>

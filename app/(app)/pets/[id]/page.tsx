@@ -199,7 +199,7 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
         {/* Side column (stacks under on phones): owner and the rest of the family */}
         <aside className="space-y-6 md:sticky md:top-24">
           <section aria-labelledby="owner-heading" className="space-y-2">
-            <h2 id="owner-heading" className="text-muted px-1 text-xs font-semibold tracking-wider uppercase">
+            <h2 id="owner-heading" className="text-foreground-soft px-1 text-[0.9375rem] font-semibold">
               {t("owner")}
             </h2>
             {client ? (
@@ -251,7 +251,7 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
             <section aria-labelledby="family-services-heading" className="space-y-2">
               <h2
                 id="family-services-heading"
-                className="text-muted px-1 text-xs font-semibold tracking-wider uppercase"
+                className="text-foreground-soft px-1 text-[0.9375rem] font-semibold"
               >
                 {t("familyServices")}
               </h2>
@@ -282,7 +282,7 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
             <section aria-labelledby="family-heading" className="space-y-2">
               <h2
                 id="family-heading"
-                className="text-muted px-1 text-xs font-semibold tracking-wider uppercase"
+                className="text-foreground-soft px-1 text-[0.9375rem] font-semibold"
               >
                 {t("family")}
               </h2>
@@ -353,7 +353,7 @@ function PetVisits({
 }) {
   return (
     <section aria-labelledby={`${id}-heading`} className="space-y-2">
-      <h2 id={`${id}-heading`} className="text-muted px-1 text-xs font-semibold tracking-wider uppercase">
+      <h2 id={`${id}-heading`} className="text-foreground-soft px-1 text-[0.9375rem] font-semibold">
         {title}
       </h2>
       {visits.length === 0 ? (

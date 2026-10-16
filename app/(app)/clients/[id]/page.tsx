@@ -108,12 +108,11 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
                 {client.archived_at && !client.anonymized_at ? (
                   <Badge tone="neutral">{t("archivedBadge")}</Badge>
                 ) : null}
-                <Badge tone={cancelled > 0 ? "neutral" : "outline"}>
-                  {t("cancelledCount", { count: cancelled })}
-                </Badge>
-                <Badge tone={noShows > 0 ? "warning" : "outline"}>
-                  {t("noShowCount", { count: noShows })}
-                </Badge>
+                {/* only when there is something to warn about: "0" badges were noise */}
+                {cancelled > 0 ? (
+                  <Badge tone="neutral">{t("cancelledCount", { count: cancelled })}</Badge>
+                ) : null}
+                {noShows > 0 ? <Badge tone="warning">{t("noShowCount", { count: noShows })}</Badge> : null}
               </div>
               {client.full_name && (client.phone_e164 || client.email) ? (
                 <p className="mt-1.5 font-medium">{client.full_name}</p>
@@ -260,7 +259,7 @@ function VisitSection({
 }) {
   return (
     <section aria-labelledby={`${id}-heading`} className="space-y-2">
-      <h2 id={`${id}-heading`} className="text-muted px-1 text-xs font-semibold tracking-wider uppercase">
+      <h2 id={`${id}-heading`} className="text-foreground-soft px-1 text-[0.9375rem] font-semibold">
         {title}
       </h2>
       {visits.length === 0 ? (

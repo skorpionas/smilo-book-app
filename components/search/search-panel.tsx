@@ -92,7 +92,7 @@ function HitList({
 }) {
   return (
     <section className="space-y-2">
-      <h2 className="text-muted px-1 text-xs font-semibold tracking-wider uppercase">{title}</h2>
+      <h2 className="text-foreground-soft px-1 text-[0.9375rem] font-semibold">{title}</h2>
       <Card className="overflow-hidden">
         <ul className="divide-border divide-y">
           {hits.map((h) => {

@@ -6,6 +6,8 @@ import { PetsList } from "@/components/clients/pets-list";
 import { PageBody, PageHeader } from "@/components/page-header";
 import { contactLabel, formatPhone } from "@/lib/phone";
 import { createClient } from "@/lib/supabase/server";
+import { todayInVilnius } from "@/lib/time";
+import { mergeVisits, summarizeVisits } from "@/lib/visits";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -33,6 +35,14 @@ export default async function Page({ searchParams }: PageProps<"/clients">) {
     .order("full_name")
     .limit(2000);
   const rows = (data ?? []).map((c) => ({ ...c, label: contactLabel(c) }));
+  // Last / next visit per pet, shown in the rows on tablet and desktop
+  const { data: visitRows } = await supabase
+    .from("booking_items")
+    .select("pet_id, bookings!inner(start_at, status)")
+    .in("bookings.status", ["completed", "scheduled"])
+    .limit(20000);
+  const visits = summarizeVisits(visitRows ?? []);
+  const today = todayInVilnius();
 
   return (
     <>
@@ -59,11 +69,14 @@ export default async function Page({ searchParams }: PageProps<"/clients">) {
 
         {owners ? (
           <ClientsList
+            today={today}
             clients={rows.map((c) => ({
               id: c.id,
               fullName: c.label,
               phone: c.phone_e164,
               phoneDisplay: formatPhone(c.phone_e164),
+              email: c.email,
+              visits: mergeVisits(c.pets.filter((p) => !p.archived_at).map((p) => visits.get(p.id))),
               pets: c.pets
                 .filter((p) => !p.archived_at)
                 .map((p) => ({ name: p.name, species: p.species }))
@@ -72,6 +85,7 @@ export default async function Page({ searchParams }: PageProps<"/clients">) {
           />
         ) : (
           <PetsList
+            today={today}
             pets={rows
               .flatMap((c) =>
                 c.pets
@@ -86,6 +100,7 @@ export default async function Page({ searchParams }: PageProps<"/clients">) {
                     clientName: c.label,
                     phone: c.phone_e164,
                     phoneDisplay: formatPhone(c.phone_e164),
+                    visits: visits.get(p.id) ?? { last: null, next: null },
                   })),
               )
               .sort((a, b) => a.name.localeCompare(b.name, "lt"))}

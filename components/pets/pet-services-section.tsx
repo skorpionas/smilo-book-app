@@ -115,7 +115,7 @@ export function PetServicesSection({
         <div>
           <h2
             id={`${kind}-services-heading`}
-            className="text-muted text-xs font-semibold tracking-wider uppercase"
+            className="text-foreground-soft text-[0.9375rem] font-semibold"
           >
             {t("title")}
           </h2>
