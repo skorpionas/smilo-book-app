@@ -79,17 +79,3 @@ jobs:
           name: playwright-report
           path: playwright-report
           retention-days: 7
-      # UI/UX review: every main screen on iPhone, iPad (portrait + landscape) and desktop
-      - name: Review screenshots
-        if: github.event_name == 'pull_request'
-        run: pnpm exec playwright test screens.spec.ts --reporter=list
-        env:
-          CI: "true"
-          SCREENSHOTS: "1"
-      - uses: actions/upload-artifact@v4
-        if: github.event_name == 'pull_request' && always()
-        with:
-          name: screenshots
-          path: screenshots
-          retention-days: 14
-          if-no-files-found: ignore

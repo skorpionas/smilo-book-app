@@ -1,0 +1,66 @@
+name: UI screenshots
+
+# On demand: add the label "ui-screens" to a PR (or run it by hand from main).
+# Renders every main screen against the seeded local stack on iPhone, iPad
+# (portrait + landscape) and desktop, and publishes the PNGs to the `ui-screens`
+# branch (one folder per source branch) so they can be reviewed without
+# downloading artifacts. Never touches a hosted database.
+on:
+  pull_request:
+    types: [labeled, synchronize]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ui-screens
+  cancel-in-progress: false
+
+jobs:
+  screens:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'ui-screens')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Start local Supabase (migrations + seed)
+        run: pnpm exec supabase start -x studio,imgproxy,vector,logflare,edge-runtime,realtime,storage-api
+      - name: Export local Supabase env
+        run: |
+          eval "$(pnpm exec supabase status -o env | grep -E '^(API_URL|PUBLISHABLE_KEY|ANON_KEY)=')"
+          echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${PUBLISHABLE_KEY:-$ANON_KEY}" >> "$GITHUB_ENV"
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Capture
+        run: pnpm exec playwright test screens.spec.ts --reporter=list
+        env:
+          CI: "true"
+          SCREENSHOTS: "1"
+      - name: Publish to the ui-screens branch
+        env:
+          SRC: ${{ github.head_ref || github.ref_name }}
+        run: |
+          set -euo pipefail
+          dir="$(echo "$SRC" | tr '/' '-')"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mv screenshots /tmp/screens
+          if git ls-remote --exit-code origin ui-screens >/dev/null; then
+            git fetch --depth 1 origin ui-screens
+            git checkout -B ui-screens FETCH_HEAD
+          else
+            git checkout --orphan ui-screens
+            git rm -rq --cached . && git clean -fdq -e node_modules
+          fi
+          rm -rf "$dir" && mkdir -p "$dir" && cp -r /tmp/screens/* "$dir"/
+          git add "$dir"
+          git commit -qm "UI screenshots: $SRC @ ${GITHUB_SHA::7}" || echo "no changes"
+          git push -q origin ui-screens
