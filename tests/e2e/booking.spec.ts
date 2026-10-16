@@ -33,9 +33,9 @@ test("settings lists the seeded services and both groomers", async ({ page }) =>
 test("add a client and a pet (issues #15, #16)", async ({ page }) => {
   const name = `Testas Klientas ${Date.now().toString().slice(-6)}`;
   await login(page, "/clients?view=owners");
-  await page.getByRole("button", { name: "Nauja šeima" }).first().click();
+  await page.getByRole("button", { name: "Naujas klientas" }).first().click();
   const sheet = page.getByRole("dialog");
-  await sheet.getByLabel("Šeimininko vardas ir pavardė").fill(name);
+  await sheet.getByLabel("Vardas ir pavardė").fill(name);
   await sheet.getByLabel("Telefonas").fill("123");
   await sheet.getByRole("button", { name: "Išsaugoti" }).click();
   await expect(sheet.getByText("Neteisingas telefono numeris.")).toBeVisible();
@@ -60,11 +60,11 @@ test("add a client and a pet (issues #15, #16)", async ({ page }) => {
 
   // pet-first list: local, accent-insensitive filter finds the pet with its owner
   await page.goto("/clients");
-  await page.getByLabel("Ieškoti augintinio ar šeimos").fill("zuikis");
+  await page.getByLabel("Ieškoti augintinio ar kliento").fill("zuikis");
   await expect(page.getByRole("link", { name: new RegExp(`Žuikis.*${name}`) })).toBeVisible();
   // owners view still lists the client
   await page.goto("/clients?view=owners");
-  await page.getByLabel("Ieškoti šeimos").fill("zuikis");
+  await page.getByLabel("Ieškoti kliento").fill("zuikis");
   await expect(page.getByRole("link", { name: new RegExp(name) })).toBeVisible();
 });
 
@@ -81,7 +81,7 @@ test("book an existing client, then hit the overlap rule (US-05, US-09)", async 
 
   const sheet = page.getByRole("dialog");
   await expect(sheet.getByRole("heading", { name: "Nauja registracija" })).toBeVisible();
-  await sheet.getByPlaceholder("Augintinis, šeimininkas ar telefonas").fill("Petrausk");
+  await sheet.getByPlaceholder("Augintinis, klientas ar telefonas").fill("Petrausk");
   await sheet.getByRole("button", { name: "Pasirinkti Maksas (Rasa Petrauskienė)" }).click();
   await sheet.getByLabel("Augintinis", { exact: true }).selectOption({ index: 1 });
   await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
@@ -96,7 +96,7 @@ test("book an existing client, then hit the overlap rule (US-05, US-09)", async 
   // Same groomer, overlapping time → nothing saved, Lithuanian message naming the conflict.
   await page.getByRole("button", { name: `Registruoti: Meistrė A, ${end}` }).click();
   await sheet.getByLabel("Pradžia").selectOption(overlapStart);
-  await sheet.getByPlaceholder("Augintinis, šeimininkas ar telefonas").fill("Petrausk");
+  await sheet.getByPlaceholder("Augintinis, klientas ar telefonas").fill("Petrausk");
   await sheet.getByRole("button", { name: "Pasirinkti Maksas (Rasa Petrauskienė)" }).click();
   await sheet.getByLabel("Augintinis", { exact: true }).selectOption({ index: 1 });
   await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
@@ -115,7 +115,7 @@ test("change the time, cancel and delete a booking (US-10)", async ({ page }, te
 
   async function book(start: string) {
     await page.getByRole("button", { name: `Registruoti: Meistrė A, ${start}` }).click();
-    await sheet.getByPlaceholder("Augintinis, šeimininkas ar telefonas").fill("Petrausk");
+    await sheet.getByPlaceholder("Augintinis, klientas ar telefonas").fill("Petrausk");
     await sheet.getByRole("button", { name: "Pasirinkti Maksas (Rasa Petrauskienė)" }).click();
     await sheet.getByLabel("Augintinis", { exact: true }).selectOption({ index: 1 });
     await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
@@ -173,7 +173,7 @@ test("drag a booking to another time, then confirm", async ({ page }, testInfo) 
   await login(page, `/calendar?date=${day}`);
 
   await page.getByRole("button", { name: "Registruoti: Meistrė A, 09:00" }).click();
-  await sheet.getByPlaceholder("Augintinis, šeimininkas ar telefonas").fill("Petrausk");
+  await sheet.getByPlaceholder("Augintinis, klientas ar telefonas").fill("Petrausk");
   await sheet.getByRole("button", { name: "Pasirinkti Maksas (Rasa Petrauskienė)" }).click();
   await sheet.getByLabel("Augintinis", { exact: true }).selectOption({ index: 1 });
   await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });

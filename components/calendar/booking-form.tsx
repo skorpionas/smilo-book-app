@@ -160,15 +160,11 @@ function BookingForm({
   const [client, setClient] = React.useState<ClientState>(
     defaults.client ? { mode: "existing", option: defaults.client } : { mode: "none" },
   );
-  const [items, setItems] = React.useState<ItemState[]>(() =>
-    defaults.petId === ALL_PETS &&
-    defaults.client &&
-    defaults.client.pets.length > 1 &&
-    familyServiceFor(defaults.client, services)
-      ? [sharedItem(1000, defaults.client, services)]
-      : defaults.petId === ALL_PETS && defaults.client && defaults.client.pets.length > 0
-        ? familyItems(defaults.client, services, 1000)
-        : [withPetDefaults(emptyItem(0, defaults.client, defaults.petId), defaults.client, services)],
+  const [items, setItems] = React.useState<ItemState[]>(
+    () =>
+      clientItems(defaults.client, defaults.petId, services, 1000) ?? [
+        withPetDefaults(emptyItem(0, defaults.client, defaults.petId), defaults.client, services),
+      ],
   );
   const [durationMin, setDurationMin] = React.useState<number | null>(null); // null = sum of items
   const [notes, setNotes] = React.useState("");
@@ -203,14 +199,9 @@ function BookingForm({
       return;
     }
     const option = next.mode === "existing" ? next.option : null;
-    if (option && petId === ALL_PETS && option.pets.length > 1 && familyServiceFor(option, services)) {
-      // The family has a usual shared service: one row for all pets, totals filled in
-      setItems([sharedItem(nextKey.current, option, services)]);
-      nextKey.current += 1;
-      return;
-    }
-    if (option && petId === ALL_PETS && option.pets.length > 0) {
-      setItems(familyItems(option, services, nextKey.current));
+    const preset = clientItems(option, petId, services, nextKey.current);
+    if (preset) {
+      setItems(preset);
       nextKey.current += 6;
       return;
     }
@@ -1220,7 +1211,28 @@ function SpeciesIcon({ species, className }: { species: "dog" | "cat"; className
   );
 }
 
-/** The family's usual shared service, if it is still offered. */
+/**
+ * Rows to start with when a client is chosen. A client with several pets and a usual
+ * shared service gets that one row (also when no pet was asked for, e.g. "Registruoti
+ * vizitą" on the client page); "all pets" without one gets a row per pet. null = the
+ * usual single row.
+ */
+function clientItems(
+  client: BookingClientOption | null | undefined,
+  petId: string | null | undefined,
+  services: { id: string }[],
+  firstKey: number,
+): ItemState[] | null {
+  if (!client) return null;
+  const wantsAll = petId === ALL_PETS || !petId;
+  if (wantsAll && client.pets.length > 1 && familyServiceFor(client, services)) {
+    return [sharedItem(firstKey, client, services)];
+  }
+  if (petId === ALL_PETS && client.pets.length > 0) return familyItems(client, services, firstKey);
+  return null;
+}
+
+/** The client's usual shared service, if it is still offered. */
 function familyServiceFor(client: BookingClientOption, services: { id: string }[]) {
   return client.familyServices?.find((f) => services.some((x) => x.id === f.serviceId));
 }

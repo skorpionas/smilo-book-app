@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /**
  * Pet-first directory (owner feedback 2026-10-16): the default view lists pets,
- * grouped by family (the root: owner contact, pets, family services); "Šeimos"
+ * grouped by client (the root: contact, pets, shared services); "Klientai"
  * lists the families.
  */
 export default async function Page({ searchParams }: PageProps<"/clients">) {
