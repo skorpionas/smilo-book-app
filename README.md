@@ -121,3 +121,14 @@ supabase/tests/        pgTAP: overlap constraint, RLS, RPC functions
   Mouse: press and drag. Touch: long-press ~0.35 s, then drag (a quick swipe still scrolls). The ghost snaps to
   15 min, turns red ("užimta") over another card and refuses that drop; past days are not drop targets; the
   database still checks overlaps. "Keisti datą ar laiką" in the sheet is the keyboard / no-drag alternative.
+
+## Decisions: finishing visits (US-11)
+
+- **Visits complete themselves.** A `pg_cron` job (`complete-past-bookings`, every 15 min) runs
+  `complete_past_bookings()`: every `scheduled` booking whose end time has passed becomes `completed` and each item
+  without an actual price gets its planned price. Bookings end on the 15-min grid, so a visit ending at 12:00 shows ✓
+  right after 12:00. Blocks and cancelled bookings are left alone. The function is not callable by the app's roles.
+- **"Užbaigti vizitą" / "Pataisyti vizitą"** in the booking sheet (visits starting today or earlier) records or
+  corrects the result in one RPC (`complete_visit`): Įvykdyta / Neatvyko / Atšaukta, actual price per line (a shared
+  service is split per pet like when booking) and notes per pet. No-show and cancelled clear the actual price, so
+  money totals only count visits that happened.

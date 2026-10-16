@@ -100,3 +100,34 @@ export const rescheduleSchema = z.object({
   durationMin: duration,
 });
 export type RescheduleInput = z.input<typeof rescheduleSchema>;
+
+/** Visit results the owner can record (US-11). */
+export const VISIT_RESULTS = ["completed", "no_show", "cancelled"] as const;
+export type VisitResult = (typeof VISIT_RESULTS)[number];
+
+/**
+ * US-11: result of a visit — status, actual price and notes per item. The actual
+ * price is required when the visit took place; for no-show / cancelled it is cleared.
+ */
+export const completeVisitSchema = z
+  .object({
+    id: uuid,
+    status: z.enum(VISIT_RESULTS, { error: "required" }),
+    items: z
+      .array(
+        z.object({
+          id: uuid,
+          actualPrice: z.union([price, z.null()]).optional().default(null),
+          visitNotes: optionalText(2000),
+        }),
+      )
+      .max(12, { error: "invalid" }),
+  })
+  .superRefine((value, ctx) => {
+    if (value.status !== "completed") return;
+    value.items.forEach((item, i) => {
+      if (item.actualPrice === null)
+        ctx.addIssue({ code: "custom", message: "required", path: ["items", i, "actualPrice"] });
+    });
+  });
+export type CompleteVisitInput = z.input<typeof completeVisitSchema>;

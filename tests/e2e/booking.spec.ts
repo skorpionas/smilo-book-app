@@ -222,3 +222,41 @@ test("a booking after 19:00 widens the day grid and is shown", async ({ page }, 
     }),
   ).toBeVisible();
 });
+
+test("correct a finished visit: price, notes, then no-show (US-11)", async ({ page }, testInfo) => {
+  // A past seeded day per project (the projects share one database).
+  const day =
+    { mobile: "2026-10-12", tablet: "2026-10-13", desktop: "2026-10-14" }[testInfo.project.name] ??
+    "2026-10-14";
+  const sheet = page.getByRole("dialog").first();
+  await login(page, `/calendar?date=${day}`);
+
+  const card = page.getByRole("button", { name: /^\d{2}:\d{2}–\d{2}:\d{2}, .+, .+$/ }).first();
+  const name = (await card.getAttribute("aria-label"))!;
+  const same = page.getByRole("button", { name, exact: true });
+
+  // Done, with another price and a note.
+  await card.click();
+  await sheet.getByRole("button", { name: "Pataisyti vizitą" }).click();
+  await sheet.getByRole("radio", { name: "Įvykdyta" }).click();
+  await sheet.getByLabel("Kaina, €").first().fill("77");
+  await sheet
+    .getByLabel(/^Pastabos po vizito/)
+    .first()
+    .fill("Labai ramus");
+  await sheet.getByRole("button", { name: "Išsaugoti" }).click();
+  await expect(page.getByText("Vizito rezultatas išsaugotas").first()).toBeVisible();
+
+  await same.click();
+  await expect(sheet).toContainText("77,00 €");
+  await expect(sheet).toContainText("Labai ramus");
+
+  // It was really a no-show.
+  await sheet.getByRole("button", { name: "Pataisyti vizitą" }).click();
+  await sheet.getByRole("radio", { name: "Neatvyko" }).click();
+  await expect(sheet.getByLabel("Kaina, €")).toHaveCount(0);
+  await sheet.getByRole("button", { name: "Išsaugoti" }).click();
+  await expect(page.getByText("Vizito rezultatas išsaugotas").first()).toBeVisible();
+  await same.click();
+  await expect(sheet.getByText("Neatvyko").first()).toBeVisible();
+});
