@@ -61,6 +61,8 @@ jobs:
             git rm -rq --cached . && git clean -fdq -e node_modules
           fi
           rm -rf "$dir" && mkdir -p "$dir" && cp -r /tmp/screens/* "$dir"/
-          git add "$dir"
+          # This branch holds only PNGs: tell Vercel not to build it (it has no app → NEXT_NO_VERSION).
+          echo '{ "git": { "deploymentEnabled": false } }' > vercel.json
+          git add "$dir" vercel.json
           git commit -qm "UI screenshots: $SRC @ ${GITHUB_SHA::7}" || echo "no changes"
           git push -q origin ui-screens
