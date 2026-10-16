@@ -463,7 +463,19 @@
     "ownerContact": "Šeimininko kontaktai",
     "ownerContactHint": "Galite palikti tuščią arba įrašyti tik telefoną ar el. paštą.",
     "newPet": "Naujas augintinis",
-    "applyToAll": "„{service}“ visiems augintiniams"
+    "applyToAll": "„{service}“ visiems augintiniams",
+    "oneServiceForAll": "Viena paslauga keliems augintiniams",
+    "sharedTitle": "Bendra paslauga",
+    "splitPerPet": "Atskirai kiekvienam",
+    "removeShared": "Pašalinti bendrą paslaugą",
+    "sharedPets": "Kuriems augintiniams",
+    "sharedNeedsTwo": "Pasirinkite bent du augintinius.",
+    "sharedDuration": "Bendra trukmė",
+    "sharedPrice": "Bendra kaina, €",
+    "priceFamily": "Šeimos kaina",
+    "splitAs": "Istorijoje: {parts}",
+    "rememberFamily": "Įsiminti kaip šeimos paslaugą: {names}",
+    "sharedTogether": "bendra paslauga"
   },
   "search": {
     "label": "Ieškoti kliento ar augintinio",
@@ -601,5 +613,27 @@
     "familyHint": "Be kontaktų jie bus laikomi kartu kaip viena šeima „{names}“ – pavadinimą ar telefoną galėsite pakeisti vėliau.",
     "save": "{count, plural, one {Išsaugoti} other {Išsaugoti (#)}}",
     "saved": "{count, plural, one {Augintinis išsaugotas} few {Išsaugoti # augintiniai} other {Išsaugota # augintinių}}"
+  },
+  "familyServices": {
+    "title": "Šeimos paslaugos",
+    "add": "Pridėti šeimos paslaugą",
+    "usual": "Įprasta",
+    "standard": "įprastai {duration}, {price}",
+    "hint": "Viena paslauga visiems augintiniams kartu: trukmė ir kaina – bendra. Registruojant „Kartu“ ji užpildoma automatiškai.",
+    "emptyText": "Jei {name} kerpami ar maudomi kartu už vieną kainą – pridėkite paslaugą su bendra trukme ir kaina.",
+    "makeUsualNamed": "Padaryti įprasta: {name}",
+    "madeUsual": "Įprasta paslauga pakeista",
+    "editNamed": "Redaguoti {name}",
+    "addTitle": "Nauja šeimos paslauga",
+    "editTitle": "Šeimos paslauga",
+    "formHint": "Bendra trukmė ir kaina visiems kartu: {name}.",
+    "service": "Paslauga",
+    "duration": "Bendra trukmė",
+    "price": "Bendra kaina, €",
+    "saved": "Paslauga išsaugota",
+    "remove": "Pašalinti",
+    "removeTitle": "Pašalinti šeimos paslaugą?",
+    "removeText": "Registruojant „Kartu“ kiekvienam augintiniui bus siūloma jo paties kaina.",
+    "removed": "Paslauga pašalinta"
   }
 }

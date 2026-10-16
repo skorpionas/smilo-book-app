@@ -135,6 +135,14 @@ export const petServiceSchema = z.object({
 });
 export type PetServiceInput = z.output<typeof petServiceSchema>;
 
+/** A family's shared service: total time and price for all of the client's pets. */
+export const clientServiceSchema = z.object({
+  clientId: uuid,
+  serviceId: z.string({ error: "required" }).min(1, { error: "required" }).pipe(uuid),
+  durationMin: duration,
+  price,
+});
+
 /** A new owner / contact for an existing pet: at least one of name, phone, e-mail. */
 export const petOwnerContactSchema = z
   .object({ fullName: optionalName(100), phone: optionalPhone, email: optionalEmail })

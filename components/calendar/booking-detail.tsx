@@ -130,37 +130,53 @@ export function BookingDetailSheet({
                         {t("pets")}
                       </h3>
                       <ul className="space-y-3">
-                        {b.items.map((item) => (
-                          <li key={item.id} className="border-border space-y-2 rounded-lg border p-3">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                {item.petId ? (
-                                  <Link
-                                    href={`/pets/${item.petId}`}
-                                    className="hover:text-primary -my-1 inline-flex min-h-11 items-center gap-1.5 font-semibold"
-                                  >
-                                    {item.species === "cat" ? (
-                                      <Cat aria-hidden className="text-muted size-4" />
-                                    ) : (
-                                      <Dog aria-hidden className="text-muted size-4" />
+                        {groupItems(b.items).map((group) => {
+                          const first = group[0];
+                          const shared = group.length > 1;
+                          const minutes = group.reduce((m, i) => m + i.durationMin, 0);
+                          const price = group.reduce((m, i) => m + (i.actualPrice ?? i.plannedPrice), 0);
+                          return (
+                            <li key={first.id} className="border-border space-y-2 rounded-lg border p-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="flex flex-wrap items-center gap-x-3">
+                                    {group.map((item) =>
+                                      item.petId ? (
+                                        <Link
+                                          key={item.id}
+                                          href={`/pets/${item.petId}`}
+                                          className="hover:text-primary -my-1 inline-flex min-h-11 items-center gap-1.5 font-semibold"
+                                        >
+                                          {item.species === "cat" ? (
+                                            <Cat aria-hidden className="text-muted size-4" />
+                                          ) : (
+                                            <Dog aria-hidden className="text-muted size-4" />
+                                          )}
+                                          {item.petName}
+                                          <ChevronRight aria-hidden className="text-muted size-4" />
+                                        </Link>
+                                      ) : (
+                                        <span key={item.id} className="font-semibold">
+                                          {item.petName}
+                                        </span>
+                                      ),
                                     )}
-                                    {item.petName}
-                                    <ChevronRight aria-hidden className="text-muted size-4" />
-                                  </Link>
-                                ) : (
-                                  <p className="font-semibold">{item.petName}</p>
-                                )}
-                                <p className="text-muted text-sm">
-                                  {item.serviceName} · {formatDuration(tu, item.durationMin)}
-                                </p>
+                                  </p>
+                                  <p className="text-muted text-sm">
+                                    {first.serviceName} · {formatDuration(tu, minutes)}
+                                    {shared ? ` · ${t("sharedTogether")}` : ""}
+                                  </p>
+                                </div>
+                                <p className="font-medium tabular-nums">{formatEur(price)}</p>
                               </div>
-                              <p className="font-medium tabular-nums">
-                                {formatEur(item.actualPrice ?? item.plannedPrice)}
-                              </p>
-                            </div>
-                            {item.petNotes ? <PetNotes notes={item.petNotes} label={tp("notes")} /> : null}
-                          </li>
-                        ))}
+                              {group.map((item) =>
+                                item.petNotes ? (
+                                  <PetNotes key={item.id} notes={item.petNotes} label={tp("notes")} />
+                                ) : null,
+                              )}
+                            </li>
+                          );
+                        })}
                       </ul>
                     </section>
 
@@ -396,4 +412,15 @@ function RescheduleForm({
       </SheetFooter>
     </form>
   );
+}
+
+/** Rows entered as one shared service (same sharedGroup) are shown as one line. */
+function groupItems(items: CalendarBooking["items"]): CalendarBooking["items"][] {
+  const groups: CalendarBooking["items"][] = [];
+  for (const item of items) {
+    const last = groups[groups.length - 1];
+    if (item.sharedGroup !== null && last && last[0].sharedGroup === item.sharedGroup) last.push(item);
+    else groups.push([item]);
+  }
+  return groups;
 }

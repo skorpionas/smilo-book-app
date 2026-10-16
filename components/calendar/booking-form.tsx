@@ -33,6 +33,7 @@ import {
 import type { CalendarGroomer, CalendarService } from "@/lib/calendar-data";
 import { DURATION_OPTIONS, formatDuration } from "@/lib/format";
 import { formatEur, parseEur } from "@/lib/money";
+import { splitDuration, splitPrice } from "@/lib/split";
 import type { BookingInput } from "@/lib/schemas/booking";
 import { searchDigits } from "@/lib/search";
 import {
@@ -68,9 +69,14 @@ type ItemState = {
   serviceId: string;
   durationMin: number;
   price: string;
-  priceSource: "pet" | "last" | "default" | null;
-  /** Save duration + price as this pet's own service. */
+  priceSource: "pet" | "last" | "default" | "family" | null;
+  /** Save duration + price as this pet's own service (or, shared, as the family's). */
   remember: boolean;
+  /**
+   * One service for several pets: the pets it covers. Duration and price are then
+   * totals for all of them; they are split per pet when saving. null = a normal row.
+   */
+  sharedPetIds: string[] | null;
 };
 
 type ClientState =
@@ -155,9 +161,14 @@ function BookingForm({
     defaults.client ? { mode: "existing", option: defaults.client } : { mode: "none" },
   );
   const [items, setItems] = React.useState<ItemState[]>(() =>
-    defaults.petId === ALL_PETS && defaults.client && defaults.client.pets.length > 0
-      ? familyItems(defaults.client, services, 1000)
-      : [withPetDefaults(emptyItem(0, defaults.client, defaults.petId), defaults.client, services)],
+    defaults.petId === ALL_PETS &&
+    defaults.client &&
+    defaults.client.pets.length > 1 &&
+    familyServiceFor(defaults.client, services)
+      ? [sharedItem(1000, defaults.client, services)]
+      : defaults.petId === ALL_PETS && defaults.client && defaults.client.pets.length > 0
+        ? familyItems(defaults.client, services, 1000)
+        : [withPetDefaults(emptyItem(0, defaults.client, defaults.petId), defaults.client, services)],
   );
   const [durationMin, setDurationMin] = React.useState<number | null>(null); // null = sum of items
   const [notes, setNotes] = React.useState("");
@@ -192,6 +203,12 @@ function BookingForm({
       return;
     }
     const option = next.mode === "existing" ? next.option : null;
+    if (option && petId === ALL_PETS && option.pets.length > 1 && familyServiceFor(option, services)) {
+      // The family has a usual shared service: one row for all pets, totals filled in
+      setItems([sharedItem(nextKey.current, option, services)]);
+      nextKey.current += 1;
+      return;
+    }
     if (option && petId === ALL_PETS && option.pets.length > 0) {
       setItems(familyItems(option, services, nextKey.current));
       nextKey.current += 6;
@@ -319,6 +336,92 @@ function BookingForm({
     });
   }
 
+  /** Turn the rows into one shared service for several pets (totals, split on save). */
+  function makeShared() {
+    if (client.mode !== "existing") return;
+    const option = client.option;
+    const chosen = items.filter((i) => !i.sharedPetIds && i.petId && i.petId !== NEW_PET).map((i) => i.petId);
+    const petIds = chosen.length >= 2 ? chosen : option.pets.slice(0, 6).map((p) => p.id);
+    const serviceId = items.find((i) => i.serviceId)?.serviceId ?? "";
+    const key = nextKey.current++;
+    const base: ItemState = { ...emptyItem(key, null, null), petId: "", sharedPetIds: petIds, serviceId };
+    const fam = serviceId ? option.familyServices?.find((f) => f.serviceId === serviceId) : undefined;
+    const item: ItemState = fam
+      ? { ...base, durationMin: fam.durationMin, price: priceText(fam.price), priceSource: "family" }
+      : serviceId
+        ? {
+            ...base,
+            durationMin: Math.min(
+              600,
+              items.reduce((sum, i) => sum + (i.serviceId ? i.durationMin : 0), 0) || 60,
+            ),
+            price: priceText(items.reduce((sum, i) => sum + (parseEur(i.price) ?? 0), 0)),
+            priceSource: null,
+          }
+        : base;
+    setItems([item, ...items.filter((i) => i.petId === NEW_PET && i.newPetName.trim())]);
+  }
+
+  /** Back to one row per pet, each with its own usual service and price. */
+  function splitShared(key: number) {
+    if (client.mode !== "existing") return;
+    const option = client.option;
+    const shared = items.find((i) => i.key === key);
+    if (!shared?.sharedPetIds) return;
+    const first = nextKey.current;
+    nextKey.current += 6;
+    const rows = shared.sharedPetIds.map((petId, i) => {
+      const own = option.pets
+        .find((p) => p.id === petId)
+        ?.services.find((x) => x.serviceId === shared.serviceId);
+      const service = services.find((x) => x.id === shared.serviceId);
+      const base: ItemState = { ...emptyItem(first + i, null, null), petId, serviceId: shared.serviceId };
+      return own
+        ? { ...base, durationMin: own.durationMin, price: priceText(own.price), priceSource: "pet" as const }
+        : service
+          ? {
+              ...base,
+              durationMin: service.defaultDurationMin,
+              price: priceText(service.defaultPrice),
+              priceSource: "default" as const,
+            }
+          : withPetDefaults(base, option, services, true);
+    });
+    setItems((prev) => prev.flatMap((i) => (i.key === key ? rows : [i])));
+  }
+
+  function onSharedServiceChange(item: ItemState, serviceId: string) {
+    const service = services.find((x) => x.id === serviceId);
+    const count = item.sharedPetIds?.length ?? 1;
+    const fam =
+      client.mode === "existing"
+        ? client.option.familyServices?.find((f) => f.serviceId === serviceId)
+        : undefined;
+    updateItem(
+      item.key,
+      fam
+        ? {
+            serviceId,
+            durationMin: fam.durationMin,
+            price: priceText(fam.price),
+            priceSource: "family",
+            remember: false,
+          }
+        : {
+            serviceId,
+            durationMin: Math.min(600, (service?.defaultDurationMin ?? 60) * count),
+            price: service ? priceText(service.defaultPrice * count) : item.price,
+            priceSource: service ? "default" : null,
+          },
+    );
+  }
+
+  function toggleSharedPet(item: ItemState, petId: string) {
+    const current = item.sharedPetIds ?? [];
+    const next = current.includes(petId) ? current.filter((id) => id !== petId) : [...current, petId];
+    updateItem(item.key, { sharedPetIds: next });
+  }
+
   function removeItem(key: number) {
     setItems((prev) => prev.filter((i) => i.key !== key));
   }
@@ -345,18 +448,10 @@ function BookingForm({
               ? { mode: "new", fullName: client.fullName, phone: client.phone, email: client.email }
               : { mode: "none" }
             : (undefined as unknown as BookingInput["client"]),
-      items: items.map((i) => ({
-        pet:
-          i.petId === NEW_PET
-            ? { mode: "new", name: i.newPetName, species: i.newPetSpecies, breed: "" }
-            : i.petId
-              ? { mode: "existing", id: i.petId }
-              : (undefined as unknown as BookingInput["items"][number]["pet"]),
-        serviceId: i.serviceId,
-        durationMin: i.durationMin,
-        plannedPrice: i.price,
-        remember: i.remember,
-      })),
+      items: expandItems(items),
+      rememberFamily: items
+        .filter((i) => i.sharedPetIds && i.sharedPetIds.length > 1 && i.remember && i.serviceId)
+        .map((i) => ({ serviceId: i.serviceId, durationMin: i.durationMin, price: i.price })),
       notes,
     };
 
@@ -364,7 +459,11 @@ function BookingForm({
       const res = await createBooking(input);
       if (res.ok) {
         const petNames = items
-          .map((i) => (i.petId === NEW_PET ? i.newPetName : pets.find((p) => p.id === i.petId)?.name))
+          .flatMap((i) =>
+            i.sharedPetIds
+              ? i.sharedPetIds.map((id) => pets.find((p) => p.id === id)?.name)
+              : [i.petId === NEW_PET ? i.newPetName : pets.find((p) => p.id === i.petId)?.name],
+          )
           .filter(Boolean)
           .join(", ");
         toast({ title: t("saved"), description: [res.summary?.range, petNames].filter(Boolean).join(", ") });
@@ -464,6 +563,23 @@ function BookingForm({
             {items.map((item, index) => {
               const prefix = `items.${index}`;
               const service = services.find((s) => s.id === item.serviceId);
+              if (item.sharedPetIds) {
+                return (
+                  <SharedItemRow
+                    key={item.key}
+                    item={item}
+                    pets={pets}
+                    services={services}
+                    errors={fe}
+                    canRemove={items.length > 1}
+                    onRemove={() => removeItem(item.key)}
+                    onSplit={() => splitShared(item.key)}
+                    onTogglePet={(petId) => toggleSharedPet(item, petId)}
+                    onService={(serviceId) => onSharedServiceChange(item, serviceId)}
+                    onChange={(patch) => updateItem(item.key, patch)}
+                  />
+                );
+              }
               return (
                 <li key={item.key} className="border-border space-y-4 rounded-lg border p-3.5">
                   <div className="-mt-1 -mr-1.5 flex min-h-9 items-center justify-between">
@@ -626,6 +742,7 @@ function BookingForm({
             })}
           </ol>
           {items.length > 1 &&
+          !items.some((i) => i.sharedPetIds) &&
           items[0].serviceId &&
           items.slice(1).some((i) => i.serviceId !== items[0].serviceId) ? (
             <Button type="button" variant="soft" className="w-full" onClick={applyFirstServiceToAll}>
@@ -633,9 +750,17 @@ function BookingForm({
               {t("applyToAll", { service: services.find((x) => x.id === items[0].serviceId)?.name ?? "" })}
             </Button>
           ) : null}
+          {client.mode === "existing" && pets.length > 1 && !items.some((i) => i.sharedPetIds) ? (
+            <Button type="button" variant="soft" className="w-full" onClick={makeShared}>
+              <PawPrint aria-hidden />
+              {t("oneServiceForAll")}
+            </Button>
+          ) : null}
           {items.length < 6 && client.mode === "existing" ? (
             <QuickAddPets
-              pets={pets.filter((p) => !items.some((i) => i.petId === p.id))}
+              pets={pets.filter(
+                (p) => !items.some((i) => i.petId === p.id || i.sharedPetIds?.includes(p.id)),
+              )}
               onAdd={addPetItem}
             />
           ) : null}
@@ -986,6 +1111,7 @@ function emptyItem(key: number, client: BookingClientOption | null, petId?: stri
     price: "",
     priceSource: null,
     remember: false,
+    sharedPetIds: null,
   };
 }
 
@@ -1091,5 +1217,226 @@ function SpeciesIcon({ species, className }: { species: "dog" | "cat"; className
     <Cat aria-hidden className={className} />
   ) : (
     <Dog aria-hidden className={className} />
+  );
+}
+
+/** The family's usual shared service, if it is still offered. */
+function familyServiceFor(client: BookingClientOption, services: { id: string }[]) {
+  return client.familyServices?.find((f) => services.some((x) => x.id === f.serviceId));
+}
+
+/** One row for all of the client's pets with the family's usual shared service. */
+function sharedItem(key: number, client: BookingClientOption, services: { id: string }[]): ItemState {
+  const fam = familyServiceFor(client, services);
+  return {
+    ...emptyItem(key, null, null),
+    petId: "",
+    sharedPetIds: client.pets.slice(0, 6).map((p) => p.id),
+    serviceId: fam?.serviceId ?? "",
+    durationMin: fam?.durationMin ?? 60,
+    price: fam ? priceText(fam.price) : "",
+    priceSource: fam ? "family" : null,
+  };
+}
+
+/**
+ * Rows → what the server stores: one row per pet. A shared row becomes one row per
+ * pet with the total time and price split (remainder on the first pet) and a common
+ * sharedGroup number, so it can be shown as one line again.
+ */
+function expandItems(items: ItemState[]): BookingInput["items"] {
+  let group = 0;
+  return items.flatMap((i): BookingInput["items"] => {
+    if (i.sharedPetIds && i.sharedPetIds.length > 0) {
+      const ids = i.sharedPetIds;
+      const total = parseEur(i.price);
+      const prices: (number | string)[] =
+        total === null ? ids.map(() => i.price) : splitPrice(total, ids.length);
+      const minutes = splitDuration(i.durationMin, ids.length);
+      const sharedGroup = ids.length > 1 ? ++group : undefined;
+      return ids.map((id, n) => ({
+        pet: { mode: "existing" as const, id },
+        serviceId: i.serviceId,
+        durationMin: minutes[n],
+        plannedPrice: prices[n],
+        remember: false,
+        sharedGroup,
+      }));
+    }
+    return [
+      {
+        pet:
+          i.petId === NEW_PET
+            ? { mode: "new" as const, name: i.newPetName, species: i.newPetSpecies, breed: "" }
+            : i.petId
+              ? { mode: "existing" as const, id: i.petId }
+              : (undefined as unknown as BookingInput["items"][number]["pet"]),
+        serviceId: i.serviceId,
+        durationMin: i.durationMin,
+        plannedPrice: i.price,
+        remember: i.remember,
+      },
+    ];
+  });
+}
+
+/** One service for several pets: pet chips, service, total time and total price. */
+function SharedItemRow({
+  item,
+  pets,
+  services,
+  errors,
+  canRemove,
+  onRemove,
+  onSplit,
+  onTogglePet,
+  onService,
+  onChange,
+}: {
+  item: ItemState;
+  pets: BookingPetOption[];
+  services: { id: string; name: string }[];
+  errors: Record<string, string>;
+  canRemove: boolean;
+  onRemove: () => void;
+  onSplit: () => void;
+  onTogglePet: (petId: string) => void;
+  onService: (serviceId: string) => void;
+  onChange: (patch: Partial<ItemState>) => void;
+}) {
+  const t = useTranslations("booking");
+  const tu = useTranslations("units");
+  const chosen = item.sharedPetIds ?? [];
+  const names = pets.filter((p) => chosen.includes(p.id)).map((p) => p.name);
+  const total = parseEur(item.price);
+  const split =
+    total !== null && chosen.length > 1 ? splitPrice(total, chosen.length).map(formatEur).join(" + ") : null;
+  // The expanded rows all carry the same values: show the first error of any of them
+  const err = (field: string) =>
+    Object.entries(errors).find(([k]) => k.startsWith("items.") && k.endsWith(`.${field}`))?.[1];
+
+  return (
+    <li className="border-primary/40 bg-primary-soft/20 space-y-4 rounded-lg border p-3.5">
+      <div className="-mt-1 -mr-1.5 flex min-h-9 items-center justify-between gap-2">
+        <span className="text-sm font-semibold">{t("sharedTitle")}</span>
+        <span className="flex items-center gap-1">
+          <Button type="button" variant="ghost" size="sm" onClick={onSplit}>
+            {t("splitPerPet")}
+          </Button>
+          {canRemove ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={t("removeShared")}
+              onClick={onRemove}
+            >
+              <Trash2 aria-hidden />
+            </Button>
+          ) : null}
+        </span>
+      </div>
+
+      <div role="group" aria-label={t("sharedPets")} className="flex flex-wrap gap-2">
+        {pets.map((pet) => {
+          const on = chosen.includes(pet.id);
+          return (
+            <button
+              key={pet.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onTogglePet(pet.id)}
+              className={cn(
+                "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors",
+                on
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-surface text-foreground-soft hover:bg-surface-muted",
+              )}
+            >
+              <SpeciesIcon species={pet.species} className="size-4" />
+              {pet.name}
+            </button>
+          );
+        })}
+      </div>
+      {chosen.length < 2 ? <p className="text-danger -mt-2 text-sm">{t("sharedNeedsTwo")}</p> : null}
+
+      <Field id={`shared-${item.key}-service`} label={t("service")} error={err("serviceId")}>
+        {(p) => (
+          <Select {...p} value={item.serviceId} onChange={(e) => onService(e.target.value)}>
+            <option value="" disabled>
+              {t("chooseService")}
+            </option>
+            {services.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.name}
+              </option>
+            ))}
+          </Select>
+        )}
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field id={`shared-${item.key}-duration`} label={t("sharedDuration")} error={err("durationMin")}>
+          {(p) => (
+            <Select
+              {...p}
+              value={String(item.durationMin)}
+              onChange={(e) =>
+                onChange({
+                  durationMin: Number(e.target.value),
+                  priceSource: item.priceSource === "family" ? null : item.priceSource,
+                })
+              }
+            >
+              {DURATION_OPTIONS.map((m) => (
+                <option key={m} value={m}>
+                  {formatDuration(tu, m)}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+        <Field
+          id={`shared-${item.key}-price`}
+          label={t("sharedPrice")}
+          error={err("plannedPrice")}
+          hint={
+            item.priceSource === "family"
+              ? t("priceFamily")
+              : split
+                ? t("splitAs", { parts: split })
+                : undefined
+          }
+        >
+          {(p) => (
+            <Input
+              {...p}
+              inputMode="decimal"
+              autoComplete="off"
+              value={item.price}
+              onChange={(e) => onChange({ price: e.target.value, priceSource: null })}
+              className="tabular-nums"
+            />
+          )}
+        </Field>
+      </div>
+
+      {item.serviceId && chosen.length > 1 && item.priceSource !== "family" ? (
+        <label
+          htmlFor={`shared-${item.key}-remember`}
+          className="-my-1 flex min-h-11 cursor-pointer items-center gap-3 text-sm"
+        >
+          <input
+            id={`shared-${item.key}-remember`}
+            type="checkbox"
+            checked={item.remember}
+            onChange={(e) => onChange({ remember: e.target.checked })}
+            className="accent-primary size-5 shrink-0"
+          />
+          <span>{t("rememberFamily", { names: names.join(", ") })}</span>
+        </label>
+      ) : null}
+    </li>
   );
 }

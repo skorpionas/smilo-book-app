@@ -20,6 +20,7 @@ export type Database = {
           planned_price: number;
           position: number;
           service_id: string;
+          shared_group: number | null;
           updated_at: string;
           visit_notes: string;
         };
@@ -34,6 +35,7 @@ export type Database = {
           planned_price: number;
           position?: number;
           service_id: string;
+          shared_group?: number | null;
           updated_at?: string;
           visit_notes?: string;
         };
@@ -48,6 +50,7 @@ export type Database = {
           planned_price?: number;
           position?: number;
           service_id?: string;
+          shared_group?: number | null;
           updated_at?: string;
           visit_notes?: string;
         };
@@ -218,6 +221,57 @@ export type Database = {
           work_days?: number[];
         };
         Relationships: [];
+      };
+      client_services: {
+        Row: {
+          created_at: string;
+          duration_min: number;
+          id: string;
+          owner_id: string;
+          client_id: string;
+          position: number;
+          price: number;
+          service_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          duration_min: number;
+          id?: string;
+          owner_id?: string;
+          client_id: string;
+          position?: number;
+          price: number;
+          service_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          duration_min?: number;
+          id?: string;
+          owner_id?: string;
+          client_id?: string;
+          position?: number;
+          price?: number;
+          service_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "client_services_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_services_service_id_fkey";
+            columns: ["service_id"];
+            isOneToOne: false;
+            referencedRelation: "services";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       pet_services: {
         Row: {

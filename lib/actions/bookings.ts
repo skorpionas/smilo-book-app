@@ -38,6 +38,8 @@ export type BookingClientOption = {
   pets: BookingPetOption[];
   /** Pets whose name matched the search (shown first in the picker). */
   matchedPetIds?: string[];
+  /** The family's shared services (totals for all pets together); first = usual. */
+  familyServices?: PetServiceOption[];
 };
 
 /** Client picker in the booking sheet (US-05): name, pet name or phone digits; ≥ 2 characters. */
@@ -154,7 +156,7 @@ async function loadClientOptions(ids: string[]): Promise<BookingClientOption[]> 
   const { data, error } = await supabase
     .from("clients")
     .select(
-      "id, full_name, phone_e164, email, pets(id, name, species, breed, archived_at, pet_services(service_id, duration_min, price, position, created_at, services(archived_at)))",
+      "id, full_name, phone_e164, email, pets(id, name, species, breed, archived_at, pet_services(service_id, duration_min, price, position, created_at, services(archived_at))), client_services(service_id, duration_min, price, position, created_at, services(archived_at))",
     )
     .in("id", ids)
     .is("archived_at", null)
@@ -173,6 +175,10 @@ async function loadClientOptions(ids: string[]): Promise<BookingClientOption[]> 
       .filter((p) => !p.archived_at)
       .sort((a, b) => a.name.localeCompare(b.name, "lt"))
       .map(toPetOption),
+    familyServices: [...c.client_services]
+      .filter((cs) => !cs.services?.archived_at)
+      .sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at))
+      .map((cs) => ({ serviceId: cs.service_id, durationMin: cs.duration_min, price: Number(cs.price) })),
   }));
 }
 
@@ -211,6 +217,7 @@ export async function createBooking(input: BookingInput): Promise<CreateBookingR
     duration_min: item.durationMin,
     planned_price: item.plannedPrice,
     remember: item.remember,
+    shared_group: item.sharedGroup ?? null,
   }));
 
   const supabase = await createClient();
@@ -237,6 +244,33 @@ export async function createBooking(input: BookingInput): Promise<CreateBookingR
       return { ok: false, error: t("checkFields"), fieldErrors: { "client.phone": t("phoneTaken") } };
     }
     return dbFailed(error, "createBooking");
+  }
+
+  // "Įsiminti kaip šeimos paslaugą": the shared totals become the family's usual price.
+  if (b.client.mode === "existing" && b.rememberFamily.length > 0) {
+    const clientId = b.client.id;
+    const { data: existing } = await supabase
+      .from("client_services")
+      .select("id, service_id")
+      .eq("client_id", clientId);
+    for (const f of b.rememberFamily) {
+      const same = existing?.find((r) => r.service_id === f.serviceId);
+      const { error: e } = same
+        ? await supabase
+            .from("client_services")
+            .update({ duration_min: f.durationMin, price: f.price })
+            .eq("id", same.id)
+        : await supabase.from("client_services").insert({
+            client_id: clientId,
+            service_id: f.serviceId,
+            duration_min: f.durationMin,
+            price: f.price,
+            position: existing?.length ?? 0,
+          });
+      // The booking is saved either way; a failed "remember" is only logged.
+      if (e) console.error("[action] createBooking.rememberFamily failed", { code: e.code });
+    }
+    revalidatePath(`/clients/${clientId}`);
   }
 
   revalidatePath("/calendar", "layout");

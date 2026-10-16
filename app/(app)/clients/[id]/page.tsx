@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { ClientActions, PetsSection } from "@/components/clients/client-detail";
 import { PageBody, PageHeader } from "@/components/page-header";
+import { PetServicesSection } from "@/components/pets/pet-services-section";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,28 +30,42 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
 
   const t = await getTranslations("clients");
   const supabase = await createClient();
-  const [{ data: client }, { data: pets }, { data: bookings }] = await Promise.all([
-    supabase
-      .from("clients")
-      .select("id, full_name, phone_e164, email, notes, archived_at, anonymized_at")
-      .eq("id", id)
-      .maybeSingle(),
-    supabase
-      .from("pets")
-      .select("id, name, species, breed, size, weight_kg, birth_year, birth_month, notes")
-      .eq("client_id", id)
-      .is("archived_at", null)
-      .order("name"),
-    supabase
-      .from("bookings")
-      .select(
-        "id, start_at, end_at, status, notes, groomers(name, color), booking_items(id, position, planned_price, actual_price, visit_notes, pets(name), services(name))",
-      )
-      .eq("client_id", id)
-      .eq("kind", "booking")
-      .order("start_at", { ascending: false })
-      .limit(200),
-  ]);
+  const [{ data: client }, { data: pets }, { data: bookings }, { data: family }, { data: services }] =
+    await Promise.all([
+      supabase
+        .from("clients")
+        .select("id, full_name, phone_e164, email, notes, archived_at, anonymized_at")
+        .eq("id", id)
+        .maybeSingle(),
+      supabase
+        .from("pets")
+        .select("id, name, species, breed, size, weight_kg, birth_year, birth_month, notes")
+        .eq("client_id", id)
+        .is("archived_at", null)
+        .order("name"),
+      supabase
+        .from("bookings")
+        .select(
+          "id, start_at, end_at, status, notes, groomers(name, color), booking_items(id, position, planned_price, actual_price, visit_notes, pets(name), services(name))",
+        )
+        .eq("client_id", id)
+        .eq("kind", "booking")
+        .order("start_at", { ascending: false })
+        .limit(200),
+      supabase
+        .from("client_services")
+        .select(
+          "id, service_id, duration_min, price, position, created_at, services(name, default_duration_min, default_price, archived_at)",
+        )
+        .eq("client_id", id)
+        .order("position")
+        .order("created_at"),
+      supabase
+        .from("services")
+        .select("id, name, default_duration_min, default_price")
+        .is("archived_at", null)
+        .order("name"),
+    ]);
   if (!client) notFound();
 
   const { all, upcoming, history } = partitionVisits(bookings ?? []);
@@ -158,6 +173,33 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
             notes: p.notes,
           }))}
         />
+
+        {/* One service for all the pets together (e.g. "Maudymas abiem, 2 h, 50 €") */}
+        {(pets ?? []).length > 1 || (family ?? []).length > 0 ? (
+          <PetServicesSection
+            kind="family"
+            petId={client.id}
+            petName={(pets ?? []).map((p) => p.name).join(", ")}
+            readOnly={readOnly}
+            services={(services ?? []).map((x) => ({
+              id: x.id,
+              name: x.name,
+              defaultDurationMin: x.default_duration_min,
+              defaultPrice: Number(x.default_price),
+            }))}
+            rows={(family ?? [])
+              .filter((r) => r.services && !r.services.archived_at)
+              .map((r) => ({
+                id: r.id,
+                serviceId: r.service_id,
+                serviceName: r.services?.name ?? "",
+                durationMin: r.duration_min,
+                price: Number(r.price),
+                defaultDurationMin: r.services?.default_duration_min ?? r.duration_min,
+                defaultPrice: Number(r.services?.default_price ?? r.price),
+              }))}
+          />
+        ) : null}
 
         <VisitSection id="upcoming" title={t("upcoming")} empty={t("noUpcoming")} visits={upcoming} />
         <VisitSection id="history" title={t("history")} empty={t("noHistory")} visits={history} />

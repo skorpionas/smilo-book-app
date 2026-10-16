@@ -22,7 +22,26 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/toast";
-import { deletePetService, makeUsualPetService, savePetService } from "@/lib/actions/pets";
+import {
+  deleteClientService,
+  deletePetService,
+  makeUsualClientService,
+  makeUsualPetService,
+  saveClientService,
+  savePetService,
+} from "@/lib/actions/pets";
+
+/** "pet": one pet's own prices. "family": a client's shared services for all its pets. */
+type Kind = "pet" | "family";
+const ACTIONS = {
+  pet: { save: savePetService, remove: deletePetService, makeUsual: makeUsualPetService, field: "petId" },
+  family: {
+    save: saveClientService,
+    remove: deleteClientService,
+    makeUsual: makeUsualClientService,
+    field: "clientId",
+  },
+} as const;
 import { DURATION_OPTIONS, formatDuration } from "@/lib/format";
 import { formatEur } from "@/lib/money";
 
@@ -47,17 +66,21 @@ export type ServiceChoice = { id: string; name: string; defaultDurationMin: numb
 export function PetServicesSection({
   petId,
   petName,
+  kind = "pet",
   rows,
   services,
   readOnly,
 }: {
+  /** pet id, or client id when kind = "family" */
   petId: string;
+  /** pet name, or the family's pet names when kind = "family" */
   petName: string;
+  kind?: Kind;
   rows: PetServiceRow[];
   services: ServiceChoice[];
   readOnly?: boolean;
 }) {
-  const t = useTranslations("petServices");
+  const t = useTranslations(kind === "family" ? "familyServices" : "petServices");
   const tu = useTranslations("units");
   const [editing, setEditing] = React.useState<PetServiceRow | "new" | null>(null);
   const [removing, setRemoving] = React.useState<PetServiceRow | null>(null);
@@ -67,7 +90,7 @@ export function PetServicesSection({
 
   function makeUsual(row: PetServiceRow) {
     startTransition(async () => {
-      const res = await makeUsualPetService(row.id, petId);
+      const res = await ACTIONS[kind].makeUsual(row.id, petId);
       toast(
         res?.ok
           ? { title: t("madeUsual"), description: row.serviceName }
@@ -77,7 +100,7 @@ export function PetServicesSection({
   }
 
   async function remove(row: PetServiceRow) {
-    const res = await deletePetService(row.id, petId);
+    const res = await ACTIONS[kind].remove(row.id, petId);
     if (res?.ok) {
       toast({ title: t("removed"), description: row.serviceName });
       return true;
@@ -87,10 +110,13 @@ export function PetServicesSection({
   }
 
   return (
-    <section aria-labelledby="pet-services-heading" className="space-y-2">
+    <section aria-labelledby={`${kind}-services-heading`} className="space-y-2">
       <div className="flex min-h-11 items-center justify-between gap-2 px-1">
         <div>
-          <h2 id="pet-services-heading" className="text-muted text-xs font-semibold tracking-wider uppercase">
+          <h2
+            id={`${kind}-services-heading`}
+            className="text-muted text-xs font-semibold tracking-wider uppercase"
+          >
             {t("title")}
           </h2>
         </div>
@@ -127,7 +153,8 @@ export function PetServicesSection({
                   </p>
                   <p className="text-muted text-sm tabular-nums">
                     {formatDuration(tu, row.durationMin)} · {formatEur(row.price)}
-                    {row.price !== row.defaultPrice || row.durationMin !== row.defaultDurationMin ? (
+                    {kind === "pet" &&
+                    (row.price !== row.defaultPrice || row.durationMin !== row.defaultDurationMin) ? (
                       <span className="text-muted/80">
                         {" "}
                         (
@@ -176,6 +203,7 @@ export function PetServicesSection({
               key={editing === "new" ? "new" : editing.id}
               petId={petId}
               petName={petName}
+              kind={kind}
               row={editing === "new" ? null : editing}
               services={editing === "new" ? unused : services}
               onSaved={() => setEditing(null)}
@@ -202,6 +230,7 @@ export function PetServicesSection({
 function PetServiceForm({
   petId,
   petName,
+  kind,
   row,
   services,
   onSaved,
@@ -209,15 +238,16 @@ function PetServiceForm({
 }: {
   petId: string;
   petName: string;
+  kind: Kind;
   row: PetServiceRow | null;
   services: ServiceChoice[];
   onSaved: () => void;
   onRemove: (row: PetServiceRow) => void;
 }) {
-  const t = useTranslations("petServices");
+  const t = useTranslations(kind === "family" ? "familyServices" : "petServices");
   const tc = useTranslations("common");
   const tu = useTranslations("units");
-  const [state, onSubmit, pending] = useFormAction(savePetService);
+  const [state, onSubmit, pending] = useFormAction(ACTIONS[kind].save);
   const first = row ? services.find((s) => s.id === row.serviceId) : services[0];
   const [serviceId, setServiceId] = React.useState(row?.serviceId ?? first?.id ?? "");
   const [durationMin, setDurationMin] = React.useState(row?.durationMin ?? first?.defaultDurationMin ?? 60);
@@ -244,7 +274,7 @@ function PetServiceForm({
         <SheetDescription>{t("formHint", { name: petName })}</SheetDescription>
       </SheetHeader>
       <SheetBody className="space-y-5 pb-5">
-        <input type="hidden" name="petId" value={petId} />
+        <input type="hidden" name={ACTIONS[kind].field} value={petId} />
         {state?.error && !state.fieldErrors ? (
           <Alert tone="danger" role="alert">
             {state.error}

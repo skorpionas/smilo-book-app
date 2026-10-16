@@ -50,6 +50,8 @@ export const bookingItemSchema = z.object({
   plannedPrice: price,
   /** Save this duration + price as the pet's own service (pre-filled next time). */
   remember: z.boolean().optional().default(false),
+  /** Rows with the same number were one shared service for several pets (time and price split). */
+  sharedGroup: z.number().int().min(1).max(6).optional(),
 });
 
 export const bookingSchema = z
@@ -61,6 +63,12 @@ export const bookingSchema = z
     client: z.discriminatedUnion("mode", [existingClient, newClient, noClient], { error: "required" }),
     items: z.array(bookingItemSchema).min(1, { error: "itemsRequired" }).max(6, { error: "invalid" }),
     notes: optionalText(2000),
+    /** Shared services to save as the family's usual price (totals for all pets). */
+    rememberFamily: z
+      .array(z.object({ serviceId: uuid, durationMin: duration, price }))
+      .max(6)
+      .optional()
+      .default([]),
   })
   .superRefine((value, ctx) => {
     // A new pet can only be added to a new or existing client of this booking — always true here —

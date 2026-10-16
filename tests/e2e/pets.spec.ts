@@ -230,3 +230,56 @@ test("add a household of three pets in one go", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1, name: names.join(", ") })).toBeVisible();
   for (const n of names) await expect(page.getByRole("heading", { level: 3, name: n })).toBeVisible();
 });
+
+// One service for several pets, remembered on the family (owner feedback 2026-10-16)
+const SHARED: Record<string, { client: string; pets: [string, string]; weeks: number }> = {
+  mobile: { client: "Tomas Paulauskas", pets: ["Lūna", "Ronis"], weeks: 18 },
+  tablet: { client: "Lukas Stankevičius", pets: ["Džeris", "Sniegė"], weeks: 19 },
+  desktop: { client: "Mantas Žukauskas", pets: ["Bruklinas", "Lė"], weeks: 20 },
+};
+
+test("one shared service for two pets: family price, one line, split per pet", async ({ page }, testInfo) => {
+  const f = SHARED[testInfo.project.name] ?? SHARED.desktop;
+  const day = futureSunday(f.weeks);
+  const start = `${String(9 + testInfo.retry * 4).padStart(2, "0")}:00`;
+  const end = `${String(11 + testInfo.retry * 4).padStart(2, "0")}:00`;
+
+  // 1. the family's usual shared service: bath for both, 2 h, 50 €
+  await login(page, "/clients?view=owners");
+  await page.getByLabel("Ieškoti klientų").fill(f.client);
+  await page
+    .getByRole("link", { name: new RegExp(f.client) })
+    .first()
+    .click();
+  const family = page.getByRole("region", { name: "Šeimos paslaugos" });
+  const existing = family.getByRole("button", { name: "Redaguoti Maudymas ir džiovinimas" });
+  if (await existing.count()) await existing.click();
+  else await family.getByRole("button", { name: "Pridėti šeimos paslaugą" }).first().click();
+  const sheet = page.getByRole("dialog");
+  if (!(await existing.count()))
+    await sheet.getByLabel("Paslauga").selectOption({ label: "Maudymas ir džiovinimas" });
+  await sheet.getByLabel("Bendra trukmė").selectOption("120");
+  await sheet.getByLabel("Bendra kaina, €").fill("50");
+  await sheet.getByRole("button", { name: "Išsaugoti" }).click();
+  await expect(family.getByText(/2 val\. · 50,00 €/)).toBeVisible();
+
+  // 2. "Kartu" fills one shared row with the family price
+  await page.goto(`/calendar?date=${day}`);
+  await page.getByRole("button", { name: `Registruoti: Meistrė A, ${start}` }).click();
+  await sheet.getByPlaceholder("Augintinis, šeimininkas ar telefonas").fill(f.client);
+  await sheet
+    .getByRole("button", { name: `Pasirinkti visus kartu: ${f.pets.join(", ")} (${f.client})` })
+    .click();
+  await expect(sheet.getByText("Bendra paslauga")).toBeVisible();
+  await expect(sheet.getByLabel("Bendra kaina, €")).toHaveValue("50,00");
+  await expect(sheet.getByText("Šeimos kaina")).toBeVisible();
+  await expect(sheet.getByLabel("Visa trukmė")).toHaveValue("120");
+  await sheet.getByRole("button", { name: "Išsaugoti" }).click();
+  await expect(page.getByText("Registracija išsaugota").first()).toBeVisible();
+
+  // 3. shown as one line: both pets, one service, 50 €
+  await page.getByRole("button", { name: `${start}–${end}, ${f.pets.join(", ")}, ${f.client}` }).click();
+  const detail = page.getByRole("dialog");
+  await expect(detail.getByText(/Maudymas ir džiovinimas · 2 val\. · bendra paslauga/)).toBeVisible();
+  await expect(detail.getByText("50,00 €")).toBeVisible();
+});
