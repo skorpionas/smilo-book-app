@@ -231,10 +231,10 @@
     "hours": "{h} val.",
     "minutes": "{m} min.",
     "hoursMinutes": "{h} val. {m} min.",
-    "years": "{y} m.",
-    "months": "{mo} mėn.",
-    "kg": "{kg} kg",
-    "underYear": "iki 1 m."
+    "years": "{y} m.",
+    "months": "{mo} mėn.",
+    "kg": "{kg} kg",
+    "underYear": "iki 1\u00a0m."
   },
   "species": {
     "dog": "Šuo",

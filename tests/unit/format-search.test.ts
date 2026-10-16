@@ -37,10 +37,10 @@ describe("pet age", () => {
   });
 
   it("formats years or months", () => {
-    expect(formatAge(tu, 2020, 5, "2026-10-15")).toBe("6 m.");
-    expect(formatAge(tu, 2020, null, "2026-10-15")).toBe("6 m.");
-    expect(formatAge(tu, 2026, 5, "2026-10-15")).toBe("5 mėn.");
-    expect(formatAge(tu, 2026, null, "2026-10-15")).toBe("iki 1 m.");
+    expect(formatAge(tu, 2020, 5, "2026-10-15")).toBe("6\u00a0m.");
+    expect(formatAge(tu, 2020, null, "2026-10-15")).toBe("6\u00a0m.");
+    expect(formatAge(tu, 2026, 5, "2026-10-15")).toBe("5\u00a0mėn.");
+    expect(formatAge(tu, 2026, null, "2026-10-15")).toBe("iki 1\u00a0m.");
     expect(formatAge(tu, 2027, 1, "2026-10-15")).toBe("");
   });
 });

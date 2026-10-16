@@ -118,7 +118,7 @@ export function PetsSection({
           />
         </Card>
       ) : (
-        <ul className="grid gap-2 sm:grid-cols-2">
+        <ul className="grid items-start gap-2 sm:grid-cols-2">
           {pets.map((pet) => {
             const facts = [
               ts(pet.species),
