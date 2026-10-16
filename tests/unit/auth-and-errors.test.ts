@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import messages from "@/messages/lt.json";
-import { isPublicPath, safeNextPath, siteOrigin } from "@/lib/auth-paths";
+import { isPublicPath, safeNextPath } from "@/lib/auth-paths";
 import { classifyDbError } from "@/lib/db-errors";
 
 describe("auth paths", () => {
   it("knows which paths are public", () => {
     expect(isPublicPath("/login")).toBe(true);
-    expect(isPublicPath("/auth/confirm")).toBe(true);
-    expect(isPublicPath("/forgot-password")).toBe(true);
+    // single-owner app: no password-reset pages (owner resets in Supabase)
+    expect(isPublicPath("/auth/confirm")).toBe(false);
+    expect(isPublicPath("/forgot-password")).toBe(false);
     expect(isPublicPath("/calendar")).toBe(false);
     expect(isPublicPath("/loginx")).toBe(false);
   });
@@ -72,16 +73,5 @@ describe("security review 2026-10-16", () => {
     }
     expect(safeNextPath("/" + "a".repeat(600))).toBe("/calendar");
     expect(safeNextPath("/pets/1?x=1")).toBe("/pets/1?x=1");
-  });
-
-  it("builds e-mail links from configuration, never from request headers", () => {
-    expect(siteOrigin({ NEXT_PUBLIC_SITE_URL: "https://smilo.example/path" })).toBe("https://smilo.example");
-    expect(
-      siteOrigin({ VERCEL_ENV: "production", VERCEL_PROJECT_PRODUCTION_URL: "smilo-book-app.vercel.app" }),
-    ).toBe("https://smilo-book-app.vercel.app");
-    expect(siteOrigin({ VERCEL_ENV: "preview", VERCEL_URL: "smilo-git-x.vercel.app" })).toBe(
-      "https://smilo-git-x.vercel.app",
-    );
-    expect(siteOrigin({})).toBe("http://localhost:3000");
   });
 });

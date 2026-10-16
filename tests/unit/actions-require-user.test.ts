@@ -3,9 +3,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // Every exported Server Action is a public HTTP endpoint. Each one (except the
-// login / reset flow) must verify the session before doing anything else.
+// login / own password change) must verify the session before doing anything else.
 const DIR = join(__dirname, "../../lib/actions");
-const PUBLIC_ACTIONS = new Set(["signIn", "signOut", "requestPasswordReset", "updatePassword"]);
+const PUBLIC_ACTIONS = new Set(["signIn", "signOut", "updatePassword"]);
 
 describe("server actions require a session", () => {
   for (const file of readdirSync(DIR).filter((f) => f.endsWith(".ts"))) {

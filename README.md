@@ -50,9 +50,8 @@ then to production after the `production` environment's reviewer approves. Never
 ## Where things are
 
 ```
-app/(auth)/            login, forgot-password (public)
+app/(auth)/            login (the only public page)
 app/(app)/             everything behind login: calendar, upcoming, search, clients, settings, account
-app/auth/confirm/      password-reset e-mail link handler
 proxy.ts               session refresh + auth gate (Next 16 name for middleware)
 lib/time.ts            ALL Vilnius ↔ UTC / DST / 15-min grid logic (risk R1)
 lib/phone.ts, money.ts E.164 phone normalisation (default LT), "40,00 €" formatting

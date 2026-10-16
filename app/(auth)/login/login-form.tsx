@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { Alert } from "@/components/ui/alert";
@@ -42,14 +41,6 @@ export function LoginForm({ next }: { next?: string }) {
       <Button type="submit" size="lg" className="w-full" loading={pending}>
         {pending ? t("submitting") : t("submit")}
       </Button>
-      <p className="text-center">
-        <Link
-          href="/forgot-password"
-          className="text-primary inline-flex min-h-11 items-center rounded-sm px-2 text-sm font-medium underline-offset-4 hover:underline"
-        >
-          {t("forgotPassword")}
-        </Link>
-      </p>
     </form>
   );
 }

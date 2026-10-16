@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { z } from "zod";
-import { safeNextPath, siteOrigin } from "@/lib/auth-paths";
+import { safeNextPath } from "@/lib/auth-paths";
 import { createClient } from "@/lib/supabase/server";
 
 export type FormState = {
@@ -42,19 +42,7 @@ export async function signOut(): Promise<void> {
   redirect("/login");
 }
 
-export async function requestPasswordReset(_prev: FormState, formData: FormData): Promise<FormState> {
-  const t = await getTranslations("auth");
-  const email = z.email().safeParse(formData.get("email"));
-  // Same answer whether or not the address exists.
-  if (!email.success) return { success: t("resetSent") };
-
-  const supabase = await createClient();
-  await supabase.auth.resetPasswordForEmail(email.data, {
-    redirectTo: `${siteOrigin()}/auth/confirm?next=/account/new-password`,
-  });
-  return { success: t("resetSent") };
-}
-
+/** "Keisti slaptažodį" in Nustatymai, for the signed-in owner (no e-mail involved). */
 export async function updatePassword(_prev: FormState, formData: FormData): Promise<FormState> {
   const t = await getTranslations("auth");
   const password = z.string().min(12).max(72).safeParse(formData.get("password"));

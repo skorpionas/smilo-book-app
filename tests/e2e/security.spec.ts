@@ -39,9 +39,11 @@ test.describe("security: logged-out visitor", () => {
     expect(await res.text()).not.toMatch(/Petrauskien|Maksas|\+370/);
   });
 
-  test("password-reset link without a token goes back to the form", async ({ request }) => {
-    const res = await request.get("/auth/confirm?next=https://evil.example", { maxRedirects: 0 });
-    expect(res.headers()["location"]).toMatch(/\/forgot-password\?error=link$/);
+  test("no password-reset pages: they need a session like everything else", async ({ request }) => {
+    for (const path of ["/forgot-password", "/auth/confirm?next=https://evil.example"]) {
+      const res = await request.get(path, { maxRedirects: 0 });
+      expect(res.headers()["location"] ?? "").toMatch(/\/login(\?|$)/);
+    }
   });
 
   test("login page is not frameable and sends security headers", async ({ request }) => {
