@@ -53,10 +53,7 @@ export default async function Page() {
         />
 
         <section aria-labelledby="account-heading">
-          <h2
-            id="account-heading"
-            className="text-foreground-soft mb-2 px-1 text-[0.9375rem] font-semibold"
-          >
+          <h2 id="account-heading" className="text-foreground-soft mb-2 px-1 text-[0.9375rem] font-semibold">
             {t("pages.settingsAccount")}
           </h2>
           <Card className="divide-border divide-y overflow-hidden">

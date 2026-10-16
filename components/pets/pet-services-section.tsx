@@ -113,10 +113,7 @@ export function PetServicesSection({
     <section aria-labelledby={`${kind}-services-heading`} className="space-y-2">
       <div className="flex min-h-11 items-center justify-between gap-2 px-1">
         <div>
-          <h2
-            id={`${kind}-services-heading`}
-            className="text-foreground-soft text-[0.9375rem] font-semibold"
-          >
+          <h2 id={`${kind}-services-heading`} className="text-foreground-soft text-[0.9375rem] font-semibold">
             {t("title")}
           </h2>
         </div>

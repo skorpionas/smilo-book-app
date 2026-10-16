@@ -128,8 +128,9 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
       </PageHeader>
 
       <PageBody className="grid gap-6 md:grid-cols-[minmax(0,1fr)_16rem] md:items-start lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-8">
-        {/* Main column: profile, own services, visits */}
-        <div className="min-w-0 space-y-8">
+        {/* Main column: profile and own services; on phones the client (call) comes
+            right after them, before the visit lists */}
+        <div className="min-w-0 space-y-8 md:col-start-1">
           <Card className="space-y-4 p-4 sm:p-5">
             <div className="flex items-center gap-3">
               <Avatar name={pet.name} size="lg" icon={<SpeciesIcon aria-hidden />} />
@@ -191,13 +192,10 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
                 defaultPrice: Number(r.services?.default_price ?? r.price),
               }))}
           />
-
-          <PetVisits id="pet-upcoming" title={t("upcoming")} empty={t("noUpcoming")} visits={upcoming} />
-          <PetVisits id="pet-history" title={t("history")} empty={t("noHistory")} visits={history} />
         </div>
 
-        {/* Side column (stacks under on phones): owner and the rest of the family */}
-        <aside className="space-y-6 md:sticky md:top-24">
+        {/* Side column (between profile and visits on phones): client and its other pets */}
+        <aside className="space-y-6 md:sticky md:top-24 md:col-start-2 md:row-span-2 md:row-start-1">
           <section aria-labelledby="owner-heading" className="space-y-2">
             <h2 id="owner-heading" className="text-foreground-soft px-1 text-[0.9375rem] font-semibold">
               {t("owner")}
@@ -280,10 +278,7 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
 
           {siblings.length > 0 ? (
             <section aria-labelledby="family-heading" className="space-y-2">
-              <h2
-                id="family-heading"
-                className="text-foreground-soft px-1 text-[0.9375rem] font-semibold"
-              >
+              <h2 id="family-heading" className="text-foreground-soft px-1 text-[0.9375rem] font-semibold">
                 {t("family")}
               </h2>
               <Card className="overflow-hidden">
@@ -308,6 +303,11 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
             </section>
           ) : null}
         </aside>
+
+        <div className="min-w-0 space-y-8 md:col-start-1 md:row-start-2">
+          <PetVisits id="pet-upcoming" title={t("upcoming")} empty={t("noUpcoming")} visits={upcoming} />
+          <PetVisits id="pet-history" title={t("history")} empty={t("noHistory")} visits={history} />
+        </div>
       </PageBody>
     </>
   );

@@ -126,9 +126,7 @@ export function BookingDetailSheet({
                 ) : (
                   <>
                     <section className="space-y-3">
-                      <h3 className="text-foreground-soft text-[0.9375rem] font-semibold">
-                        {t("pets")}
-                      </h3>
+                      <h3 className="text-foreground-soft text-[0.9375rem] font-semibold">{t("pets")}</h3>
                       <ul className="space-y-3">
                         {groupItems(b.items).map((group) => {
                           const first = group[0];
@@ -182,9 +180,7 @@ export function BookingDetailSheet({
 
                     {b.client ? (
                       <section className="space-y-2">
-                        <h3 className="text-foreground-soft text-[0.9375rem] font-semibold">
-                          {t("client")}
-                        </h3>
+                        <h3 className="text-foreground-soft text-[0.9375rem] font-semibold">{t("client")}</h3>
                         <p className="text-lg font-semibold">{b.client.fullName}</p>
                         <div className="flex flex-wrap gap-2">
                           {b.client.phone ? (
