@@ -28,6 +28,7 @@ import {
   findClientsForBooking,
   getPricePrefill,
   type BookingClientOption,
+  type BookingPetOption,
 } from "@/lib/actions/bookings";
 import type { CalendarGroomer, CalendarService } from "@/lib/calendar-data";
 import { DURATION_OPTIONS, formatDuration } from "@/lib/format";
@@ -50,6 +51,8 @@ export type BookingDefaults = {
   date: string;
   startTime: string;
   client: BookingClientOption | null;
+  /** Pre-selected pet of `client` (booking from a pet page). */
+  petId?: string | null;
 };
 
 const START_TIMES = BOOKING_START_TIMES;
@@ -63,7 +66,9 @@ type ItemState = {
   serviceId: string;
   durationMin: number;
   price: string;
-  priceSource: "last" | "default" | null;
+  priceSource: "pet" | "last" | "default" | null;
+  /** Save duration + price as this pet's own service. */
+  remember: boolean;
 };
 
 type ClientState =
@@ -147,7 +152,9 @@ function BookingForm({
   const [client, setClient] = React.useState<ClientState>(
     defaults.client ? { mode: "existing", option: defaults.client } : { mode: "none" },
   );
-  const [items, setItems] = React.useState<ItemState[]>(() => [emptyItem(0, defaults.client)]);
+  const [items, setItems] = React.useState<ItemState[]>(() => [
+    withPetDefaults(emptyItem(0, defaults.client, defaults.petId), defaults.client, services),
+  ]);
   const [durationMin, setDurationMin] = React.useState<number | null>(null); // null = sum of items
   const [notes, setNotes] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -164,22 +171,19 @@ function BookingForm({
   const offDay = Boolean(groomer && /^\d{4}-\d{2}-\d{2}$/.test(date) && !worksOn(groomer, date));
   const totalPrice = items.reduce((s, i) => s + (parseEur(i.price) ?? 0), 0);
 
-  function chooseClient(next: ClientState) {
+  function chooseClient(next: ClientState, petId?: string | null) {
     setClient(next);
     setFieldErrors({});
     const option = next.mode === "existing" ? next.option : null;
-    // Pets belong to one client: reset the pet choice on every client change.
+    // Pets belong to one client: reset the pet choice on every client change, then
+    // pre-fill the chosen pet's usual service (its own duration and price).
     setItems((prev) =>
       prev.map((item, index) => {
-        const petId = index === 0 ? defaultPetId(option) : option ? "" : NEW_PET;
-        return { ...item, petId, priceSource: null };
+        const chosen = index === 0 ? defaultPetId(option, petId) : option ? "" : NEW_PET;
+        const reset = { ...item, petId: chosen, priceSource: null, remember: false };
+        return withPetDefaults(reset, option, services, true);
       }),
     );
-    if (option?.pets.length === 1) {
-      const only = option.pets[0];
-      const first = items[0];
-      if (first?.serviceId) void refreshPrice(first.key, only.id, first.serviceId);
-    }
   }
 
   function updateItem(key: number, patch: Partial<ItemState>) {
@@ -189,6 +193,11 @@ function BookingForm({
   async function refreshPrice(key: number, petId: string, serviceId: string) {
     const service = services.find((s) => s.id === serviceId);
     if (!service) return;
+    const own = findPet(pets, petId)?.services.find((ps) => ps.serviceId === serviceId);
+    if (own) {
+      updateItem(key, { durationMin: own.durationMin, price: priceText(own.price), priceSource: "pet" });
+      return;
+    }
     if (!petId || petId === NEW_PET) {
       updateItem(key, { price: priceText(service.defaultPrice), priceSource: "default" });
       return;
@@ -202,7 +211,18 @@ function BookingForm({
   }
 
   function onPetChange(item: ItemState, petId: string) {
-    updateItem(item.key, { petId });
+    const pet = findPet(pets, petId);
+    if (!item.serviceId && pet?.services[0]) {
+      setItems((prev) =>
+        prev.map((i) =>
+          i.key === item.key
+            ? withPetDefaults({ ...i, petId }, client.mode === "existing" ? client.option : null, services)
+            : i,
+        ),
+      );
+      return;
+    }
+    updateItem(item.key, { petId, remember: false });
     if (item.serviceId) void refreshPrice(item.key, petId, item.serviceId);
   }
 
@@ -221,7 +241,7 @@ function BookingForm({
     const key = nextKey.current++;
     setItems((prev) => [
       ...prev,
-      { ...emptyItem(key, null), petId: client.mode === "existing" ? "" : NEW_PET },
+      { ...emptyItem(key, null, null), petId: client.mode === "existing" ? "" : NEW_PET },
     ]);
   }
 
@@ -255,6 +275,7 @@ function BookingForm({
         serviceId: i.serviceId,
         durationMin: i.durationMin,
         plannedPrice: i.price,
+        remember: i.remember,
       })),
       notes,
     };
@@ -459,7 +480,12 @@ function BookingForm({
                         <Select
                           {...p}
                           value={String(item.durationMin)}
-                          onChange={(e) => updateItem(item.key, { durationMin: Number(e.target.value) })}
+                          onChange={(e) =>
+                            updateItem(item.key, {
+                              durationMin: Number(e.target.value),
+                              priceSource: item.priceSource === "pet" ? null : item.priceSource,
+                            })
+                          }
                         >
                           {DURATION_OPTIONS.map((m) => (
                             <option key={m} value={m}>
@@ -475,9 +501,11 @@ function BookingForm({
                       error={fe[`${prefix}.plannedPrice`]}
                       hint={
                         service && item.priceSource
-                          ? item.priceSource === "last"
-                            ? t("priceLastTime")
-                            : t("priceDefault")
+                          ? item.priceSource === "pet"
+                            ? t("pricePet")
+                            : item.priceSource === "last"
+                              ? t("priceLastTime")
+                              : t("priceDefault")
                           : undefined
                       }
                     >
@@ -493,6 +521,27 @@ function BookingForm({
                       )}
                     </Field>
                   </div>
+                  {service && item.petId && item.priceSource !== "pet" ? (
+                    <label
+                      htmlFor={`item-${item.key}-remember`}
+                      className="-my-1 flex min-h-11 cursor-pointer items-center gap-3 text-sm"
+                    >
+                      <input
+                        id={`item-${item.key}-remember`}
+                        type="checkbox"
+                        checked={item.remember}
+                        onChange={(e) => updateItem(item.key, { remember: e.target.checked })}
+                        className="accent-primary size-5 shrink-0"
+                      />
+                      <span>
+                        {t("rememberForPet", {
+                          name:
+                            (item.petId === NEW_PET ? item.newPetName : findPet(pets, item.petId)?.name) ||
+                            t("thisPet"),
+                        })}
+                      </span>
+                    </label>
+                  ) : null}
                 </li>
               );
             })}
@@ -563,7 +612,7 @@ function ClientPicker({
   errors,
 }: {
   client: ClientState;
-  onChange: (c: ClientState) => void;
+  onChange: (c: ClientState, petId?: string | null) => void;
   errors: { client?: string; fullName?: string; phone?: string; email?: string };
 }) {
   const t = useTranslations("booking");
@@ -597,8 +646,14 @@ function ClientPicker({
           <Avatar name={c.fullName} />
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold">{c.fullName}</p>
-            <p className="text-muted truncate text-sm">
-              {[c.phoneDisplay, c.pets.map((p) => p.name).join(", ")].filter(Boolean).join(" · ")}
+            <p className="text-muted flex flex-wrap items-center gap-x-2 text-sm">
+              {c.phoneDisplay ? <span className="tabular-nums">{c.phoneDisplay}</span> : null}
+              {c.pets.map((p) => (
+                <span key={p.id} className="inline-flex items-center gap-1">
+                  <SpeciesIcon species={p.species} className="size-3.5" />
+                  {p.name}
+                </span>
+              ))}
             </p>
           </div>
           <Button type="button" variant="ghost" size="sm" onClick={() => onChange({ mode: "none" })}>
@@ -730,34 +785,37 @@ function ClientPicker({
             className="border-border divide-border divide-y overflow-hidden rounded-lg border"
             aria-live="polite"
           >
-            {results.list.map((c) => (
-              <li key={c.id}>
+            {pickRows(results.list).map(({ client: c, pet }) => (
+              <li key={pet ? pet.id : c.id}>
                 <button
                   type="button"
-                  onClick={() => onChange({ mode: "existing", option: c })}
-                  aria-label={t("selectClient", { name: c.fullName })}
+                  onClick={() => onChange({ mode: "existing", option: c }, pet?.id ?? null)}
+                  aria-label={
+                    pet
+                      ? t("selectPet", { pet: pet.name, client: c.fullName })
+                      : t("selectClient", { name: c.fullName })
+                  }
                   className="hover:bg-surface-muted flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left transition-colors"
                 >
-                  <Avatar name={c.fullName} size="sm" />
+                  {pet ? (
+                    <Avatar name={pet.name} size="sm" icon={<SpeciesIcon species={pet.species} />} />
+                  ) : (
+                    <Avatar name={c.fullName} size="sm" />
+                  )}
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{c.fullName}</span>
+                    <span className="block truncate font-medium">
+                      {pet ? pet.name : c.fullName}
+                      {pet?.breed ? <span className="text-muted font-normal"> · {pet.breed}</span> : null}
+                    </span>
                     <span className="text-muted flex items-center gap-2 truncate text-sm">
+                      {pet ? <span className="truncate">{c.fullName}</span> : null}
                       {c.phone ? (
                         <span className="inline-flex items-center gap-1 tabular-nums">
                           <Phone aria-hidden className="size-3.5" />
                           {c.phoneDisplay}
                         </span>
                       ) : null}
-                      {c.pets.map((p) => (
-                        <span key={p.id} className="inline-flex items-center gap-1">
-                          {p.species === "cat" ? (
-                            <Cat aria-hidden className="size-3.5" />
-                          ) : (
-                            <Dog aria-hidden className="size-3.5" />
-                          )}
-                          {p.name}
-                        </span>
-                      ))}
+                      {!pet ? <span>{tcl("noPetsShort")}</span> : null}
                     </span>
                   </span>
                 </button>
@@ -791,26 +849,84 @@ function ClientPicker({
   );
 }
 
-function emptyItem(key: number, client: BookingClientOption | null): ItemState {
+function emptyItem(key: number, client: BookingClientOption | null, petId?: string | null): ItemState {
   return {
     key,
-    petId: defaultPetId(client),
+    petId: defaultPetId(client, petId),
     newPetName: "",
     newPetSpecies: "dog",
     serviceId: "",
     durationMin: 60,
     price: "",
     priceSource: null,
+    remember: false,
   };
 }
 
-/** One pet → pick it; several → let the owner choose; none (or new client) → new pet. */
-function defaultPetId(client: BookingClientOption | null): string {
+/** Requested pet if it belongs to the client; one pet → pick it; several → let the owner choose; none → new pet. */
+function defaultPetId(client: BookingClientOption | null, petId?: string | null): string {
   if (!client) return NEW_PET;
+  if (petId && client.pets.some((p) => p.id === petId)) return petId;
   if (client.pets.length === 1) return client.pets[0].id;
   return client.pets.length === 0 ? NEW_PET : "";
 }
 
 function priceText(value: number): string {
   return value.toFixed(2).replace(".", ",");
+}
+
+function findPet(pets: BookingPetOption[], petId: string): BookingPetOption | undefined {
+  return petId && petId !== NEW_PET ? pets.find((p) => p.id === petId) : undefined;
+}
+
+/**
+ * Pre-fill an item from the pet's usual service (its first own service): service,
+ * duration and price in one go. With `force`, replaces a service chosen earlier
+ * (the pet changed); otherwise keeps it.
+ */
+function withPetDefaults(
+  item: ItemState,
+  client: BookingClientOption | null,
+  services: { id: string }[],
+  force = false,
+): ItemState {
+  const pet = client ? findPet(client.pets, item.petId) : undefined;
+  if (!pet) return item;
+  const own =
+    (item.serviceId && pet.services.find((ps) => ps.serviceId === item.serviceId)) ||
+    (force || !item.serviceId
+      ? pet.services.find((ps) => services.some((s) => s.id === ps.serviceId))
+      : undefined);
+  if (!own) return item;
+  return {
+    ...item,
+    serviceId: own.serviceId,
+    durationMin: own.durationMin,
+    price: priceText(own.price),
+    priceSource: "pet",
+  };
+}
+
+/** Picker rows, pet first: matched pets, then the client's other pets; clients without pets as one row. */
+function pickRows(list: BookingClientOption[]) {
+  const rows: { client: BookingClientOption; pet: BookingPetOption | null }[] = [];
+  for (const c of list) {
+    if (c.pets.length === 0) {
+      rows.push({ client: c, pet: null });
+      continue;
+    }
+    const matched = new Set(c.matchedPetIds ?? []);
+    const ordered = [...c.pets.filter((p) => matched.has(p.id)), ...c.pets.filter((p) => !matched.has(p.id))];
+    for (const pet of ordered) rows.push({ client: c, pet });
+  }
+  const first = rows.filter((r) => r.pet && r.client.matchedPetIds?.includes(r.pet.id));
+  return [...first, ...rows.filter((r) => !first.includes(r))];
+}
+
+function SpeciesIcon({ species, className }: { species: "dog" | "cat"; className?: string }) {
+  return species === "cat" ? (
+    <Cat aria-hidden className={className} />
+  ) : (
+    <Dog aria-hidden className={className} />
+  );
 }

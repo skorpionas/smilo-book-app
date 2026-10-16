@@ -21,6 +21,11 @@ export default defineConfig({
       name: "mobile",
       use: { ...devices["iPhone 13"], browserName: "chromium", viewport: { width: 390, height: 844 } },
     },
+    {
+      // iPad portrait: phone layout with more room (bottom tab bar below 1024 px)
+      name: "tablet",
+      use: { ...devices["iPad (gen 7)"], browserName: "chromium", viewport: { width: 820, height: 1180 } },
+    },
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } } },
   ],
   webServer: process.env.E2E_BASE_URL

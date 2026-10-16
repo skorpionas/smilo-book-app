@@ -113,3 +113,14 @@ export const petSchema = z
     }
   });
 export type PetInput = z.output<typeof petSchema>;
+
+// ---------------------------------------------------------------------------
+// Per-pet services: the pet's own duration and price for a service
+// ---------------------------------------------------------------------------
+export const petServiceSchema = z.object({
+  petId: uuid,
+  serviceId: z.string({ error: "required" }).min(1, { error: "required" }).pipe(uuid),
+  durationMin: duration,
+  price,
+});
+export type PetServiceInput = z.output<typeof petServiceSchema>;

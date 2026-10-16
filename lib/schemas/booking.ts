@@ -41,6 +41,8 @@ export const bookingItemSchema = z.object({
   serviceId: z.string({ error: "required" }).min(1, { error: "required" }).pipe(uuid),
   durationMin: duration,
   plannedPrice: price,
+  /** Save this duration + price as the pet's own service (pre-filled next time). */
+  remember: z.boolean().optional().default(false),
 });
 
 export const bookingSchema = z

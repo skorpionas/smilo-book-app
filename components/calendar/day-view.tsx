@@ -51,6 +51,7 @@ export function DayView({
   bookings,
   openOnLoad,
   preselectedClient,
+  preselectedPetId = null,
 }: {
   date: DateStr;
   today: DateStr;
@@ -62,6 +63,7 @@ export function DayView({
   bookings: CalendarBooking[];
   openOnLoad: boolean;
   preselectedClient: BookingClientOption | null;
+  preselectedPetId?: string | null;
 }) {
   const t = useTranslations("calendar");
   const router = useRouter();
@@ -94,9 +96,21 @@ export function DayView({
       date: bookingDate,
       startTime: past ? DAY_OPEN : defaultTime(),
       client: preselectedClient,
+      petId: preselectedPetId,
     });
     router.replace(`${pathname}?date=${date}`, { scroll: false });
-  }, [openOnLoad, firstGroomerId, date, bookingDate, past, defaultTime, preselectedClient, router, pathname]);
+  }, [
+    openOnLoad,
+    firstGroomerId,
+    date,
+    bookingDate,
+    past,
+    defaultTime,
+    preselectedClient,
+    preselectedPetId,
+    router,
+    pathname,
+  ]);
 
   // Today: start scrolled near the current time (F2).
   React.useEffect(() => {

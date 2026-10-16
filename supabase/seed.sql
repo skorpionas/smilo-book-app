@@ -204,6 +204,20 @@ cross join lateral (
 ) s;
 
 -- ---------------------------------------------------------------------------
+-- Per-pet services: own duration and price (Reksas is big and bites, Bela is quick).
+-- E2E tests add their own to other pets, so keep these to pets the tests don't touch.
+-- ---------------------------------------------------------------------------
+insert into public.pet_services (owner_id, pet_id, service_id, duration_min, price, position)
+select '0a000000-0000-4000-8000-000000000001', v.pet_id::uuid, s.id, v.duration_min, v.price, v.position
+from (values
+  ('0d000000-0000-4000-8000-000000000003', 'Didelio šuns kirpimas',   210, 75.00, 0),
+  ('0d000000-0000-4000-8000-000000000003', 'Maudymas ir džiovinimas', 120, 40.00, 1),
+  ('0d000000-0000-4000-8000-000000000004', 'Higieninis kirpimas',      60, 25.00, 0)
+) v(pet_id, service_name, duration_min, price, position)
+join public.services s
+  on s.name = v.service_name and s.owner_id = '0a000000-0000-4000-8000-000000000001';
+
+-- ---------------------------------------------------------------------------
 -- Blocked time
 -- ---------------------------------------------------------------------------
 insert into public.bookings (owner_id, kind, groomer_id, start_at, end_at, block_reason) values

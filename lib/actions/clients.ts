@@ -55,6 +55,7 @@ export async function setClientArchived(id: string, archived: boolean): Promise<
   if (error) return dbFailed(error, "setClientArchived");
   revalidatePath("/clients");
   revalidatePath(`/clients/${id}`);
+  revalidatePath("/pets", "layout");
   return { ok: true, savedAt: Date.now(), id };
 }
 
@@ -90,6 +91,7 @@ export async function savePet(_prev: FormState, formData: FormData): Promise<For
 
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/clients");
+  revalidatePath(`/pets/${data.id}`);
   revalidatePath("/calendar", "layout");
   revalidatePath("/upcoming");
   return { ok: true, savedAt: Date.now(), id: data.id };
@@ -109,5 +111,6 @@ export async function setPetArchived(id: string, clientId: string, archived: boo
   if (error) return dbFailed(error, "setPetArchived");
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/clients");
+  revalidatePath(`/pets/${id}`);
   return { ok: true, savedAt: Date.now(), id };
 }

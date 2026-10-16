@@ -63,7 +63,7 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
       <PageHeader
         title={client.full_name}
         eyebrow={
-          <Link href="/clients" className="hover:text-foreground inline-flex items-center gap-1">
+          <Link href="/clients?view=owners" className="hover:text-foreground inline-flex items-center gap-1">
             <ArrowLeft aria-hidden className="size-4" />
             {t("back")}
           </Link>

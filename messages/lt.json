@@ -8,7 +8,7 @@
     "calendar": "Kalendorius",
     "upcoming": "Artimiausi",
     "search": "Paieška",
-    "clients": "Klientai",
+    "clients": "Augintiniai",
     "settings": "Nustatymai",
     "logout": "Atsijungti",
     "mainNavigation": "Pagrindinė navigacija"
@@ -99,7 +99,8 @@
     "settingsAccount": "Paskyra",
     "changePassword": "Keisti slaptažodį",
     "styleguide": "Dizaino gidas",
-    "styleguideHint": "Visi spalvų, šriftų ir komponentų pavyzdžiai šviesia ir tamsia tema."
+    "styleguideHint": "Visi spalvų, šriftų ir komponentų pavyzdžiai šviesia ir tamsia tema.",
+    "pets": "Augintinis"
   },
   "errors": {
     "required": "Privalomas laukas.",
@@ -336,8 +337,9 @@
     "cancelledCount": "Atšaukta: {count}",
     "noShowCount": "Neatvyko: {count}",
     "book": "Registruoti vizitą",
-    "back": "Visi klientai",
-    "noPetsShort": "be augintinių"
+    "back": "Šeimininkai",
+    "noPetsShort": "be augintinių",
+    "openPet": "Atidaryti {name}"
   },
   "pets": {
     "add": "Pridėti augintinį",
@@ -366,7 +368,11 @@
     "birthYear": "Gimimo metai",
     "birthMonth": "Gimimo mėnuo",
     "yearUnknown": "Nežinomi",
-    "monthUnknown": "Nežinomas"
+    "monthUnknown": "Nežinomas",
+    "editShort": "Redaguoti",
+    "restore": "Grąžinti augintinį",
+    "restored": "Augintinis grąžintas",
+    "archivedBadge": "Archyvuotas"
   },
   "booking": {
     "title": "Nauja registracija",
@@ -438,7 +444,11 @@
     "moveText": "{what}: {from} → {to}",
     "move": "Perkelti",
     "busy": "užimta",
-    "slotBusy": "Šis laikas jau užimtas – pasirinkite kitą."
+    "slotBusy": "Šis laikas jau užimtas – pasirinkite kitą.",
+    "pricePet": "Šio augintinio kaina",
+    "rememberForPet": "Įsiminti trukmę ir kainą: {name}",
+    "thisPet": "šiam augintiniui",
+    "selectPet": "Pasirinkti {pet} ({client})"
   },
   "search": {
     "label": "Ieškoti kliento ar augintinio",
@@ -483,5 +493,63 @@
     "10": "spalis",
     "11": "lapkritis",
     "12": "gruodis"
+  },
+  "directory": {
+    "title": "Augintiniai",
+    "viewLabel": "Rodyti",
+    "pets": "Augintiniai",
+    "owners": "Šeimininkai",
+    "searchLabel": "Ieškoti augintinio ar šeimininko",
+    "searchPlaceholder": "Augintinis, veislė, šeimininkas ar telefonas",
+    "speciesFilter": "Rūšis",
+    "all": "Visi",
+    "dogs": "Šunys",
+    "cats": "Katės",
+    "dog": "Šuo",
+    "cat": "Katė",
+    "hasNotes": "Yra pastabų (elgesys, alergijos)",
+    "familyOf": "{count, plural, one {# augintinis} few {# augintiniai} other {# augintinių}} šeimoje",
+    "withoutPets": "Klientai be augintinių",
+    "addPetHint": "Pridėkite augintinį",
+    "emptyTitle": "Augintinių dar nėra",
+    "emptyText": "Pridėkite klientą ir jo šunį ar katę – arba registruokite vizitą kalendoriuje."
+  },
+  "petPage": {
+    "back": "Augintiniai",
+    "book": "Registruoti {name}",
+    "owner": "Šeimininkas",
+    "family": "Kiti šeimos augintiniai",
+    "call": "Skambinti",
+    "callNamed": "Skambinti {phone}",
+    "noPhone": "Telefonas nenurodytas",
+    "lastVisit": "Paskutinis vizitas {date}",
+    "noVisitsYet": "Vizitų dar nebuvo",
+    "upcoming": "Artimiausi vizitai",
+    "noUpcoming": "Suplanuotų vizitų nėra.",
+    "history": "Vizitų istorija",
+    "noHistory": "Ankstesnių vizitų dar nėra."
+  },
+  "petServices": {
+    "title": "Paslaugos ir kainos",
+    "add": "Pridėti paslaugą",
+    "usual": "Įprasta",
+    "standard": "įprastai {duration}, {price}",
+    "hint": "Registruojant šį augintinį įprasta paslauga, trukmė ir kaina užpildomos automatiškai.",
+    "emptyTitle": "Savų kainų dar nėra",
+    "emptyText": "Jei {name} kerpama ilgiau ar kainuoja kitaip nei įprastai, įrašykite čia – registruojant bus užpildyta automatiškai.",
+    "makeUsualNamed": "Padaryti įprasta: {name}",
+    "madeUsual": "Įprasta paslauga pakeista",
+    "editNamed": "Redaguoti {name}",
+    "addTitle": "Nauja paslauga augintiniui",
+    "editTitle": "Paslauga augintiniui",
+    "formHint": "Trukmė ir kaina tik {name}. Kitiems augintiniams lieka paslaugos kaina.",
+    "service": "Paslauga",
+    "duration": "Trukmė",
+    "price": "Kaina, €",
+    "saved": "Paslauga išsaugota",
+    "remove": "Pašalinti",
+    "removeTitle": "Pašalinti savą kainą?",
+    "removeText": "Registruojant bus siūloma paskutinė arba įprasta paslaugos kaina.",
+    "removed": "Paslauga pašalinta"
   }
 }

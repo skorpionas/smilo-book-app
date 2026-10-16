@@ -18,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function CalendarPage({ searchParams }: PageProps<"/calendar">) {
-  const { date: dateParam, client: clientParam, new: newParam } = await searchParams;
+  const { date: dateParam, client: clientParam, pet: petParam, new: newParam } = await searchParams;
   const date = parseDateParam(dateParam);
   const today = todayInVilnius();
   const isToday = date === today;
@@ -71,6 +71,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           bookings={bookings}
           openOnLoad={openOnLoad}
           preselectedClient={preselectedClient}
+          preselectedPetId={typeof petParam === "string" ? petParam : null}
         />
       ) : failed ? null : (
         <EmptyState

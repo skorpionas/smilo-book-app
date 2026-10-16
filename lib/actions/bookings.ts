@@ -15,12 +15,25 @@ import { formatPhone } from "@/lib/phone";
 import { createClient } from "@/lib/supabase/server";
 import { toVilniusTime, vilniusToUtc } from "@/lib/time";
 
+/** A pet's own duration + price for one service; the first one is the pet's usual service. */
+export type PetServiceOption = { serviceId: string; durationMin: number; price: number };
+
+export type BookingPetOption = {
+  id: string;
+  name: string;
+  species: "dog" | "cat";
+  breed: string;
+  services: PetServiceOption[];
+};
+
 export type BookingClientOption = {
   id: string;
   fullName: string;
   phone: string | null;
   phoneDisplay: string;
-  pets: { id: string; name: string; species: "dog" | "cat" }[];
+  pets: BookingPetOption[];
+  /** Pets whose name matched the search (shown first in the picker). */
+  matchedPetIds?: string[];
 };
 
 /** Client picker in the booking sheet (US-05): name, pet name or phone digits; ≥ 2 characters. */
@@ -38,7 +51,12 @@ export async function findClientsForBooking(query: string): Promise<BookingClien
     return [];
   }
   const ids = [...new Set(hits.map((h) => h.client_id))].slice(0, 10);
-  return loadClientOptions(ids);
+  const matched = new Set(hits.filter((h) => h.kind === "pet").map((h) => h.id));
+  const options = await loadClientOptions(ids);
+  return options.map((o) => ({
+    ...o,
+    matchedPetIds: o.pets.filter((p) => matched.has(p.id)).map((p) => p.id),
+  }));
 }
 
 /** One client with active pets, for opening the sheet from a client page. */
@@ -54,7 +72,9 @@ async function loadClientOptions(ids: string[]): Promise<BookingClientOption[]> 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("clients")
-    .select("id, full_name, phone_e164, pets(id, name, species, archived_at)")
+    .select(
+      "id, full_name, phone_e164, pets(id, name, species, breed, archived_at, pet_services(service_id, duration_min, price, position, created_at, services(archived_at)))",
+    )
     .in("id", ids)
     .is("archived_at", null)
     .is("anonymized_at", null)
@@ -71,7 +91,16 @@ async function loadClientOptions(ids: string[]): Promise<BookingClientOption[]> 
     pets: c.pets
       .filter((p) => !p.archived_at)
       .sort((a, b) => a.name.localeCompare(b.name, "lt"))
-      .map((p) => ({ id: p.id, name: p.name, species: p.species })),
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        species: p.species,
+        breed: p.breed,
+        services: [...p.pet_services]
+          .filter((ps) => !ps.services?.archived_at)
+          .sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at))
+          .map((ps) => ({ serviceId: ps.service_id, durationMin: ps.duration_min, price: Number(ps.price) })),
+      })),
   }));
 }
 
@@ -109,6 +138,7 @@ export async function createBooking(input: BookingInput): Promise<CreateBookingR
     service_id: item.serviceId,
     duration_min: item.durationMin,
     planned_price: item.plannedPrice,
+    remember: item.remember,
   }));
 
   const supabase = await createClient();
@@ -137,9 +167,9 @@ export async function createBooking(input: BookingInput): Promise<CreateBookingR
   }
 
   revalidatePath("/calendar", "layout");
-
   revalidatePath("/upcoming");
   revalidatePath("/clients", "layout");
+  revalidatePath("/pets", "layout");
   const range = `${toVilniusTime(start)}–${toVilniusTime(end)}`;
   return { ok: true, savedAt: Date.now(), id: bookingId, summary: { range } };
 }
@@ -195,6 +225,7 @@ export async function cancelBooking(id: string): Promise<ActionState> {
 
   revalidatePath("/upcoming");
   if (data.client_id) revalidatePath(`/clients/${data.client_id}`);
+  revalidatePath("/pets", "layout");
   return { ok: true, savedAt: Date.now(), id };
 }
 
@@ -231,6 +262,7 @@ export async function rescheduleBooking(input: RescheduleInput): Promise<CreateB
 
   revalidatePath("/upcoming");
   if (data.client_id) revalidatePath(`/clients/${data.client_id}`);
+  revalidatePath("/pets", "layout");
   const range = `${toVilniusTime(start)}–${toVilniusTime(end)}`;
   return { ok: true, savedAt: Date.now(), id, summary: { range } };
 }
@@ -258,5 +290,6 @@ export async function deleteBooking(id: string): Promise<ActionState> {
 
   revalidatePath("/upcoming");
   if (data.client_id) revalidatePath(`/clients/${data.client_id}`);
+  revalidatePath("/pets", "layout");
   return { ok: true, savedAt: Date.now(), id };
 }

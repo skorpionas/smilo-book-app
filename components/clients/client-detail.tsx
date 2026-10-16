@@ -1,6 +1,7 @@
 "use client";
 
-import { Archive, ArchiveRestore, Cat, Dog, Pencil, Plus, TriangleAlert } from "lucide-react";
+import { Archive, ArchiveRestore, Cat, ChevronRight, Dog, Pencil, Plus, TriangleAlert } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import * as React from "react";
 import { ConfirmDialog } from "@/components/forms/confirm-dialog";
@@ -133,10 +134,17 @@ export function PetsSection({
                       name={pet.name}
                       icon={pet.species === "cat" ? <Cat aria-hidden /> : <Dog aria-hidden />}
                     />
-                    <div className="min-w-0 flex-1">
-                      <h3 className="truncate text-base font-semibold">{pet.name}</h3>
+                    <Link
+                      href={`/pets/${pet.id}`}
+                      aria-label={t("openPet", { name: pet.name })}
+                      className="group -my-1 min-w-0 flex-1 py-1"
+                    >
+                      <h3 className="group-hover:text-primary flex items-center gap-1 truncate text-base font-semibold">
+                        {pet.name}
+                        <ChevronRight aria-hidden className="text-muted size-4 shrink-0" />
+                      </h3>
                       <p className="text-muted text-sm">{facts.join(" · ")}</p>
-                    </div>
+                    </Link>
                     {!readOnly ? (
                       <Button
                         variant="ghost"

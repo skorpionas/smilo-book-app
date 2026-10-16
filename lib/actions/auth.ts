@@ -1,10 +1,9 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { z } from "zod";
-import { safeNextPath } from "@/lib/auth-paths";
+import { safeNextPath, siteOrigin } from "@/lib/auth-paths";
 import { createClient } from "@/lib/supabase/server";
 
 export type FormState = {
@@ -51,7 +50,7 @@ export async function requestPasswordReset(_prev: FormState, formData: FormData)
 
   const supabase = await createClient();
   await supabase.auth.resetPasswordForEmail(email.data, {
-    redirectTo: `${await siteOrigin()}/auth/confirm?next=/account/new-password`,
+    redirectTo: `${siteOrigin()}/auth/confirm?next=/account/new-password`,
   });
   return { success: t("resetSent") };
 }
@@ -65,11 +64,4 @@ export async function updatePassword(_prev: FormState, formData: FormData): Prom
   const { error } = await supabase.auth.updateUser({ password: password.data });
   if (error) return { error: error.code === "weak_password" ? t("passwordTooShort") : t("genericError") };
   redirect("/calendar");
-}
-
-async function siteOrigin(): Promise<string> {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
 }

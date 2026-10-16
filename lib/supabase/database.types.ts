@@ -219,6 +219,57 @@ export type Database = {
         };
         Relationships: [];
       };
+      pet_services: {
+        Row: {
+          created_at: string;
+          duration_min: number;
+          id: string;
+          owner_id: string;
+          pet_id: string;
+          position: number;
+          price: number;
+          service_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          duration_min: number;
+          id?: string;
+          owner_id?: string;
+          pet_id: string;
+          position?: number;
+          price: number;
+          service_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          duration_min?: number;
+          id?: string;
+          owner_id?: string;
+          pet_id?: string;
+          position?: number;
+          price?: number;
+          service_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pet_services_pet_id_fkey";
+            columns: ["pet_id"];
+            isOneToOne: false;
+            referencedRelation: "pets";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pet_services_service_id_fkey";
+            columns: ["service_id"];
+            isOneToOne: false;
+            referencedRelation: "services";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       pets: {
         Row: {
           archived_at: string | null;

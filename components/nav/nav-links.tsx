@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Clock, Search, Settings, Users, type LucideIcon } from "lucide-react";
+import { CalendarDays, Clock, PawPrint, Search, Settings, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -16,11 +16,13 @@ export const NAV_ITEMS: Item[] = [
   { href: "/calendar", key: "calendar", icon: CalendarDays },
   { href: "/upcoming", key: "upcoming", icon: Clock },
   { href: "/search", key: "search", icon: Search },
-  { href: "/clients", key: "clients", icon: Users },
+  { href: "/clients", key: "clients", icon: PawPrint },
   { href: "/settings", key: "settings", icon: Settings },
 ];
 
 function isActive(pathname: string, href: string) {
+  // Pet pages live under the pet-first directory tab.
+  if (href === "/clients" && (pathname === "/pets" || pathname.startsWith("/pets/"))) return true;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
