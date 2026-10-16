@@ -91,7 +91,11 @@ export function UpcomingList({
   return (
     <>
       {multipleGroomers ? (
-        <div role="group" aria-label={tu("filterLabel")} className="mb-4 flex flex-wrap gap-2">
+        <div
+          role="group"
+          aria-label={tu("filterLabel")}
+          className="-mx-4 mb-4 flex [scrollbar-width:none] gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0"
+        >
           {[
             { id: null, name: tu("allGroomers"), color: null, count: total },
             ...groomers.map((g) => ({
@@ -107,7 +111,7 @@ export function UpcomingList({
               aria-pressed={groomerFilter === f.id}
               onClick={() => setGroomerFilter(f.id)}
               className={cn(
-                "inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors",
+                "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-3.5 text-sm font-medium whitespace-nowrap transition-colors",
                 groomerFilter === f.id
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-border bg-surface text-foreground-soft hover:bg-surface-muted",
