@@ -85,7 +85,7 @@ export function SideNav() {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-md px-1 text-[0.6875rem] leading-tight transition-colors",
+                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-md px-0.5 text-[0.6875rem] leading-tight transition-colors",
                   "xl:min-h-11 xl:flex-row xl:justify-start xl:gap-3 xl:px-3 xl:text-[0.9375rem]",
                   active
                     ? "bg-surface text-foreground ring-border font-semibold shadow-xs ring-1"

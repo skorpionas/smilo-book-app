@@ -17,8 +17,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const t = await getTranslations();
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[5.5rem_1fr] xl:grid-cols-[16rem_1fr]">
-      <aside className="border-border bg-sidebar sticky top-0 hidden h-dvh flex-col border-r px-2 py-4 lg:flex xl:px-3">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[6rem_1fr] xl:grid-cols-[16rem_1fr]">
+      <aside className="border-border bg-sidebar sticky top-0 hidden h-dvh flex-col border-r px-1.5 py-4 lg:flex xl:px-3">
         <Link
           href="/calendar"
           aria-label={t("app.name")}

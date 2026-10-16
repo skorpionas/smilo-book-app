@@ -187,7 +187,7 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
               >
                 <Avatar name={client.full_name} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{client.full_name}</span>
+                  <span className="block font-medium">{client.full_name}</span>
                   <span className="text-muted block truncate text-sm tabular-nums">
                     {client.phone_e164 ? formatPhone(client.phone_e164) : t("noPhone")}
                   </span>
