@@ -22,7 +22,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { phoneDigits } from "@/lib/phone";
 import { matchesClient } from "@/lib/search";
 import { cn } from "@/lib/utils";
-import { PetSheet } from "./pet-sheet";
+import { NewPetsSheet } from "@/components/pets/new-pets-sheet";
 
 export type PetListRow = {
   id: string;
@@ -233,7 +233,7 @@ export function PetsList({
       )}
 
       {/* Pet first: a new pet needs no owner; contact details are optional in the form */}
-      <PetSheet open={creating} onOpenChange={setCreating} clientId={null} pet={null} openAfterCreate />
+      <NewPetsSheet open={creating} onOpenChange={setCreating} openAfterCreate />
     </div>
   );
 }

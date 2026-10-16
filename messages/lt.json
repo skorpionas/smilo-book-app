@@ -462,7 +462,8 @@
     "noOwner": "Be šeimininko",
     "ownerContact": "Šeimininko kontaktai",
     "ownerContactHint": "Galite palikti tuščią arba įrašyti tik telefoną ar el. paštą.",
-    "newPet": "Naujas augintinis"
+    "newPet": "Naujas augintinis",
+    "applyToAll": "„{service}“ visiems augintiniams"
   },
   "search": {
     "label": "Ieškoti kliento ar augintinio",
@@ -586,5 +587,19 @@
     "saved": "Šeimininkas išsaugotas",
     "remove": "Pašalinti šeimininką",
     "removed": "Šeimininkas pašalintas"
+  },
+  "newPets": {
+    "title": "Nauji augintiniai",
+    "description": "Vienas ar keli iš karto – pvz. visi vienos šeimos šunys.",
+    "listLabel": "Augintiniai",
+    "nameN": "Augintinio {n} vardas",
+    "namePlaceholderN": "Augintinis {n}",
+    "speciesN": "Augintinio {n} rūšis",
+    "removeN": "Pašalinti augintinį {n}",
+    "addRow": "Dar vienas augintinis",
+    "laterHint": "Veislę, dydį, pastabas ir kainas galėsite įrašyti vėliau kiekvieno augintinio kortelėje.",
+    "familyHint": "Be kontaktų jie bus laikomi kartu kaip viena šeima „{names}“ – pavadinimą ar telefoną galėsite pakeisti vėliau.",
+    "save": "{count, plural, one {Išsaugoti} other {Išsaugoti (#)}}",
+    "saved": "{count, plural, one {Augintinis išsaugotas} few {Išsaugoti # augintiniai} other {Išsaugota # augintinių}}"
   }
 }

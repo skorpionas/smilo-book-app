@@ -1,6 +1,6 @@
 "use client";
 
-import { Cat, Dog, PawPrint, Phone, Plus, Search, Settings, Trash2, X } from "lucide-react";
+import { Cat, Copy, Dog, PawPrint, Phone, Plus, Search, Settings, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import * as React from "react";
@@ -286,6 +286,36 @@ function BookingForm({
       const empty = prev.length === 1 && !prev[0].petId && !prev[0].serviceId;
       const item = withPetDefaults({ ...emptyItem(key, null, null), petId: pet.id }, option, services, true);
       return empty ? [item] : [...prev, item];
+    });
+  }
+
+  /**
+   * Several pets, one service: copy pet 1's service to the others. A pet with its own
+   * price for that service keeps it; the others take pet 1's time and price.
+   */
+  function applyFirstServiceToAll() {
+    setItems((prev) => {
+      const first = prev[0];
+      if (!first?.serviceId) return prev;
+      return prev.map((item, index) => {
+        if (index === 0) return item;
+        const own = findPet(pets, item.petId)?.services.find((ps) => ps.serviceId === first.serviceId);
+        return own
+          ? {
+              ...item,
+              serviceId: first.serviceId,
+              durationMin: own.durationMin,
+              price: priceText(own.price),
+              priceSource: "pet",
+            }
+          : {
+              ...item,
+              serviceId: first.serviceId,
+              durationMin: first.durationMin,
+              price: first.price,
+              priceSource: null,
+            };
+      });
     });
   }
 
@@ -595,6 +625,14 @@ function BookingForm({
               );
             })}
           </ol>
+          {items.length > 1 &&
+          items[0].serviceId &&
+          items.slice(1).some((i) => i.serviceId !== items[0].serviceId) ? (
+            <Button type="button" variant="soft" className="w-full" onClick={applyFirstServiceToAll}>
+              <Copy aria-hidden />
+              {t("applyToAll", { service: services.find((x) => x.id === items[0].serviceId)?.name ?? "" })}
+            </Button>
+          ) : null}
           {items.length < 6 && client.mode === "existing" ? (
             <QuickAddPets
               pets={pets.filter((p) => !items.some((i) => i.petId === p.id))}

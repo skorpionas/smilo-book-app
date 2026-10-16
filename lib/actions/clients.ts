@@ -6,7 +6,13 @@ import { getTranslations } from "next-intl/server";
 import { dbFailed, formToObject, validationFailed, type FormState } from "@/lib/action-helpers";
 import { requireUser } from "@/lib/auth";
 import { uuid } from "@/lib/schemas/common";
-import { clientSchema, petOwnerContactSchema, petSchema } from "@/lib/schemas/entities";
+import {
+  clientSchema,
+  newPetsSchema,
+  petOwnerContactSchema,
+  petSchema,
+  type NewPetsInput,
+} from "@/lib/schemas/entities";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -186,4 +192,40 @@ function revalidatePet(petId: string, clientId?: string | null) {
   revalidatePath("/clients");
   revalidatePath("/calendar", "layout");
   revalidatePath("/upcoming");
+}
+
+export type CreatePetsResult = FormState & { petIds?: string[]; clientId?: string | null };
+
+/**
+ * A household at once: 1–10 pets (name + species), an optional owner contact. Several
+ * pets without any contact are kept together on a family card named after them.
+ * One transaction (create_pets).
+ */
+export async function createPets(input: NewPetsInput, open = false): Promise<CreatePetsResult> {
+  await requireUser();
+  const parsed = newPetsSchema.safeParse(input);
+  if (!parsed.success) return validationFailed(parsed.error.issues);
+  const { clientId, pets, ownerName, ownerPhone, ownerEmail } = parsed.data;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("create_pets", {
+    p_pets: pets.map((p) => ({ name: p.name, species: p.species })),
+    p_client_id: clientId,
+    p_new_client: clientId ? undefined : { full_name: ownerName, phone_e164: ownerPhone, email: ownerEmail },
+  });
+  if (error) {
+    if (error.code === "23505") {
+      const t = await getTranslations("errors");
+      return { ok: false, error: t("checkFields"), fieldErrors: { ownerPhone: t("phoneTaken") } };
+    }
+    return dbFailed(error, "createPets");
+  }
+  const owner = data[0]?.client_id ?? null;
+  for (const row of data) revalidatePath(`/pets/${row.pet_id}`);
+  if (owner) revalidatePath(`/clients/${owner}`);
+  revalidatePath("/clients");
+  revalidatePath("/calendar", "layout");
+  // From the pet list: open the new pet — or, for a household, the family card.
+  // A server redirect is reliable (a client push can lose to the refresh).
+  if (open) redirect(data.length === 1 || !owner ? `/pets/${data[0].pet_id}` : `/clients/${owner}`);
+  return { ok: true, savedAt: Date.now(), petIds: data.map((r) => r.pet_id), clientId: owner };
 }

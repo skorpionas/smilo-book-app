@@ -13,6 +13,7 @@ import { toast } from "@/components/ui/toast";
 import { setClientArchived, setPetArchived } from "@/lib/actions/clients";
 import { formatAge } from "@/lib/format";
 import { ClientSheet, type ClientFormValues } from "./client-sheet";
+import { NewPetsSheet } from "@/components/pets/new-pets-sheet";
 import { PetSheet, type PetFormValues } from "./pet-sheet";
 
 /** Edit / archive / restore buttons on the client page header. */
@@ -165,8 +166,14 @@ export function PetsSection({
         </ul>
       )}
 
+      {/* adding: several pets at once; editing: the full form for one pet */}
+      <NewPetsSheet
+        open={editing === "new"}
+        onOpenChange={(o) => !o && setEditing(null)}
+        clientId={clientId}
+      />
       <PetSheet
-        open={editing !== null}
+        open={editing !== null && editing !== "new"}
         onOpenChange={(o) => !o && setEditing(null)}
         clientId={clientId}
         pet={editing === "new" ? null : editing}

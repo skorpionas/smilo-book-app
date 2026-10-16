@@ -135,7 +135,9 @@ test("book two pets that always come together in one tap", async ({ page }, test
 
   const services = sheet.getByLabel("Paslauga");
   await services.nth(0).selectOption({ label: "Maudymas ir džiovinimas" });
-  await services.nth(1).selectOption({ label: "Maudymas ir džiovinimas" });
+  // one tap: the same service for the second pet
+  await sheet.getByRole("button", { name: "„Maudymas ir džiovinimas“ visiems augintiniams" }).click();
+  await expect(services.nth(1)).toHaveValue(await services.nth(0).inputValue());
   await expect(sheet.getByLabel("Visa trukmė")).toHaveValue("180");
   await sheet.getByRole("button", { name: "Išsaugoti" }).click();
   await expect(page.getByText("Registracija išsaugota").first()).toBeVisible();
@@ -166,7 +168,7 @@ test("a new pet needs no owner; a phone-only owner can be added later", async ({
   await login(page, "/clients");
   await page.getByRole("button", { name: "Naujas augintinis" }).first().click();
   const sheet = page.getByRole("dialog");
-  await sheet.getByLabel("Vardas", { exact: true }).fill(name);
+  await sheet.getByLabel("Augintinio 1 vardas").fill(name);
   await sheet.getByRole("button", { name: "Išsaugoti" }).click();
 
   await expect(page).toHaveURL(/\/pets\/[0-9a-f-]{36}$/);
@@ -201,4 +203,30 @@ test("book a brand-new pet with no contact details at all", async ({ page }, tes
   await sheet.getByRole("button", { name: "Išsaugoti" }).click();
   await expect(page.getByText("Registracija išsaugota").first()).toBeVisible();
   await expect(page.getByRole("button", { name: `${start}–${end}, ${name}` })).toBeVisible();
+});
+
+test("add a household of three pets in one go", async ({ page }) => {
+  const tag = Date.now().toString().slice(-5);
+  const names = [`Bim${tag}`, `Bom${tag}`, `Bum${tag}`];
+  await login(page, "/clients");
+  await page.getByRole("button", { name: "Naujas augintinis" }).first().click();
+  const sheet = page.getByRole("dialog");
+  // type, Enter, type, Enter, type — a new row each time
+  await sheet.getByLabel("Augintinio 1 vardas").fill(names[0]);
+  await sheet.getByLabel("Augintinio 1 vardas").press("Enter");
+  await expect(sheet.getByLabel("Augintinio 2 vardas")).toBeFocused();
+  await sheet.getByLabel("Augintinio 2 vardas").fill(names[1]);
+  await sheet.getByLabel("Augintinio 2 vardas").press("Enter");
+  await sheet.getByLabel("Augintinio 3 vardas").fill(names[2]);
+  await sheet
+    .getByRole("group", { name: "Augintinio 3 rūšis" })
+    .getByRole("button", { name: "Katė" })
+    .click();
+  await expect(sheet.getByText(`„${names.join(", ")}“`)).toBeVisible(); // family hint
+  await sheet.getByRole("button", { name: "Išsaugoti (3)" }).click();
+
+  // no contact: kept together as one family card named after them
+  await expect(page).toHaveURL(/\/clients\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("heading", { level: 1, name: names.join(", ") })).toBeVisible();
+  for (const n of names) await expect(page.getByRole("heading", { level: 3, name: n })).toBeVisible();
 });

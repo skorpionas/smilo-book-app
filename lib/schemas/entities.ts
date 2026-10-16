@@ -139,3 +139,16 @@ export type PetServiceInput = z.output<typeof petServiceSchema>;
 export const petOwnerContactSchema = z
   .object({ fullName: optionalName(100), phone: optionalPhone, email: optionalEmail })
   .superRefine((v, ctx) => requireContact(v, ctx));
+
+/** Several new pets at once (a household): name + species per row, owner optional. */
+export const newPetsSchema = z.object({
+  clientId: optionalId,
+  pets: z
+    .array(z.object({ name: requiredText(50), species: z.enum(SPECIES, { error: "required" }) }))
+    .min(1, { error: "itemsRequired" })
+    .max(10, { error: "invalid" }),
+  ownerName: optionalName(100),
+  ownerPhone: optionalPhone,
+  ownerEmail: optionalEmail,
+});
+export type NewPetsInput = z.input<typeof newPetsSchema>;

@@ -386,6 +386,10 @@ export type Database = {
         Args: { p_pet_id: string; p_service_id: string };
         Returns: number;
       };
+      create_pets: {
+        Args: { p_client_id?: string; p_new_client?: Json; p_pets: Json };
+        Returns: { client_id: string; pet_id: string }[];
+      };
       set_pet_owner: {
         Args: { p_client_id?: string; p_new_client?: Json; p_pet_id: string };
         Returns: string;

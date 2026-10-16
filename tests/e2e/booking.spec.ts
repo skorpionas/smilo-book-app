@@ -47,8 +47,12 @@ test("add a client and a pet (issues #15, #16)", async ({ page }) => {
 
   await page.getByRole("button", { name: "Pridėti augintinį" }).click();
   const petSheet = page.getByRole("dialog");
-  await petSheet.getByLabel("Vardas").fill("Žuikis");
-  await petSheet.getByText("Katė", { exact: true }).click();
+  await petSheet.getByLabel("Augintinio 1 vardas").fill("Žuikis");
+  await petSheet.getByRole("button", { name: "Katė" }).click();
+  await petSheet.getByRole("button", { name: "Išsaugoti" }).click();
+  await expect(page.getByRole("heading", { level: 3, name: "Žuikis" })).toBeVisible();
+  // details later, on the full pet form
+  await page.getByRole("button", { name: "Redaguoti Žuikis" }).click();
   await petSheet.getByLabel("Pastabos").fill("Kanda kerpant letenas");
   await petSheet.getByRole("button", { name: "Išsaugoti" }).click();
   await expect(page.getByRole("heading", { level: 3, name: "Žuikis" })).toBeVisible();
