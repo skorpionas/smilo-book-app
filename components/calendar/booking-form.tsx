@@ -226,10 +226,19 @@ function BookingForm({
     }
     const prefill = await getPricePrefill(petId, serviceId);
     const value = prefill ?? service.defaultPrice;
-    updateItem(key, {
-      price: priceText(value),
-      priceSource: prefill !== null && prefill !== service.defaultPrice ? "last" : "default",
-    });
+    // The answer arrives later: apply it only if the row still has this pet + service
+    // and the owner hasn't typed a price meanwhile (typing clears priceSource).
+    setItems((prev) =>
+      prev.map((i) =>
+        i.key === key && i.petId === petId && i.serviceId === serviceId && i.priceSource !== null
+          ? {
+              ...i,
+              price: priceText(value),
+              priceSource: prefill !== null && prefill !== service.defaultPrice ? "last" : "default",
+            }
+          : i,
+      ),
+    );
   }
 
   function onPetChange(item: ItemState, petId: string) {
