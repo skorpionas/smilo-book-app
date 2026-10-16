@@ -129,9 +129,10 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
           {client.notes ? (
             <p className="text-foreground-soft text-sm whitespace-pre-line">{client.notes}</p>
           ) : null}
+          {/* phone: the main action full width on top, call / e-mail share the row below */}
           <div className="flex flex-wrap gap-2">
             {client.phone_e164 ? (
-              <Button asChild variant="secondary">
+              <Button asChild variant="secondary" className="flex-1 sm:flex-none">
                 <a
                   href={`tel:+${phoneDigits(client.phone_e164)}`}
                   aria-label={t("callNamed", { phone: formatPhone(client.phone_e164) })}
@@ -142,7 +143,7 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
               </Button>
             ) : null}
             {client.email ? (
-              <Button asChild variant="ghost">
+              <Button asChild variant="ghost" className="flex-1 sm:flex-none">
                 <a href={`mailto:${client.email}`}>
                   <Mail aria-hidden />
                   {t("email")}
@@ -150,7 +151,7 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
               </Button>
             ) : null}
             {!readOnly ? (
-              <Button asChild>
+              <Button asChild className="order-first basis-full sm:order-none sm:basis-auto">
                 <Link href={`/calendar?client=${client.id}`}>
                   <CalendarPlus aria-hidden />
                   {t("book")}

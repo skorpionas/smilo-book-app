@@ -183,25 +183,31 @@ export function PetsList({
                   letter={letter}
                   label={t("letter", { letter })}
                 >
-                  <Card className="overflow-hidden">
-                    <ul className="divide-border divide-y">
-                      {items.map((g) =>
-                        g.pets.length > 1 ? (
-                          <li key={g.clientId}>
-                            <FamilyBlock group={g} today={today} />
-                          </li>
-                        ) : (
-                          <PetRow
-                            key={g.clientId}
-                            pet={g.pets[0]}
-                            today={today}
-                            client={g.clientName}
-                            call={g.phone}
-                          />
-                        ),
-                      )}
-                    </ul>
-                  </Card>
+                  {/* a client's block is its own card; single pets in between share one,
+                      so where a client's pets end is always visible */}
+                  <div className="space-y-2">
+                    {runs(items).map((run) =>
+                      run.family ? (
+                        <Card key={run.family.clientId} className="overflow-hidden">
+                          <FamilyBlock group={run.family} today={today} />
+                        </Card>
+                      ) : (
+                        <Card key={run.singles[0].clientId} className="overflow-hidden">
+                          <ul className="divide-border divide-y">
+                            {run.singles.map((g) => (
+                              <PetRow
+                                key={g.clientId}
+                                pet={g.pets[0]}
+                                today={today}
+                                client={g.clientName}
+                                call={g.phone}
+                              />
+                            ))}
+                          </ul>
+                        </Card>
+                      ),
+                    )}
+                  </div>
                 </LetterSection>
               ))}
             </div>
@@ -269,6 +275,20 @@ function groupByFamily(pets: PetListRow[]): FamilyGroup[] {
   return [...groups.values()];
 }
 
+type Run = { family: FamilyGroup; singles?: never } | { family?: never; singles: FamilyGroup[] };
+
+/** Consecutive single pets share a run; each multi-pet client is a run of its own. */
+function runs(groups: FamilyGroup[]): Run[] {
+  const out: Run[] = [];
+  for (const g of groups) {
+    const last = out[out.length - 1];
+    if (g.pets.length > 1) out.push({ family: g });
+    else if (last?.singles) last.singles.push(g);
+    else out.push({ singles: [g] });
+  }
+  return out;
+}
+
 /** A client's pets together: a tinted client line (open / call), then one row per pet. */
 function FamilyBlock({ group: g, today }: { group: FamilyGroup; today: string }) {
   const t = useTranslations("directory");
@@ -286,8 +306,11 @@ function FamilyBlock({ group: g, today }: { group: FamilyGroup; today: string })
           <span className="min-w-0 truncate text-sm">
             <span className="font-semibold">{g.clientName}</span>
             <span className="text-muted">
-              {" · "}
-              {t("familyOf", { count: g.pets.length })}
+              {/* phone: the rows already show how many pets; keep the number visible */}
+              <span className="hidden sm:inline">
+                {" · "}
+                {t("familyOf", { count: g.pets.length })}
+              </span>
               {showPhone ? <span className="tabular-nums">{` · ${g.phoneDisplay}`}</span> : null}
             </span>
           </span>

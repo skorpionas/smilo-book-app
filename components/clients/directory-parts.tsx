@@ -69,7 +69,7 @@ export function LetterSection({
 export const PET_COLUMNS =
   "md:grid md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.2fr)_10rem] md:gap-4";
 export const CLIENT_COLUMNS =
-  "md:grid md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.3fr)_10rem] md:gap-4";
+  "md:grid md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1.3fr)_9.5rem] md:gap-4";
 
 /** Visual column titles above the list (rows carry their own text, so aria-hidden). */
 export function ColumnHeader({ columns, labels }: { columns: string; labels: string[] }) {
