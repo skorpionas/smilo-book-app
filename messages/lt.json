@@ -131,7 +131,8 @@
     "slotTakenUnknown": "Šis laikas jau užimtas.",
     "workDaysRequired": "Pažymėkite bent vieną darbo dieną.",
     "pastDate": "Praėjusiai dienai registruoti negalima.",
-    "contactRequired": "Įrašykite bent vieną: vardą, telefoną arba el. paštą."
+    "contactRequired": "Įrašykite bent vieną: vardą, telefoną arba el. paštą.",
+    "forbidden": "Šio veiksmo atlikti negalima. Atnaujinkite puslapį ir bandykite dar kartą."
   },
   "common": {
     "close": "Uždaryti",

@@ -2,7 +2,7 @@
  * Map Postgres / PostgREST error codes to message keys in messages/lt.json
  * ("errors.*"). Server Actions use this so the owner never sees raw DB errors.
  */
-export type DbErrorKind = "slotTaken" | "invalid" | "notFound" | "unauthorized" | "unknown";
+export type DbErrorKind = "slotTaken" | "invalid" | "notFound" | "forbidden" | "unauthorized" | "unknown";
 
 export function classifyDbError(error: { code?: string | null } | null | undefined): DbErrorKind {
   switch (error?.code) {
@@ -16,8 +16,10 @@ export function classifyDbError(error: { code?: string | null } | null | undefin
     case "P0002":
     case "PGRST116": // no rows for .single()
       return "notFound";
-    case "42501": // RLS / privilege
+    case "42501": // RLS / privilege — the session is fine, this row or action is not allowed
+      return "forbidden";
     case "PGRST301": // JWT expired
+    case "PGRST302":
       return "unauthorized";
     default:
       return "unknown";

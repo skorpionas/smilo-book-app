@@ -27,7 +27,8 @@ describe("classifyDbError", () => {
     ["23P01", "slotTaken"],
     ["23514", "invalid"],
     ["23505", "invalid"],
-    ["42501", "unauthorized"],
+    ["42501", "forbidden"],
+    ["PGRST301", "unauthorized"],
     ["PGRST116", "notFound"],
     ["XX000", "unknown"],
   ])("%s -> %s", (code, kind) => {
