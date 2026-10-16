@@ -195,3 +195,30 @@ test("drag a booking to another time, then confirm", async ({ page }, testInfo) 
   await expect(page.getByText("Vizitas perkeltas").first()).toBeVisible();
   await expect(page.getByRole("button", { name: /^12:00–14:00, .+, Rasa Petrauskienė$/ })).toBeVisible();
 });
+
+test("a booking after 19:00 widens the day grid and is shown", async ({ page }, testInfo) => {
+  const day = futureSunday({ mobile: 21, tablet: 22, desktop: 23 }[testInfo.project.name] ?? 23);
+  const start = `${20 + testInfo.retry}:00`;
+  const end = `${21 + testInfo.retry}:00`;
+  await login(page, `/calendar?date=${day}`);
+  // 08:00–19:00 by default: no 20:00 row yet
+  await expect(page.getByRole("button", { name: `Registruoti: Meistrė A, ${start}` })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Registruoti: Meistrė A, 18:00" }).click();
+  const sheet = page.getByRole("dialog");
+  await sheet.getByLabel("Pradžia").selectOption(start);
+  await sheet.getByPlaceholder("Augintinis, klientas ar telefonas").fill("Petrausk");
+  await sheet.getByRole("button", { name: "Pasirinkti Maksas (Rasa Petrauskienė)" }).click();
+  await sheet.getByLabel("Augintinis", { exact: true }).selectOption({ index: 1 });
+  await sheet.getByLabel("Paslauga").selectOption({ label: "Higieninis kirpimas" });
+  await sheet.getByLabel("Visa trukmė").selectOption("60");
+  await sheet.getByRole("button", { name: "Išsaugoti" }).click();
+  await expect(page.getByText("Registracija išsaugota").first()).toBeVisible();
+
+  // The grid now runs past 19:00 and shows the visit
+  await expect(
+    page.getByRole("region", { name: "Dienos tvarkaraštis" }).getByRole("button", {
+      name: new RegExp(`^${start}–${end}, .+, Rasa Petrauskienė$`),
+    }),
+  ).toBeVisible();
+});

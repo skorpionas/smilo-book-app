@@ -13,33 +13,31 @@ import { GroomerChip } from "@/components/ui/groomer-chip";
 import type { BookingClientOption } from "@/lib/actions/bookings";
 import type { CalendarBooking, CalendarGroomer, CalendarLane, CalendarService } from "@/lib/calendar-data";
 import {
-  DAY_CLOSE,
   DAY_OPEN,
-  GRID_ROWS,
+  DEFAULT_WINDOW,
   SLOT_MINUTES,
+  edgeLabel,
   minutesToTime,
   snapMinutes,
-  timeToMinutes,
   vilniusClock,
   type DateStr,
+  type GridWindow,
 } from "@/lib/clock";
 import { cn } from "@/lib/utils";
 import { CALENDAR_STICKY_TOP } from "./sticky";
 import { BookingDetailSheet } from "./booking-detail";
 import type { BookingDefaults } from "./booking-form";
 import { useBookingDrag, type DropPreview } from "./drag-move";
+import { GridWindowProvider, gridWindowValue, useGridWindow } from "./grid-window";
 
 // The booking form is only needed after a tap: load it on demand to keep the calendar page light.
 const BookingSheet = dynamic(() => import("./booking-form").then((m) => m.BookingSheet));
 
-export const OPEN = timeToMinutes(DAY_OPEN);
-export const CLOSE = timeToMinutes(DAY_CLOSE);
 export const ROW_REM = 1; // 15 min = 1 rem (16 px) → 4 rem per hour
-export const SLOTS = Array.from({ length: GRID_ROWS }, (_, i) => minutesToTime(OPEN + i * SLOT_MINUTES));
 
 /**
  * Day view (US-02, issue #17): one column per groomer working that day, 15-min rows
- * 08:00–19:00, booking blocks positioned by wall-clock time, "now" line, tap a free
+ * 08:00–19:00 (widened to whole hours when a booking is earlier or later), booking blocks positioned by wall-clock time, "now" line, tap a free
  * slot to book. Groomers off that day get no lane unless something is booked for them.
  */
 export function DayView({
@@ -52,6 +50,7 @@ export function DayView({
   openOnLoad,
   preselectedClient,
   preselectedPetId = null,
+  hours = DEFAULT_WINDOW,
 }: {
   date: DateStr;
   today: DateStr;
@@ -64,9 +63,12 @@ export function DayView({
   openOnLoad: boolean;
   preselectedClient: BookingClientOption | null;
   preselectedPetId?: string | null;
+  /** Hours shown (from the server: widened for bookings outside 08:00–19:00). */
+  hours?: GridWindow;
 }) {
   const t = useTranslations("calendar");
   const router = useRouter();
+  const { open: OPEN, close: CLOSE, rows: GRID_ROWS, slots: SLOTS } = gridWindowValue(hours);
   const pathname = usePathname();
   const [newBooking, setNewBooking] = React.useState<BookingDefaults | null>(null);
   const [selected, setSelected] = React.useState<CalendarBooking | null>(null);
@@ -80,7 +82,7 @@ export function DayView({
       if (next >= OPEN && next < CLOSE) return minutesToTime(next);
     }
     return DAY_OPEN;
-  }, [date, today, nowMinutes]);
+  }, [date, today, nowMinutes, OPEN, CLOSE]);
   const firstGroomerId = (lanes[0] ?? groomers[0]).id;
   // No bookings on past days: the grid is read-only and "+" books for today.
   const past = date < today;
@@ -187,7 +189,7 @@ export function DayView({
   }
 
   return (
-    <>
+    <GridWindowProvider hours={hours}>
       {/* Groomer column headers */}
       <div
         className={cn(
@@ -244,7 +246,7 @@ export function DayView({
               className="text-muted absolute right-2 -translate-y-2 text-xs tabular-nums"
               style={{ top: `${GRID_ROWS * ROW_REM}rem` }}
             >
-              {DAY_CLOSE}
+              {edgeLabel(CLOSE)}
             </span>
           </div>
 
@@ -281,7 +283,7 @@ export function DayView({
       </div>
 
       {sheets}
-    </>
+    </GridWindowProvider>
   );
 }
 
@@ -318,6 +320,7 @@ export function GroomerColumn({
   className?: string;
 }) {
   const t = useTranslations("calendar");
+  const { open, rows: GRID_ROWS, slots: SLOTS } = useGridWindow();
   const placed = bookings
     .map((b) => ({ booking: b, pos: b.grid }))
     .filter((p): p is { booking: CalendarBooking; pos: { row: number; span: number } } => p.pos !== null);
@@ -332,6 +335,8 @@ export function GroomerColumn({
       data-lane-groomer={groomer.id}
       data-lane-date={date}
       data-lane-readonly={readOnly ? "true" : undefined}
+      data-lane-open={open}
+      data-lane-rows={GRID_ROWS}
     >
       {SLOTS.map((time, i) => (
         <div

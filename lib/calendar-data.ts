@@ -1,11 +1,13 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { contactLabel, formatPhone } from "@/lib/phone";
+import { gridWindowFor } from "@/lib/clock";
 import { lanesForDate } from "@/lib/schedule";
 import {
   addDays,
   dayBoundsUtc,
   durationMinutes,
+  daySpan,
   gridPosition,
   toVilniusDate,
   toVilniusTime,
@@ -91,6 +93,15 @@ export async function loadRange(from: DateStr, to: DateStr, gridDate?: DateStr) 
     if (r.error) console.error("[calendar] load failed", { code: r.error.code });
   }
 
+  // Widen the grid's hours when something is booked before 08:00 or after 19:00
+  const rows = bookings.data ?? [];
+  const hours = gridWindowFor(
+    rows.flatMap((b) => {
+      const span = daySpan(b.start_at, b.end_at, gridDate ?? toVilniusDate(b.start_at));
+      return span ? [span] : [];
+    }),
+  );
+
   return {
     groomers: (groomers.data ?? []).map((g): CalendarGroomer => ({
       id: g.id,
@@ -104,7 +115,8 @@ export async function loadRange(from: DateStr, to: DateStr, gridDate?: DateStr) 
       defaultDurationMin: s.default_duration_min,
       defaultPrice: Number(s.default_price),
     })) satisfies CalendarService[],
-    bookings: (bookings.data ?? []).map((b): CalendarBooking => {
+    hours,
+    bookings: rows.map((b): CalendarBooking => {
       const date = toVilniusDate(b.start_at);
       return {
         id: b.id,
@@ -114,7 +126,7 @@ export async function loadRange(from: DateStr, to: DateStr, gridDate?: DateStr) 
         startTime: toVilniusTime(b.start_at),
         endTime: toVilniusTime(b.end_at),
         durationMin: durationMinutes(b.start_at, b.end_at),
-        grid: gridPosition(b.start_at, b.end_at, gridDate ?? date),
+        grid: gridPosition(b.start_at, b.end_at, gridDate ?? date, hours),
         status: b.status,
         notes: b.notes,
         blockReason: b.block_reason,

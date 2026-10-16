@@ -25,7 +25,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   const t = await getTranslations("calendar");
   const ts = await getTranslations("settings");
 
-  const [{ groomers, services, bookings, failed }, preselectedClient] = await Promise.all([
+  const [{ groomers, services, bookings, hours, failed }, preselectedClient] = await Promise.all([
     loadDay(date),
     typeof clientParam === "string"
       ? getClientForBooking(clientParam)
@@ -74,6 +74,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           groomers={groomers}
           services={services}
           bookings={bookings}
+          hours={hours}
           openOnLoad={openOnLoad}
           preselectedClient={preselectedClient}
           preselectedPetId={typeof petParam === "string" ? petParam : null}

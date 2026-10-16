@@ -6,15 +6,15 @@ import { ConfirmDialog } from "@/components/forms/confirm-dialog";
 import { toast } from "@/components/ui/toast";
 import { rescheduleBooking } from "@/lib/actions/bookings";
 import type { CalendarBooking, CalendarGroomer } from "@/lib/calendar-data";
-import { DAY_OPEN, GRID_ROWS, SLOT_MINUTES, minutesToTime, timeToMinutes } from "@/lib/clock";
+import { SLOT_MINUTES, minutesToTime } from "@/lib/clock";
 
-const OPEN = timeToMinutes(DAY_OPEN);
 const LONG_PRESS_MS = 350;
 const MOUSE_THRESHOLD_PX = 6;
 const TOUCH_SLOP_PX = 8;
 const EDGE_PX = 80;
 
-export type DragTarget = { groomerId: string; date: string; row: number; busy: boolean };
+/** `open`: the lane's first hour in minutes (the grid can start before 08:00). */
+export type DragTarget = { groomerId: string; date: string; row: number; open: number; busy: boolean };
 export type DropPreview = { row: number; span: number; label: string; busy: boolean };
 
 type Move = { booking: CalendarBooking; target: DragTarget };
@@ -53,9 +53,11 @@ export function useBookingDrag(groomers: CalendarGroomer[]) {
           .find(Boolean);
         if (!lane || lane.dataset.laneReadonly === "true") return null;
         const rect = lane.getBoundingClientRect();
-        const rowPx = rect.height / GRID_ROWS;
+        const rows = Number(lane.dataset.laneRows);
+        const open = Number(lane.dataset.laneOpen);
+        const rowPx = rect.height / rows;
         const raw = Math.round((y - grabY - rect.top) / rowPx);
-        const row = Math.min(Math.max(raw, 0), Math.max(GRID_ROWS - span, 0));
+        const row = Math.min(Math.max(raw, 0), Math.max(rows - span, 0));
         // Overlaps another card in this lane? (The database still has the final say.)
         const busy = [...lane.querySelectorAll<HTMLElement>("[data-booking-id]")].some((card) => {
           if (card.dataset.bookingId === booking.id) return false;
@@ -63,7 +65,7 @@ export function useBookingDrag(groomers: CalendarGroomer[]) {
           const n = Number(card.dataset.span);
           return row < r + n && r < row + span;
         });
-        return { groomerId: lane.dataset.laneGroomer!, date: lane.dataset.laneDate!, row, busy };
+        return { groomerId: lane.dataset.laneGroomer!, date: lane.dataset.laneDate!, row, open, busy };
       };
 
       const activate = () => {
@@ -148,7 +150,7 @@ export function useBookingDrag(groomers: CalendarGroomer[]) {
     const target = drag?.target;
     if (!drag || !target || target.groomerId !== groomerId || target.date !== date) return null;
     const span = spanOf(drag.booking);
-    const start = OPEN + target.row * SLOT_MINUTES;
+    const start = target.open + target.row * SLOT_MINUTES;
     const range = `${minutesToTime(start)}–${endTime(start, drag.booking.durationMin)}`;
     return {
       row: target.row,
@@ -161,7 +163,7 @@ export function useBookingDrag(groomers: CalendarGroomer[]) {
   const groomerName = (id: string) => groomers.find((g) => g.id === id)?.name ?? "";
   const describe = (m: Move) => {
     const b = m.booking;
-    const start = OPEN + m.target.row * SLOT_MINUTES;
+    const start = m.target.open + m.target.row * SLOT_MINUTES;
     const what =
       b.kind === "block" ? t("blockTitle") : b.items.map((i) => i.petName).join(", ") || t("detailTitle");
     return t("moveText", {
@@ -178,7 +180,7 @@ export function useBookingDrag(groomers: CalendarGroomer[]) {
       id: booking.id,
       groomerId: target.groomerId,
       date: target.date,
-      startTime: minutesToTime(OPEN + target.row * SLOT_MINUTES),
+      startTime: minutesToTime(target.open + target.row * SLOT_MINUTES),
       durationMin: booking.durationMin,
     });
     if (res.ok) {
