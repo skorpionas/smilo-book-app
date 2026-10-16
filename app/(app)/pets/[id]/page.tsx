@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarPlus, Cat, ChevronRight, Dog, Phone } from "lucide-react";
+import { ArrowLeft, CalendarPlus, Cat, ChevronRight, Dog, PawPrint, Phone } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -138,12 +138,23 @@ export default async function PetPage({ params }: PageProps<"/pets/[id]">) {
             </div>
             {pet.notes ? <PetNotes notes={pet.notes} label={tp("notes")} /> : null}
             {!readOnly ? (
-              <Button asChild size="lg" className="w-full sm:w-auto">
-                <Link href={`/calendar?client=${client.id}&pet=${pet.id}`}>
-                  <CalendarPlus aria-hidden />
-                  {t("book", { name: pet.name })}
-                </Link>
-              </Button>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <Button asChild size="lg" className="w-full sm:w-auto">
+                  <Link href={`/calendar?client=${client.id}&pet=${pet.id}`}>
+                    <CalendarPlus aria-hidden />
+                    {t("book", { name: pet.name })}
+                  </Link>
+                </Button>
+                {siblings.length > 0 ? (
+                  // Pets that always come together: one booking, one row per pet, each with its own price
+                  <Button asChild size="lg" variant="secondary" className="w-full sm:w-auto">
+                    <Link href={`/calendar?client=${client.id}&pet=all`}>
+                      <PawPrint aria-hidden />
+                      {t("bookTogether", { names: siblings.map((s) => s.name).join(", ") })}
+                    </Link>
+                  </Button>
+                ) : null}
+              </div>
             ) : null}
           </Card>
 

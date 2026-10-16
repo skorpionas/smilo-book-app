@@ -1,6 +1,6 @@
 "use client";
 
-import { Cat, Dog, Phone, Plus, Search, Settings, Trash2, UserPlus, X } from "lucide-react";
+import { Cat, Dog, PawPrint, Phone, Plus, Search, Settings, Trash2, UserPlus, X } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import * as React from "react";
@@ -57,6 +57,8 @@ export type BookingDefaults = {
 
 const START_TIMES = BOOKING_START_TIMES;
 const NEW_PET = "__new";
+/** Book every active pet of the client together (they always come as a pair / group). */
+export const ALL_PETS = "all";
 
 type ItemState = {
   key: number;
@@ -152,9 +154,11 @@ function BookingForm({
   const [client, setClient] = React.useState<ClientState>(
     defaults.client ? { mode: "existing", option: defaults.client } : { mode: "none" },
   );
-  const [items, setItems] = React.useState<ItemState[]>(() => [
-    withPetDefaults(emptyItem(0, defaults.client, defaults.petId), defaults.client, services),
-  ]);
+  const [items, setItems] = React.useState<ItemState[]>(() =>
+    defaults.petId === ALL_PETS && defaults.client && defaults.client.pets.length > 0
+      ? familyItems(defaults.client, services, 1000)
+      : [withPetDefaults(emptyItem(0, defaults.client, defaults.petId), defaults.client, services)],
+  );
   const [durationMin, setDurationMin] = React.useState<number | null>(null); // null = sum of items
   const [notes, setNotes] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -175,6 +179,11 @@ function BookingForm({
     setClient(next);
     setFieldErrors({});
     const option = next.mode === "existing" ? next.option : null;
+    if (option && petId === ALL_PETS && option.pets.length > 0) {
+      setItems(familyItems(option, services, nextKey.current));
+      nextKey.current += 6;
+      return;
+    }
     // Pets belong to one client: reset the pet choice on every client change, then
     // pre-fill the chosen pet's usual service (its own duration and price).
     setItems((prev) =>
@@ -243,6 +252,19 @@ function BookingForm({
       ...prev,
       { ...emptyItem(key, null, null), petId: client.mode === "existing" ? "" : NEW_PET },
     ]);
+  }
+
+  /** One tap: another pet of the same client, with its own usual service, time and price. */
+  function addPetItem(pet: BookingPetOption) {
+    if (client.mode !== "existing") return;
+    const key = nextKey.current++;
+    const option = client.option;
+    setItems((prev) => {
+      // Re-use an empty first row instead of adding a second one
+      const empty = prev.length === 1 && !prev[0].petId && !prev[0].serviceId;
+      const item = withPetDefaults({ ...emptyItem(key, null, null), petId: pet.id }, option, services, true);
+      return empty ? [item] : [...prev, item];
+    });
   }
 
   function removeItem(key: number) {
@@ -546,6 +568,12 @@ function BookingForm({
               );
             })}
           </ol>
+          {items.length < 6 && client.mode === "existing" ? (
+            <QuickAddPets
+              pets={pets.filter((p) => !items.some((i) => i.petId === p.id))}
+              onAdd={addPetItem}
+            />
+          ) : null}
           {items.length < 6 && client.mode !== "none" ? (
             <Button type="button" variant="secondary" className="w-full" onClick={addItem}>
               <Plus aria-hidden />
@@ -785,42 +813,64 @@ function ClientPicker({
             className="border-border divide-border divide-y overflow-hidden rounded-lg border"
             aria-live="polite"
           >
-            {pickRows(results.list).map(({ client: c, pet }) => (
-              <li key={pet ? pet.id : c.id}>
-                <button
-                  type="button"
-                  onClick={() => onChange({ mode: "existing", option: c }, pet?.id ?? null)}
-                  aria-label={
-                    pet
-                      ? t("selectPet", { pet: pet.name, client: c.fullName })
-                      : t("selectClient", { name: c.fullName })
-                  }
-                  className="hover:bg-surface-muted flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left transition-colors"
-                >
-                  {pet ? (
-                    <Avatar name={pet.name} size="sm" icon={<SpeciesIcon species={pet.species} />} />
-                  ) : (
-                    <Avatar name={c.fullName} size="sm" />
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">
-                      {pet ? pet.name : c.fullName}
-                      {pet?.breed ? <span className="text-muted font-normal"> · {pet.breed}</span> : null}
+            {pickRows(results.list).map(({ client: c, pet, all }) =>
+              all ? (
+                <li key={`${c.id}-all`}>
+                  <button
+                    type="button"
+                    onClick={() => onChange({ mode: "existing", option: c }, ALL_PETS)}
+                    aria-label={t("selectAllPets", {
+                      pets: c.pets.map((p) => p.name).join(", "),
+                      client: c.fullName,
+                    })}
+                    className="hover:bg-surface-muted flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left transition-colors"
+                  >
+                    <Avatar name={c.fullName} size="sm" icon={<PawPrint aria-hidden />} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">
+                        {t("allPetsTogether", { pets: c.pets.map((p) => p.name).join(" + ") })}
+                      </span>
+                      <span className="text-muted block truncate text-sm">{c.fullName}</span>
                     </span>
-                    <span className="text-muted flex items-center gap-2 truncate text-sm">
-                      {pet ? <span className="truncate">{c.fullName}</span> : null}
-                      {c.phone ? (
-                        <span className="inline-flex items-center gap-1 tabular-nums">
-                          <Phone aria-hidden className="size-3.5" />
-                          {c.phoneDisplay}
-                        </span>
-                      ) : null}
-                      {!pet ? <span>{tcl("noPetsShort")}</span> : null}
+                  </button>
+                </li>
+              ) : (
+                <li key={pet ? pet.id : c.id}>
+                  <button
+                    type="button"
+                    onClick={() => onChange({ mode: "existing", option: c }, pet?.id ?? null)}
+                    aria-label={
+                      pet
+                        ? t("selectPet", { pet: pet.name, client: c.fullName })
+                        : t("selectClient", { name: c.fullName })
+                    }
+                    className="hover:bg-surface-muted flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left transition-colors"
+                  >
+                    {pet ? (
+                      <Avatar name={pet.name} size="sm" icon={<SpeciesIcon species={pet.species} />} />
+                    ) : (
+                      <Avatar name={c.fullName} size="sm" />
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">
+                        {pet ? pet.name : c.fullName}
+                        {pet?.breed ? <span className="text-muted font-normal"> · {pet.breed}</span> : null}
+                      </span>
+                      <span className="text-muted flex items-center gap-2 truncate text-sm">
+                        {pet ? <span className="truncate">{c.fullName}</span> : null}
+                        {c.phone ? (
+                          <span className="inline-flex items-center gap-1 tabular-nums">
+                            <Phone aria-hidden className="size-3.5" />
+                            {c.phoneDisplay}
+                          </span>
+                        ) : null}
+                        {!pet ? <span>{tcl("noPetsShort")}</span> : null}
+                      </span>
                     </span>
-                  </span>
-                </button>
-              </li>
-            ))}
+                  </button>
+                </li>
+              ),
+            )}
           </ul>
         ) : (
           <p className="text-muted text-sm" aria-live="polite">
@@ -907,9 +957,15 @@ function withPetDefaults(
   };
 }
 
-/** Picker rows, pet first: matched pets, then the client's other pets; clients without pets as one row. */
-function pickRows(list: BookingClientOption[]) {
-  const rows: { client: BookingClientOption; pet: BookingPetOption | null }[] = [];
+type PickRow = { client: BookingClientOption; pet: BookingPetOption | null; all?: boolean };
+
+/**
+ * Picker rows, pet first: matched pets, then the client's other pets; clients without
+ * pets as one row. A client with 2+ pets also gets "Maksas + Žuikis" — pets that always
+ * come together are booked in one tap.
+ */
+export function pickRows(list: BookingClientOption[]): PickRow[] {
+  const rows: PickRow[] = [];
   for (const c of list) {
     if (c.pets.length === 0) {
       rows.push({ client: c, pet: null });
@@ -918,9 +974,40 @@ function pickRows(list: BookingClientOption[]) {
     const matched = new Set(c.matchedPetIds ?? []);
     const ordered = [...c.pets.filter((p) => matched.has(p.id)), ...c.pets.filter((p) => !matched.has(p.id))];
     for (const pet of ordered) rows.push({ client: c, pet });
+    if (c.pets.length > 1) rows.push({ client: c, pet: null, all: true });
   }
-  const first = rows.filter((r) => r.pet && r.client.matchedPetIds?.includes(r.pet.id));
+  // Matched pets first, each client's "together" row right after them
+  const first = rows.filter(
+    (r) =>
+      (r.pet && r.client.matchedPetIds?.includes(r.pet.id)) ||
+      (r.all && (r.client.matchedPetIds?.length ?? 0) > 0),
+  );
   return [...first, ...rows.filter((r) => !first.includes(r))];
+}
+
+/** One item per pet of the client (max 6), each with its own usual service, time and price. */
+function familyItems(client: BookingClientOption, services: { id: string }[], firstKey: number): ItemState[] {
+  return client.pets
+    .slice(0, 6)
+    .map((pet, i) =>
+      withPetDefaults({ ...emptyItem(firstKey + i, null, null), petId: pet.id }, client, services, true),
+    );
+}
+
+function QuickAddPets({ pets, onAdd }: { pets: BookingPetOption[]; onAdd: (pet: BookingPetOption) => void }) {
+  const t = useTranslations("booking");
+  if (pets.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-2" role="group" aria-label={t("quickAddLabel")}>
+      {pets.map((pet) => (
+        <Button key={pet.id} type="button" variant="soft" size="sm" onClick={() => onAdd(pet)}>
+          <Plus aria-hidden />
+          <SpeciesIcon species={pet.species} />
+          {t("addNamedPet", { name: pet.name })}
+        </Button>
+      ))}
+    </div>
+  );
 }
 
 function SpeciesIcon({ species, className }: { species: "dog" | "cat"; className?: string }) {

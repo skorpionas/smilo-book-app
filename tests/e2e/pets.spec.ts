@@ -99,3 +99,60 @@ test("remember a custom price while booking", async ({ page }, testInfo) => {
   await expect(services.getByText("Maudymas ir džiovinimas")).toBeVisible();
   await expect(services.getByText(/33,00 €/)).toBeVisible();
 });
+
+// Pets that always come together (owner feedback): one booking, one row per pet,
+// each pet with its own service and price; duration = sum.
+const FAMILIES: Record<string, { client: string; pets: [string, string]; weeks: number }> = {
+  mobile: { client: "Ieva Urbonienė", pets: ["Mimi", "Oskaras"], weeks: 12 },
+  tablet: { client: "Greta Vasiliauskaitė", pets: ["Bonis", "Kikis"], weeks: 13 },
+  desktop: { client: "Eglė Butkienė", pets: ["Pūkas", "Tobis"], weeks: 14 },
+};
+
+test("book two pets that always come together in one tap", async ({ page }, testInfo) => {
+  const f = FAMILIES[testInfo.project.name] ?? FAMILIES.desktop;
+  const day = futureSunday(f.weeks);
+  const start = `${String(9 + testInfo.retry * 4).padStart(2, "0")}:00`;
+  const end = `${String(12 + testInfo.retry * 4).padStart(2, "0")}:00`;
+  await login(page, `/calendar?date=${day}`);
+  await page.getByRole("button", { name: `Registruoti: Meistrė A, ${start}` }).click();
+  const sheet = page.getByRole("dialog");
+  await sheet.getByPlaceholder("Vardas, augintinis ar telefonas").fill(f.client);
+  await sheet
+    .getByRole("button", { name: `Pasirinkti visus kartu: ${f.pets.join(", ")} (${f.client})` })
+    .click();
+
+  // two rows, one per pet
+  await expect(sheet.getByText("Augintinis 1")).toBeVisible();
+  await expect(sheet.getByText("Augintinis 2")).toBeVisible();
+  const petSelects = sheet.getByLabel("Augintinis", { exact: true });
+  await expect(petSelects).toHaveCount(2);
+
+  // remove the second, add it back with the one-tap chip
+  await sheet.getByRole("button", { name: "Pašalinti augintinį 2" }).click();
+  await expect(petSelects).toHaveCount(1);
+  await sheet.getByRole("group", { name: "Pridėti kitą šio kliento augintinį" }).getByRole("button").click();
+  await expect(petSelects).toHaveCount(2);
+
+  const services = sheet.getByLabel("Paslauga");
+  await services.nth(0).selectOption({ label: "Maudymas ir džiovinimas" });
+  await services.nth(1).selectOption({ label: "Maudymas ir džiovinimas" });
+  await expect(sheet.getByLabel("Visa trukmė")).toHaveValue("180");
+  await sheet.getByRole("button", { name: "Išsaugoti" }).click();
+  await expect(page.getByText("Registracija išsaugota").first()).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: `${start}–${end}, ${f.pets.join(", ")}, ${f.client}` }),
+  ).toBeVisible();
+});
+
+test("pet page books the whole family together", async ({ page }) => {
+  await login(page, "/clients");
+  await page.getByLabel("Ieškoti augintinio ar šeimininko").fill("Bela");
+  await page.getByRole("link", { name: /Bela.*Jonas Kazlauskas/ }).click();
+  await page.getByRole("link", { name: "Registruoti kartu su Reksas" }).click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByLabel("Augintinis", { exact: true })).toHaveCount(2);
+  // both pets have their own services in seed.sql: 60 + 210 min, 25 + 75 €
+  await expect(sheet.getByLabel("Visa trukmė")).toHaveValue("270");
+  await expect(sheet.getByLabel("Kaina, €").nth(0)).toHaveValue("25,00");
+  await expect(sheet.getByLabel("Kaina, €").nth(1)).toHaveValue("75,00");
+});

@@ -448,7 +448,11 @@
     "pricePet": "Šio augintinio kaina",
     "rememberForPet": "Įsiminti trukmę ir kainą: {name}",
     "thisPet": "šiam augintiniui",
-    "selectPet": "Pasirinkti {pet} ({client})"
+    "selectPet": "Pasirinkti {pet} ({client})",
+    "allPetsTogether": "Kartu: {pets}",
+    "selectAllPets": "Pasirinkti visus kartu: {pets} ({client})",
+    "quickAddLabel": "Pridėti kitą šio kliento augintinį",
+    "addNamedPet": "{name}"
   },
   "search": {
     "label": "Ieškoti kliento ar augintinio",
@@ -526,7 +530,8 @@
     "upcoming": "Artimiausi vizitai",
     "noUpcoming": "Suplanuotų vizitų nėra.",
     "history": "Vizitų istorija",
-    "noHistory": "Ankstesnių vizitų dar nėra."
+    "noHistory": "Ankstesnių vizitų dar nėra.",
+    "bookTogether": "Registruoti kartu su {names}"
   },
   "petServices": {
     "title": "Paslaugos ir kainos",
