@@ -169,7 +169,8 @@ On your own computer (install `age`: macOS `brew install age`, Windows `winget i
 age-keygen -o smilo-backup-key.txt
 ```
 
-It prints `Public key: age1…`. Put that `age1…` line into the `prod-backup` secret `BACKUP_AGE_PUBLIC_KEY`. Keep
+It prints `Public key: age1…`. Copy **only** the `age1…` part (62 characters, no `Public key:`) into the `prod-backup`
+secret `BACKUP_AGE_PUBLIC_KEY`. Never paste the file contents: it holds the private key (`AGE-SECRET-KEY-…`). Keep
 `smilo-backup-key.txt` (the private key) in your password manager **and** on a USB stick — without it backups are
 unreadable, and it must never be uploaded to GitHub.
 

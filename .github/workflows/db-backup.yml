@@ -37,7 +37,14 @@ jobs:
         run: |
           [ -n "$SUPABASE_ACCESS_TOKEN" ] || { echo "::error::Secret SUPABASE_ACCESS_TOKEN missing"; exit 1; }
           [ -n "$SUPABASE_DB_PASSWORD" ]  || { echo "::error::Secret SUPABASE_DB_PASSWORD missing"; exit 1; }
-          case "$AGE_RECIPIENT" in age1*) ;; *) echo "::error::Secret BACKUP_AGE_PUBLIC_KEY missing or not an age public key"; exit 1;; esac
+          # The key may be pasted as "Public key: age1…" (age-keygen's output) or with spaces /
+          # newlines: take the age1… key out of it. A private key here is a leak: refuse loudly.
+          [ -n "$AGE_RECIPIENT" ] || { echo "::error::Secret BACKUP_AGE_PUBLIC_KEY missing in environment prod-backup"; exit 1; }
+          case "$AGE_RECIPIENT" in *AGE-SECRET-KEY*)
+            echo "::error::BACKUP_AGE_PUBLIC_KEY contains a PRIVATE age key. Delete this secret, run age-keygen again and store only the age1… public key (docs/environments.md step 7)."; exit 1;; esac
+          key="$(printf '%s' "$AGE_RECIPIENT" | grep -oE 'age1[02-9ac-hj-np-z]{58}' | head -n1 || true)"
+          [ -n "$key" ] || { echo "::error::BACKUP_AGE_PUBLIC_KEY has no age public key in it (expected age1… , 62 characters)"; exit 1; }
+          echo "AGE_KEY=$key" >> "$GITHUB_ENV"
           [ "$SUPABASE_PROJECT_REF" = "$EXPECTED_REF" ] || {
             echo "::error::Variable SUPABASE_PROJECT_REF is '$SUPABASE_PROJECT_REF', expected '$EXPECTED_REF'"; exit 1; }
       - uses: actions/checkout@v4
@@ -60,7 +67,7 @@ jobs:
           pnpm exec supabase db dump --linked -f "$work/schema.sql"
           pnpm exec supabase db dump --linked --data-only --use-copy -f "$work/data.sql"
           tar -C "$work" -czf - roles.sql schema.sql data.sql \
-            | age -r "$AGE_RECIPIENT" -o "backup/smilo-prod-$stamp.tar.gz.age"
+            | age -r "$AGE_KEY" -o "backup/smilo-prod-$stamp.tar.gz.age"
           rm -rf "$work"
           ls -l backup
           echo "STAMP=$stamp" >> "$GITHUB_ENV"
