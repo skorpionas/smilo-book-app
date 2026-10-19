@@ -159,7 +159,12 @@ export function UpcomingList({
         services={services}
         onSaved={() => setNewBooking(null)}
       />
-      <BookingDetailSheet booking={selected} groomers={groomers} onClose={() => setSelected(null)} />
+      <BookingDetailSheet
+        booking={selected}
+        groomers={groomers}
+        services={services}
+        onClose={() => setSelected(null)}
+      />
     </>
   );
 }

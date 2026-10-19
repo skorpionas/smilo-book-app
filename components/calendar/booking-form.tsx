@@ -27,11 +27,15 @@ import { toast } from "@/components/ui/toast";
 import {
   createBooking,
   findClientsForBooking,
+  getClientForBooking,
+  getPetForBooking,
   getPricePrefill,
+  updateBooking,
   type BookingClientOption,
   type BookingPetOption,
 } from "@/lib/actions/bookings";
-import type { CalendarGroomer, CalendarService } from "@/lib/calendar-data";
+import { groupItems } from "@/lib/booking-groups";
+import type { CalendarBooking, CalendarGroomer, CalendarService } from "@/lib/calendar-data";
 import { DURATION_OPTIONS, formatDuration } from "@/lib/format";
 import { formatEur, parseEur } from "@/lib/money";
 import { splitDuration, splitPrice } from "@/lib/split";
@@ -55,6 +59,8 @@ export type BookingDefaults = {
   client: BookingClientOption | null;
   /** Pre-selected pet of `client` (booking from a pet page). */
   petId?: string | null;
+  /** Change this existing visit instead of creating one (client fixed). */
+  edit?: CalendarBooking;
 };
 
 const START_TIMES = BOOKING_START_TIMES;
@@ -158,12 +164,16 @@ function BookingForm({
   groomers,
   services,
   onSaved,
+  onBack,
 }: {
   defaults: BookingDefaults;
   groomers: CalendarGroomer[];
   services: CalendarService[];
   onSaved: (date: string) => void;
+  /** Editing: back to the booking's details. */
+  onBack?: () => void;
 }) {
+  const edit = defaults.edit;
   const t = useTranslations("booking");
   const tc = useTranslations("common");
   const tu = useTranslations("units");
@@ -177,14 +187,18 @@ function BookingForm({
   const [client, setClient] = React.useState<ClientState>(
     defaults.client ? { mode: "existing", option: defaults.client } : { mode: "none" },
   );
-  const [items, setItems] = React.useState<ItemState[]>(
-    () =>
-      clientItems(defaults.client, defaults.petId, services, 1000) ?? [
-        withPetDefaults(emptyItem(0, defaults.client, defaults.petId), defaults.client, services),
-      ],
+  const [items, setItems] = React.useState<ItemState[]>(() =>
+    edit
+      ? itemsFromBooking(edit, 2000)
+      : (clientItems(defaults.client, defaults.petId, services, 1000) ?? [
+          withPetDefaults(emptyItem(0, defaults.client, defaults.petId), defaults.client, services),
+        ]),
   );
-  const [durationMin, setDurationMin] = React.useState<number | null>(null); // null = sum of items
-  const [notes, setNotes] = React.useState("");
+  // null = sum of items; an edited visit keeps its own length if it differs from the sum
+  const [durationMin, setDurationMin] = React.useState<number | null>(() =>
+    edit && edit.durationMin !== edit.items.reduce((s, i) => s + i.durationMin, 0) ? edit.durationMin : null,
+  );
+  const [notes, setNotes] = React.useState(edit?.notes ?? "");
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   const [pending, startTransition] = React.useTransition();
@@ -464,7 +478,18 @@ function BookingForm({
     };
 
     startTransition(async () => {
-      const res = await createBooking(input);
+      const res = edit
+        ? await updateBooking({
+            id: edit.id,
+            groomerId,
+            date,
+            startTime,
+            durationMin: totalDuration,
+            items: input.items,
+            rememberFamily: input.rememberFamily,
+            notes,
+          })
+        : await createBooking(input);
       if (res.ok) {
         const petNames = items
           .flatMap((i) =>
@@ -474,7 +499,10 @@ function BookingForm({
           )
           .filter(Boolean)
           .join(", ");
-        toast({ title: t("saved"), description: [res.summary?.range, petNames].filter(Boolean).join(", ") });
+        toast({
+          title: edit ? t("changed") : t("saved"),
+          description: [res.summary?.range, petNames].filter(Boolean).join(", "),
+        });
         onSaved(date);
         return;
       }
@@ -496,8 +524,10 @@ function BookingForm({
   return (
     <form onSubmit={submit} noValidate className="flex min-h-0 flex-1 flex-col">
       <SheetHeader>
-        <SheetTitle>{t("title")}</SheetTitle>
-        <SheetDescription>{t("description")}</SheetDescription>
+        <SheetTitle>{edit ? t("editTitle") : t("title")}</SheetTitle>
+        <SheetDescription className={edit ? "tabular-nums" : undefined}>
+          {edit ? `${edit.date} · ${edit.startTime}–${edit.endTime}` : t("description")}
+        </SheetDescription>
       </SheetHeader>
 
       <SheetBody ref={bodyRef} className="space-y-7 pb-6">
@@ -507,8 +537,10 @@ function BookingForm({
           </Alert>
         ) : null}
 
-        {/* When + who */}
-        <div className="grid grid-cols-2 gap-3">
+        {edit?.status === "completed" ? <Alert tone="info">{t("editCompletedNote")}</Alert> : null}
+
+        {/* When + who (a completed visit keeps its time) */}
+        <div className={cn("grid grid-cols-2 gap-3", edit?.status === "completed" && "hidden")}>
           <Field id="booking-groomer" label={t("groomer")} error={fe.groomerId} className="col-span-2">
             {(p) => (
               <Select {...p} value={groomerId} onChange={(e) => setGroomerId(e.target.value)}>
@@ -525,7 +557,7 @@ function BookingForm({
               <Input
                 {...p}
                 type="date"
-                min={vilniusClock().date}
+                min={edit && edit.date < vilniusClock().date ? edit.date : vilniusClock().date}
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
@@ -557,7 +589,12 @@ function BookingForm({
         ) : null}
 
         {client.mode !== "new" ? (
-          <ClientPicker client={client} onChange={chooseClient} errors={pickerErrors} />
+          <ClientPicker
+            client={client}
+            onChange={chooseClient}
+            errors={pickerErrors}
+            locked={Boolean(edit)}
+          />
         ) : null}
 
         <FormSection title={t("pets")}>
@@ -828,6 +865,11 @@ function BookingForm({
         <p className="text-muted mr-auto hidden text-sm tabular-nums sm:block">
           {t("total", { price: formatEur(totalPrice) })}
         </p>
+        {onBack ? (
+          <Button type="button" variant="secondary" size="lg" onClick={onBack} disabled={pending}>
+            {t("back")}
+          </Button>
+        ) : null}
         <Button type="submit" size="lg" loading={pending}>
           {pending ? tc("saving") : tc("save")}
         </Button>
@@ -840,10 +882,13 @@ function ClientPicker({
   client,
   onChange,
   errors,
+  locked = false,
 }: {
   client: ClientState;
   onChange: (c: ClientState, petId?: string | null, newPetName?: string) => void;
   errors: { client?: string; fullName?: string; phone?: string; email?: string };
+  /** The client of an existing visit cannot be changed. */
+  locked?: boolean;
 }) {
   const t = useTranslations("booking");
   const tc = useTranslations("common");
@@ -893,9 +938,11 @@ function ClientPicker({
               ))}
             </p>
           </div>
-          <Button type="button" variant="ghost" size="sm" onClick={() => onChange({ mode: "none" })}>
-            {t("changeClient")}
-          </Button>
+          {locked ? null : (
+            <Button type="button" variant="ghost" size="sm" onClick={() => onChange({ mode: "none" })}>
+              {t("changeClient")}
+            </Button>
+          )}
         </div>
       </FormSection>
     );
@@ -1468,4 +1515,129 @@ function SharedItemRow({
       ) : null}
     </li>
   );
+}
+
+/**
+ * An existing visit as form rows: a shared group → one shared row with its totals;
+ * other items → one row each. Prices are what was charged (actual) or planned.
+ */
+function itemsFromBooking(booking: CalendarBooking, firstKey: number): ItemState[] {
+  return groupItems(booking.items).map((group, n) => {
+    const first = group[0];
+    const price = group.reduce((sum, i) => sum + (i.actualPrice ?? i.plannedPrice), 0);
+    return {
+      ...emptyItem(firstKey + n, null, null),
+      petId: group.length > 1 ? "" : first.petId,
+      sharedPetIds: group.length > 1 ? group.map((i) => i.petId) : null,
+      serviceId: first.serviceId,
+      durationMin: group.reduce((sum, i) => sum + i.durationMin, 0),
+      price: priceText(price),
+    };
+  });
+}
+
+/**
+ * "Keisti paslaugas" on a booking's details: loads the client's pets and usual
+ * services, then the booking form with the visit's rows. Pets or services archived
+ * since the booking was made stay selectable for it.
+ */
+export function BookingEditForm({
+  booking,
+  groomers,
+  services,
+  onBack,
+  onSaved,
+}: {
+  booking: CalendarBooking;
+  groomers: CalendarGroomer[];
+  services: CalendarService[];
+  onBack: () => void;
+  onSaved: () => void;
+}) {
+  const t = useTranslations("booking");
+  const [client, setClient] = React.useState<BookingClientOption | null | undefined>(undefined);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const load = booking.client
+      ? getClientForBooking(booking.client.id)
+      : booking.items[0]?.petId
+        ? getPetForBooking(booking.items[0].petId)
+        : Promise.resolve(null);
+    void load.then((c) => {
+      if (!cancelled) setClient(c);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [booking]);
+
+  if (client === undefined) {
+    return (
+      <>
+        <SheetHeader>
+          <SheetTitle>{t("editTitle")}</SheetTitle>
+        </SheetHeader>
+        <SheetBody className="flex items-center justify-center py-12">
+          <Spinner />
+        </SheetBody>
+      </>
+    );
+  }
+
+  const option = withBookingPets(client, booking);
+  const options = [
+    ...services,
+    ...booking.items
+      .filter((i) => i.serviceId && !services.some((s) => s.id === i.serviceId))
+      .filter((i, n, all) => all.findIndex((x) => x.serviceId === i.serviceId) === n)
+      .map((i) => ({
+        id: i.serviceId,
+        name: i.serviceName,
+        defaultDurationMin: i.durationMin,
+        defaultPrice: i.plannedPrice,
+      })),
+  ];
+
+  return (
+    <BookingForm
+      defaults={{
+        groomerId: booking.groomerId,
+        date: booking.date,
+        startTime: booking.startTime,
+        client: option,
+        edit: booking,
+      }}
+      groomers={
+        groomers.some((g) => g.id === booking.groomerId)
+          ? groomers
+          : [{ id: booking.groomerId, name: "—", color: "#64748b", workDays: [] }, ...groomers]
+      }
+      services={options}
+      onBack={onBack}
+      onSaved={() => onSaved()}
+    />
+  );
+}
+
+/** The client option plus any pet of the booking that is no longer listed (archived). */
+function withBookingPets(client: BookingClientOption | null, booking: CalendarBooking): BookingClientOption {
+  const base: BookingClientOption = client ?? {
+    id: booking.client?.id ?? null,
+    fullName: booking.client?.fullName ?? "",
+    phone: booking.client?.phone ?? null,
+    phoneDisplay: booking.client?.phoneDisplay ?? "",
+    pets: [],
+  };
+  const missing = booking.items
+    .filter((i) => i.petId && !base.pets.some((p) => p.id === i.petId))
+    .filter((i, n, all) => all.findIndex((x) => x.petId === i.petId) === n)
+    .map((i): BookingPetOption => ({
+      id: i.petId,
+      name: i.petName,
+      species: i.species,
+      breed: "",
+      services: [],
+    }));
+  return missing.length > 0 ? { ...base, pets: [...base.pets, ...missing] } : base;
 }

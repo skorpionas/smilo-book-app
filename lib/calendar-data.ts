@@ -49,6 +49,7 @@ export type CalendarBooking = {
     petName: string;
     species: "dog" | "cat";
     petNotes: string;
+    serviceId: string;
     serviceName: string;
     durationMin: number;
     plannedPrice: number;
@@ -82,7 +83,7 @@ export async function loadRange(from: DateStr, to: DateStr, gridDate?: DateStr) 
     supabase
       .from("bookings")
       .select(
-        "id, kind, groomer_id, start_at, end_at, status, notes, block_reason, clients(id, full_name, phone_e164, email, pets(name, archived_at)), booking_items(id, position, duration_min, planned_price, actual_price, visit_notes, shared_group, pets(id, name, species, notes), services(name))",
+        "id, kind, groomer_id, start_at, end_at, status, notes, block_reason, clients(id, full_name, phone_e164, email, pets(name, archived_at)), booking_items(id, position, duration_min, planned_price, actual_price, visit_notes, shared_group, pets(id, name, species, notes), services(id, name))",
       )
       .neq("status", "cancelled")
       .lt("start_at", end.toISOString())
@@ -149,6 +150,7 @@ export async function loadRange(from: DateStr, to: DateStr, gridDate?: DateStr) 
             petName: i.pets?.name ?? "",
             species: i.pets?.species ?? "dog",
             petNotes: i.pets?.notes ?? "",
+            serviceId: i.services?.id ?? "",
             serviceName: i.services?.name ?? "",
             durationMin: i.duration_min,
             plannedPrice: Number(i.planned_price),

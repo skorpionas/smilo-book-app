@@ -9,15 +9,17 @@ import {
   bookingSchema,
   completeVisitSchema,
   rescheduleSchema,
+  updateBookingSchema,
   type BlockInput,
   type BookingInput,
   type CompleteVisitInput,
   type RescheduleInput,
+  type UpdateBookingInput,
 } from "@/lib/schemas/booking";
 import { uuid } from "@/lib/schemas/common";
 import { contactLabel, formatPhone } from "@/lib/phone";
 import { createClient } from "@/lib/supabase/server";
-import { toVilniusTime, vilniusToUtc } from "@/lib/time";
+import { todayInVilnius, toVilniusDate, toVilniusTime, vilniusToUtc } from "@/lib/time";
 
 /** A pet's own duration + price for one service; the first one is the pet's usual service. */
 export type PetServiceOption = { serviceId: string; durationMin: number; price: number };
@@ -211,18 +213,7 @@ export async function createBooking(input: BookingInput): Promise<CreateBookingR
   const start = vilniusToUtc(b.date, b.startTime);
   const end = new Date(start.getTime() + b.durationMin * 60_000);
 
-  const items = b.items.map((item) => ({
-    pet_id: item.pet.mode === "existing" ? item.pet.id : null,
-    new_pet:
-      item.pet.mode === "new"
-        ? { name: item.pet.name, species: item.pet.species, breed: item.pet.breed }
-        : null,
-    service_id: item.serviceId,
-    duration_min: item.durationMin,
-    planned_price: item.plannedPrice,
-    remember: item.remember,
-    shared_group: item.sharedGroup ?? null,
-  }));
+  const items = toRpcItems(b.items);
 
   const supabase = await createClient();
   const { data: bookingId, error } = await supabase.rpc("create_booking_with_items", {
@@ -250,32 +241,7 @@ export async function createBooking(input: BookingInput): Promise<CreateBookingR
     return dbFailed(error, "createBooking");
   }
 
-  // "Įsiminti kaip šeimos paslaugą": the shared totals become the family's usual price.
-  if (b.client.mode === "existing" && b.rememberFamily.length > 0) {
-    const clientId = b.client.id;
-    const { data: existing } = await supabase
-      .from("client_services")
-      .select("id, service_id")
-      .eq("client_id", clientId);
-    for (const f of b.rememberFamily) {
-      const same = existing?.find((r) => r.service_id === f.serviceId);
-      const { error: e } = same
-        ? await supabase
-            .from("client_services")
-            .update({ duration_min: f.durationMin, price: f.price })
-            .eq("id", same.id)
-        : await supabase.from("client_services").insert({
-            client_id: clientId,
-            service_id: f.serviceId,
-            duration_min: f.durationMin,
-            price: f.price,
-            position: existing?.length ?? 0,
-          });
-      // The booking is saved either way; a failed "remember" is only logged.
-      if (e) console.error("[action] createBooking.rememberFamily failed", { code: e.code });
-    }
-    revalidatePath(`/clients/${clientId}`);
-  }
+  if (b.client.mode === "existing") await rememberFamily(b.client.id, b.rememberFamily);
 
   revalidatePath("/calendar", "layout");
   revalidatePath("/upcoming");
@@ -283,6 +249,106 @@ export async function createBooking(input: BookingInput): Promise<CreateBookingR
   revalidatePath("/pets", "layout");
   const range = `${toVilniusTime(start)}–${toVilniusTime(end)}`;
   return { ok: true, savedAt: Date.now(), id: bookingId, summary: { range } };
+}
+
+type ParsedItems = ReturnType<typeof bookingSchema.parse>["items"];
+
+/** Booking rows as the database functions take them. */
+function toRpcItems(items: ParsedItems) {
+  return items.map((item) => ({
+    pet_id: item.pet.mode === "existing" ? item.pet.id : null,
+    new_pet:
+      item.pet.mode === "new"
+        ? { name: item.pet.name, species: item.pet.species, breed: item.pet.breed }
+        : null,
+    service_id: item.serviceId,
+    duration_min: item.durationMin,
+    planned_price: item.plannedPrice,
+    remember: item.remember,
+    shared_group: item.sharedGroup ?? null,
+  }));
+}
+
+/** "Įsiminti kaip šeimos paslaugą": the shared totals become the family's usual price. */
+async function rememberFamily(
+  clientId: string,
+  list: { serviceId: string; durationMin: number; price: number }[],
+) {
+  if (list.length === 0) return;
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("client_services")
+    .select("id, service_id")
+    .eq("client_id", clientId);
+  for (const f of list) {
+    const same = existing?.find((r) => r.service_id === f.serviceId);
+    const { error: e } = same
+      ? await supabase
+          .from("client_services")
+          .update({ duration_min: f.durationMin, price: f.price })
+          .eq("id", same.id)
+      : await supabase.from("client_services").insert({
+          client_id: clientId,
+          service_id: f.serviceId,
+          duration_min: f.durationMin,
+          price: f.price,
+          position: existing?.length ?? 0,
+        });
+    // The booking is saved either way; a failed "remember" is only logged.
+    if (e) console.error("[action] rememberFamily failed", { code: e.code });
+  }
+  revalidatePath(`/clients/${clientId}`);
+}
+
+/**
+ * Change a scheduled or completed visit (owner feedback 2026-10-19): its services
+ * (another service or price, one pet ↔ several, shared ↔ per pet), groomer, time and
+ * notes — one transaction. The client stays. A completed visit stays completed with
+ * the new prices as its actual prices. Moving to a past day is not allowed.
+ */
+export async function updateBooking(input: UpdateBookingInput): Promise<CreateBookingResult> {
+  await requireUser();
+  const parsed = updateBookingSchema.safeParse(input);
+  if (!parsed.success) return validationFailed(parsed.error.issues);
+
+  const b = parsed.data;
+  const supabase = await createClient();
+  const { data: current } = await supabase
+    .from("bookings")
+    .select("id, client_id, start_at")
+    .eq("id", b.id)
+    .maybeSingle();
+  if (!current) return dbFailed({ code: "P0002" }, "updateBooking");
+  if (b.date !== toVilniusDate(current.start_at) && b.date < todayInVilnius()) {
+    return validationFailed([{ code: "custom", message: "pastDate", path: ["date"], input: b.date }]);
+  }
+
+  const start = vilniusToUtc(b.date, b.startTime);
+  const end = new Date(start.getTime() + b.durationMin * 60_000);
+  const { error } = await supabase.rpc("update_booking_with_items", {
+    p_booking_id: b.id,
+    p_groomer_id: b.groomerId,
+    p_start_at: start.toISOString(),
+    p_end_at: end.toISOString(),
+    p_items: toRpcItems(b.items),
+    p_notes: b.notes,
+  });
+
+  if (error) {
+    if (error.code === "23P01") {
+      return { ok: false, error: await describeConflict(b.groomerId, start, end, b.id) };
+    }
+    return dbFailed(error, "updateBooking");
+  }
+
+  if (current.client_id) await rememberFamily(current.client_id, b.rememberFamily);
+
+  revalidatePath("/calendar", "layout");
+  revalidatePath("/upcoming");
+  if (current.client_id) revalidatePath(`/clients/${current.client_id}`);
+  revalidatePath("/pets", "layout");
+  const range = `${toVilniusTime(start)}–${toVilniusTime(end)}`;
+  return { ok: true, savedAt: Date.now(), id: b.id, summary: { range } };
 }
 
 /**

@@ -506,7 +506,11 @@
     "noPriceHint": "Kaina nebus įskaičiuota.",
     "autoCompleteHint": "Pasibaigęs vizitas pažymimas įvykdytu automatiškai. Čia galite pakeisti kainą, įrašyti pastabas arba pažymėti, kad neatvyko.",
     "visitSaved": "Vizito rezultatas išsaugotas",
-    "afterVisit": "Po vizito"
+    "afterVisit": "Po vizito",
+    "changeServices": "Keisti paslaugas",
+    "editTitle": "Keisti vizitą",
+    "changed": "Vizitas pakeistas",
+    "editCompletedNote": "Vizitas jau įvykdytas: laikas nesikeičia, o naujos kainos išsaugomos kaip faktinės."
   },
   "search": {
     "label": "Ieškoti kliento ar augintinio",
