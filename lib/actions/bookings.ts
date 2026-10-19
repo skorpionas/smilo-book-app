@@ -235,7 +235,9 @@ export async function createBooking(input: BookingInput): Promise<CreateBookingR
         ? { full_name: b.client.fullName, phone_e164: b.client.phone ?? "", email: b.client.email ?? "" }
         : undefined,
     p_notes: b.notes,
-    p_allow_overlap: b.allowOverlap,
+    // Sent only when confirmed: an ordinary save still matches the function before the
+    // overlap migration is approved on production.
+    ...(b.allowOverlap ? { p_allow_overlap: true } : {}),
   });
 
   if (error) {
@@ -323,7 +325,7 @@ export async function updateBooking(input: UpdateBookingInput): Promise<CreateBo
   const supabase = await createClient();
   const { data: current } = await supabase
     .from("bookings")
-    .select("id, client_id, groomer_id, start_at, end_at, overlap_ok")
+    .select("*") // "*": also works before the overlap_ok migration is applied
     .eq("id", b.id)
     .maybeSingle();
   if (!current) return dbFailed({ code: "P0002" }, "updateBooking");
@@ -338,7 +340,7 @@ export async function updateBooking(input: UpdateBookingInput): Promise<CreateBo
     b.groomerId === current.groomer_id &&
     start.getTime() === new Date(current.start_at).getTime() &&
     end.getTime() === new Date(current.end_at).getTime();
-  const allowOverlap = b.allowOverlap || (samePlace && current.overlap_ok);
+  const allowOverlap = b.allowOverlap || (samePlace && current.overlap_ok === true);
   const { error } = await supabase.rpc("update_booking_with_items", {
     p_booking_id: b.id,
     p_groomer_id: b.groomerId,
@@ -346,7 +348,7 @@ export async function updateBooking(input: UpdateBookingInput): Promise<CreateBo
     p_end_at: end.toISOString(),
     p_items: toRpcItems(b.items),
     p_notes: b.notes,
-    p_allow_overlap: allowOverlap,
+    ...(allowOverlap ? { p_allow_overlap: true } : {}),
   });
 
   if (error) {
@@ -518,7 +520,7 @@ export async function rescheduleBooking(input: RescheduleInput): Promise<CreateB
   const start = vilniusToUtc(date, startTime);
   const end = new Date(start.getTime() + durationMin * 60_000);
   const supabase = await createClient();
-  const { data: current } = await supabase.from("bookings").select("kind").eq("id", id).maybeSingle();
+  const { data: current } = await supabase.from("bookings").select("*").eq("id", id).maybeSingle();
   if (!current) return dbFailed({ code: "P0002" }, "rescheduleBooking");
   // Blocked time never goes on top of anything.
   const isBlock = current.kind === "block";
@@ -528,7 +530,8 @@ export async function rescheduleBooking(input: RescheduleInput): Promise<CreateB
       groomer_id: groomerId,
       start_at: start.toISOString(),
       end_at: end.toISOString(),
-      overlap_ok: !isBlock && allowOverlap,
+      // Moving clears the flag unless confirmed again (only sent when there is one to clear or set).
+      ...(current.overlap_ok || (!isBlock && allowOverlap) ? { overlap_ok: !isBlock && allowOverlap } : {}),
     })
     .eq("id", id)
     .eq("status", "scheduled")
