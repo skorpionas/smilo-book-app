@@ -260,3 +260,42 @@ test("correct a finished visit: price, notes, then no-show (US-11)", async ({ pa
   await same.click();
   await expect(sheet.getByText("Neatvyko").first()).toBeVisible();
 });
+
+test("change a booking's service, length and price (owner feedback 2026-10-19)", async ({
+  page,
+}, testInfo) => {
+  const day = futureSunday({ mobile: 15, tablet: 16, desktop: 24 }[testInfo.project.name] ?? 24);
+  const sheet = page.getByRole("dialog").first();
+  const visit = (range: string) =>
+    page.getByRole("button", { name: new RegExp(`^${range}, .+, Rasa Petrauskienė$`) });
+
+  await login(page, `/calendar?date=${day}`);
+  await page.getByRole("button", { name: "Registruoti: Meistrė A, 09:00" }).click();
+  await sheet.getByPlaceholder("Augintinis, klientas ar telefonas").fill("Petrausk");
+  await sheet.getByRole("button", { name: "Pasirinkti Maksas (Rasa Petrauskienė)" }).click();
+  await sheet.getByLabel("Augintinis", { exact: true }).selectOption({ index: 1 });
+  await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
+  await sheet.getByLabel("Trukmė", { exact: true }).selectOption("120");
+  await sheet.getByRole("button", { name: "Išsaugoti" }).click();
+  await expect(page.getByText("Registracija išsaugota").first()).toBeVisible();
+
+  // Pilnas kirpimas 2 h → Maudymas 1 h 30 min for 33 €: the visit gets shorter.
+  await visit("09:00–11:00").click();
+  await sheet.getByRole("button", { name: "Keisti paslaugas" }).click();
+  await expect(sheet.getByRole("heading", { name: "Keisti vizitą" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Keisti", exact: true })).toHaveCount(0);
+  await sheet.getByLabel("Paslauga").selectOption({ label: "Maudymas ir džiovinimas" });
+  await sheet.getByLabel("Trukmė", { exact: true }).selectOption("90");
+  await sheet.getByLabel("Kaina, €").fill("33");
+  await sheet.getByRole("button", { name: "Išsaugoti" }).click();
+
+  await expect(page.getByText("Vizitas pakeistas").first()).toBeVisible();
+  await expect(visit("09:00–10:30")).toBeVisible();
+  await expect(visit("09:00–11:00")).toHaveCount(0);
+  await visit("09:00–10:30").click();
+  await expect(sheet.getByText("Maudymas ir džiovinimas")).toBeVisible();
+  await expect(sheet.getByText("33,00 €")).toBeVisible();
+
+  // The message sits at the top and closes by itself.
+  await expect(page.getByText("Vizitas pakeistas").first()).toBeHidden({ timeout: 8000 });
+});

@@ -7,11 +7,13 @@ import {
   ChevronRight,
   CircleCheck,
   Dog,
+  PawPrint,
   Pencil,
   Phone,
   Trash2,
   UserRound,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import * as React from "react";
@@ -36,24 +38,33 @@ import {
 import { toast } from "@/components/ui/toast";
 import { cancelBooking, deleteBooking, rescheduleBooking } from "@/lib/actions/bookings";
 import { groupItems } from "@/lib/booking-groups";
-import type { CalendarBooking, CalendarGroomer } from "@/lib/calendar-data";
+import type { CalendarBooking, CalendarGroomer, CalendarService } from "@/lib/calendar-data";
 import { BOOKING_START_TIMES, DAY_CLOSE, DAY_OPEN, timeToMinutes, vilniusClock } from "@/lib/clock";
 import { DURATION_OPTIONS, formatDuration } from "@/lib/format";
 import { worksOn } from "@/lib/schedule";
 import { formatEur } from "@/lib/money";
 
+// The booking form is large; load it only when a visit's services are changed.
+const BookingEditForm = dynamic(() =>
+  import("@/components/calendar/booking-form").then((m) => m.BookingEditForm),
+);
+
 /**
  * Details of a booking or blocked time (US-10). While still scheduled:
  * change date / time / groomer / length, cancel (stays in history) or delete (mistakes).
+ * Scheduled and completed visits: change their services (service, price, one pet ↔ family).
  */
 export function BookingDetailSheet({
   booking,
   groomers,
+  services,
   onClose,
 }: {
   booking: CalendarBooking | null;
   /** All active groomers (for the reschedule form); the booking's own one is looked up here. */
   groomers: CalendarGroomer[];
+  /** Active services, for changing a visit's services. */
+  services: CalendarService[];
   onClose: () => void;
 }) {
   const t = useTranslations("booking");
@@ -64,16 +75,20 @@ export function BookingDetailSheet({
   const [deleting, setDeleting] = React.useState(false);
   const [editing, setEditing] = React.useState(false);
   const [completing, setCompleting] = React.useState(false);
+  const [changingServices, setChangingServices] = React.useState(false);
   // Keep the last booking rendered while the sheet animates closed.
   const [shown, setShown] = React.useState(booking);
   if (booking && booking !== shown) {
     setShown(booking);
     setEditing(false);
     setCompleting(false);
+    setChangingServices(false);
   }
   const b = booking ?? shown;
   const groomer = groomers.find((g) => g.id === b?.groomerId) ?? null;
   const editable = b !== null && b.status === "scheduled";
+  const servicesEditable =
+    b !== null && b.kind === "booking" && (b.status === "scheduled" || b.status === "completed");
   // US-11: a visit that starts today or earlier can get its result (or be corrected).
   const completable =
     b !== null && b.kind === "booking" && b.status !== "cancelled" && b.date <= vilniusClock().date;
@@ -109,7 +124,16 @@ export function BookingDetailSheet({
     <>
       <Sheet open={booking !== null} onOpenChange={(o) => !o && onClose()}>
         <SheetContent>
-          {b && completing ? (
+          {b && changingServices ? (
+            <BookingEditForm
+              key={b.id}
+              booking={b}
+              groomers={groomers}
+              services={services}
+              onBack={() => setChangingServices(false)}
+              onSaved={onClose}
+            />
+          ) : b && completing ? (
             <CompleteVisitForm key={b.id} booking={b} onBack={() => setCompleting(false)} onSaved={onClose} />
           ) : b && editing ? (
             <RescheduleForm
@@ -253,11 +277,17 @@ export function BookingDetailSheet({
               </SheetBody>
 
               {completable && b.status !== "scheduled" ? (
-                <SheetFooter>
+                <SheetFooter className="flex-row flex-wrap gap-2">
                   <Button variant="secondary" onClick={() => setCompleting(true)}>
                     <Pencil aria-hidden />
                     {t("correct")}
                   </Button>
+                  {servicesEditable ? (
+                    <Button variant="secondary" onClick={() => setChangingServices(true)}>
+                      <PawPrint aria-hidden />
+                      {t("changeServices")}
+                    </Button>
+                  ) : null}
                 </SheetFooter>
               ) : null}
               {editable ? (
@@ -266,6 +296,12 @@ export function BookingDetailSheet({
                     <Button className="w-full" onClick={() => setCompleting(true)}>
                       <CircleCheck aria-hidden />
                       {t("complete")}
+                    </Button>
+                  ) : null}
+                  {servicesEditable ? (
+                    <Button variant="secondary" onClick={() => setChangingServices(true)}>
+                      <PawPrint aria-hidden />
+                      {t("changeServices")}
                     </Button>
                   ) : null}
                   <Button variant="secondary" onClick={() => setEditing(true)}>

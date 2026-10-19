@@ -9,23 +9,50 @@ import { cn } from "@/lib/utils";
 /**
  * Toasts for save / overlap feedback. Call `toast({ title, tone })` from any
  * client component; <Toaster /> is mounted once in the app layout.
- * Radix announces them politely (errors assertively), pauses on hover/focus
- * and supports swipe-to-dismiss on phones.
+ *
+ * Shown at the top of the screen, away from the sheet's Save / Cancel buttons at
+ * the bottom. They close by themselves (our own timer, not Radix's: on phones a
+ * tap under a fresh toast made Radix pause it for good); a mouse resting on one
+ * keeps it open. Radix announces them politely (errors assertively) and supports
+ * swipe-to-dismiss.
  */
 type Tone = "success" | "danger" | "info";
 type ToastItem = { id: number; title: string; description?: string; tone: Tone; open: boolean };
+
+/** How long a toast stays: errors a little longer, so there is time to read them. */
+export const TOAST_MS = { success: 4000, info: 4000, danger: 7000 } as const;
 
 let items: ToastItem[] = [];
 let nextId = 1;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
+const timers = new Map<number, ReturnType<typeof setTimeout>>();
 
 export function toast(input: { title: string; description?: string; tone?: Tone }) {
-  items = [...items.slice(-2), { id: nextId++, tone: "success", ...input, open: true }];
+  const item: ToastItem = { id: nextId++, tone: "success", ...input, open: true };
+  // At most three at a time: the oldest goes
+  for (const old of items.slice(0, -2)) stopTimer(old.id);
+  items = [...items.slice(-2), item];
+  startTimer(item.id, TOAST_MS[item.tone]);
   emit();
 }
 
+function startTimer(id: number, ms: number) {
+  stopTimer(id);
+  timers.set(
+    id,
+    setTimeout(() => close(id), ms),
+  );
+}
+
+function stopTimer(id: number) {
+  const timer = timers.get(id);
+  if (timer !== undefined) clearTimeout(timer);
+  timers.delete(id);
+}
+
 function close(id: number) {
+  stopTimer(id);
   // keep the item mounted for the exit animation, then drop it
   items = items.map((t) => (t.id === id ? { ...t, open: false } : t));
   emit();
@@ -59,7 +86,8 @@ export function Toaster() {
   );
 
   return (
-    <ToastPrimitive.Provider swipeDirection="down" duration={5000} label={t("notifications")}>
+    // Radix's own timer is off (Infinity): see the note at the top
+    <ToastPrimitive.Provider swipeDirection="up" duration={Infinity} label={t("notifications")}>
       {list.map((item) => {
         const Icon = ICONS[item.tone];
         return (
@@ -69,6 +97,13 @@ export function Toaster() {
             open={item.open}
             onOpenChange={(open) => {
               if (!open) close(item.id);
+            }}
+            // A mouse resting on the toast keeps it open; touch never pauses it.
+            onPointerEnter={(e) => {
+              if (e.pointerType === "mouse") stopTimer(item.id);
+            }}
+            onPointerLeave={(e) => {
+              if (e.pointerType === "mouse" && item.open) startTimer(item.id, 2000);
             }}
             className={cn(
               "border-border bg-surface text-foreground pointer-events-auto flex w-full items-start gap-3 rounded-lg border p-3.5 pr-2 shadow-lg",
@@ -94,8 +129,8 @@ export function Toaster() {
           </ToastPrimitive.Root>
         );
       })}
-      {/* Phones: just above the tab bar. Laptops: bottom-right corner. */}
-      <ToastPrimitive.Viewport className="pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-[60] mx-auto flex w-full max-w-md flex-col gap-2 p-3 outline-none lg:right-4 lg:bottom-4 lg:left-auto lg:mx-0 lg:w-96 lg:p-0" />
+      {/* Top centre on every screen: never over the sheet's buttons or the tab bar. */}
+      <ToastPrimitive.Viewport className="pointer-events-none fixed inset-x-0 top-[env(safe-area-inset-top)] z-[60] mx-auto flex w-full max-w-md flex-col gap-2 p-3 outline-none sm:top-[calc(env(safe-area-inset-top)+0.5rem)]" />
     </ToastPrimitive.Provider>
   );
 }

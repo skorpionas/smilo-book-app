@@ -166,7 +166,12 @@ export function DayView({
         }}
       />
       {drag.dialog}
-      <BookingDetailSheet booking={selected} groomers={groomers} onClose={() => setSelected(null)} />
+      <BookingDetailSheet
+        booking={selected}
+        groomers={groomers}
+        services={services}
+        onClose={() => setSelected(null)}
+      />
     </>
   );
 

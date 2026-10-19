@@ -55,6 +55,20 @@ export const bookingItemSchema = z.object({
   sharedGroup: z.number().int().min(1).max(6).optional(),
 });
 
+/** The same existing pet with the same service twice in one booking makes no sense. */
+function noDuplicateItems(
+  items: { pet: { mode: string; id?: string }; serviceId: string }[],
+  ctx: z.core.$RefinementCtx,
+) {
+  const seen = new Set<string>();
+  items.forEach((item, i) => {
+    if (item.pet.mode !== "existing") return;
+    const key = `${item.pet.id}:${item.serviceId}`;
+    if (seen.has(key)) ctx.addIssue({ code: "custom", message: "invalid", path: ["items", i, "serviceId"] });
+    seen.add(key);
+  });
+}
+
 export const bookingSchema = z
   .object({
     groomerId: uuid,
@@ -71,21 +85,34 @@ export const bookingSchema = z
       .optional()
       .default([]),
   })
-  .superRefine((value, ctx) => {
-    // A new pet can only be added to a new or existing client of this booking — always true here —
-    // but two identical existing pets in one booking make no sense.
-    const seen = new Set<string>();
-    value.items.forEach((item, i) => {
-      if (item.pet.mode !== "existing") return;
-      const key = `${item.pet.id}:${item.serviceId}`;
-      if (seen.has(key))
-        ctx.addIssue({ code: "custom", message: "invalid", path: ["items", i, "serviceId"] });
-      seen.add(key);
-    });
-  });
+  .superRefine((value, ctx) => noDuplicateItems(value.items, ctx));
 
 export type BookingInput = z.input<typeof bookingSchema>;
 export type BookingData = z.output<typeof bookingSchema>;
+
+/**
+ * Change an existing visit (owner feedback 2026-10-19): its services — another service,
+ * another price, one pet ↔ several, one shared service ↔ a row per pet — and its time.
+ * The client stays. The date may be in the past only if it is not changed (checked in
+ * the action, which knows the booking's current date).
+ */
+export const updateBookingSchema = z
+  .object({
+    id: uuid,
+    groomerId: uuid,
+    date: dateStr,
+    startTime: gridTime,
+    durationMin: duration,
+    items: z.array(bookingItemSchema).min(1, { error: "itemsRequired" }).max(6, { error: "invalid" }),
+    notes: optionalText(2000),
+    rememberFamily: z
+      .array(z.object({ serviceId: uuid, durationMin: duration, price }))
+      .max(6)
+      .optional()
+      .default([]),
+  })
+  .superRefine((value, ctx) => noDuplicateItems(value.items, ctx));
+export type UpdateBookingInput = z.input<typeof updateBookingSchema>;
 
 /** Sum of item durations, used as the default booking duration (A14). */
 export function sumDurations(items: { durationMin: number }[]): number {

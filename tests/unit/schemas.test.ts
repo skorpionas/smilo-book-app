@@ -4,6 +4,7 @@ import {
   bookingSchema,
   completeVisitSchema,
   rescheduleSchema,
+  updateBookingSchema,
   sumDurations,
 } from "@/lib/schemas/booking";
 import { issuesToFieldErrors } from "@/lib/schemas/common";
@@ -431,5 +432,48 @@ describe("blockSchema (US-16)", () => {
     expect(errors(blockSchema.safeParse({ ...block, date: "2026-10-14" }))).toEqual({ date: "pastDate" });
     expect(errors(blockSchema.safeParse({ ...block, startTime: "12:10" }))).toEqual({ startTime: "offGrid" });
     expect(blockSchema.safeParse({ ...block, groomerIds: [ID, ID] }).success).toBe(false);
+  });
+});
+
+describe("updateBookingSchema (change a visit's services)", () => {
+  const change = {
+    id: ID,
+    groomerId: ID2,
+    // a completed visit keeps its (past) date: the action allows it when unchanged
+    date: "2026-10-01",
+    startTime: "10:00",
+    durationMin: 120,
+    items: [
+      {
+        pet: { mode: "existing", id: ID },
+        serviceId: SVC,
+        durationMin: 60,
+        plannedPrice: "35",
+        sharedGroup: 1,
+      },
+      {
+        pet: { mode: "existing", id: ID2 },
+        serviceId: SVC,
+        durationMin: 60,
+        plannedPrice: "35",
+        sharedGroup: 1,
+      },
+    ],
+    notes: "",
+  };
+
+  it("accepts a family (shared) change, past dates included", () => {
+    const r = updateBookingSchema.parse(change);
+    expect(r.items.map((i) => i.plannedPrice)).toEqual([35, 35]);
+    expect(r.rememberFamily).toEqual([]);
+  });
+
+  it("needs at least one pet and no duplicate pet + service", () => {
+    expect(errors(updateBookingSchema.safeParse({ ...change, items: [] }))).toEqual({
+      items: "itemsRequired",
+    });
+    expect(
+      errors(updateBookingSchema.safeParse({ ...change, items: [change.items[0], change.items[0]] })),
+    ).toEqual({ "items.1.serviceId": "invalid" });
   });
 });

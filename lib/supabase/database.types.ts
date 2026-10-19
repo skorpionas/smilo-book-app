@@ -472,6 +472,17 @@ export type Database = {
           title: string;
         }[];
       };
+      update_booking_with_items: {
+        Args: {
+          p_booking_id: string;
+          p_end_at: string;
+          p_groomer_id: string;
+          p_items: Json;
+          p_notes?: string;
+          p_start_at: string;
+        };
+        Returns: string;
+      };
     };
     Enums: {
       booking_kind: "booking" | "block";

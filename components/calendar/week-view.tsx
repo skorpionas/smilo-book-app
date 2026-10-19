@@ -95,7 +95,12 @@ export function WeekView({
           if (!days.some((d) => d.date === savedDate)) router.push(`/calendar/week?date=${savedDate}`);
         }}
       />
-      <BookingDetailSheet booking={selected} groomers={groomers} onClose={() => setSelected(null)} />
+      <BookingDetailSheet
+        booking={selected}
+        groomers={groomers}
+        services={services}
+        onClose={() => setSelected(null)}
+      />
     </>
   );
 }
