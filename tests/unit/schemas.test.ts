@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { bookingSchema, completeVisitSchema, rescheduleSchema, sumDurations } from "@/lib/schemas/booking";
+import {
+  blockSchema,
+  bookingSchema,
+  completeVisitSchema,
+  rescheduleSchema,
+  sumDurations,
+} from "@/lib/schemas/booking";
 import { issuesToFieldErrors } from "@/lib/schemas/common";
 import { clientSchema, groomerSchema, petSchema, serviceSchema } from "@/lib/schemas/entities";
 import lt from "@/messages/lt.json";
@@ -394,5 +400,36 @@ describe("completeVisitSchema (US-11)", () => {
 
   it("only visit results are allowed", () => {
     expect(completeVisitSchema.safeParse({ id, status: "scheduled", items: [] }).success).toBe(false);
+  });
+});
+
+describe("blockSchema (US-16)", () => {
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-15T07:00:00Z"));
+  });
+  afterAll(() => vi.useRealTimers());
+
+  const block = {
+    groomerIds: [ID],
+    date: "2026-10-16",
+    startTime: "12:00",
+    endTime: "13:00",
+    reason: " Pietūs ",
+  };
+
+  it("accepts one or both groomers and trims the reason", () => {
+    expect(blockSchema.parse(block).reason).toBe("Pietūs");
+    expect(blockSchema.parse({ ...block, groomerIds: [ID, ID2] }).groomerIds).toHaveLength(2);
+  });
+
+  it("needs a groomer, an end after the start and a day that is not past", () => {
+    expect(errors(blockSchema.safeParse({ ...block, groomerIds: [] }))).toEqual({ groomerIds: "required" });
+    expect(errors(blockSchema.safeParse({ ...block, endTime: "12:00" }))).toEqual({
+      endTime: "endBeforeStart",
+    });
+    expect(errors(blockSchema.safeParse({ ...block, date: "2026-10-14" }))).toEqual({ date: "pastDate" });
+    expect(errors(blockSchema.safeParse({ ...block, startTime: "12:10" }))).toEqual({ startTime: "offGrid" });
+    expect(blockSchema.safeParse({ ...block, groomerIds: [ID, ID] }).success).toBe(false);
   });
 });

@@ -7,6 +7,7 @@ import { dbFailed, formToObject, validationFailed, type FormState } from "@/lib/
 import { requireUser } from "@/lib/auth";
 import { uuid } from "@/lib/schemas/common";
 import {
+  ANONYMIZE_CONFIRM,
   clientSchema,
   newPetsSchema,
   petOwnerContactSchema,
@@ -63,6 +64,31 @@ export async function setClientArchived(id: string, archived: boolean): Promise<
   revalidatePath("/clients");
   revalidatePath(`/clients/${id}`);
   revalidatePath("/pets", "layout");
+  return { ok: true, savedAt: Date.now(), id };
+}
+
+/**
+ * US-17 (GDPR erasure): clears name, phone, e-mail and notes, keeps visits without
+ * personal data. Refused while the client has future scheduled bookings.
+ */
+export async function anonymizeClient(id: string, confirm: string): Promise<FormState> {
+  await requireUser();
+  if (!uuid.safeParse(id).success) return dbFailed({ code: "22023" }, "anonymizeClient");
+  const t = await getTranslations("clients");
+  if (confirm.trim().toUpperCase() !== ANONYMIZE_CONFIRM) {
+    return { ok: false, error: t("anonymizeConfirmWrong") };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("anonymize_client", { p_client_id: id });
+  if (error) {
+    if (error.code === "P0001") return { ok: false, error: t("anonymizeHasFuture") };
+    return dbFailed(error, "anonymizeClient");
+  }
+  revalidatePath("/clients", "layout");
+  revalidatePath("/pets", "layout");
+  revalidatePath("/calendar", "layout");
+  revalidatePath("/upcoming");
+  revalidatePath("/search");
   return { ok: true, savedAt: Date.now(), id };
 }
 

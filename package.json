@@ -24,8 +24,10 @@
   "dependencies": {
     "@date-fns/tz": "^1.5.0",
     "@hookform/resolvers": "^5.9.1",
+    "@sentry/nextjs": "^11.8.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.3",
+    "@vercel/speed-insights": "^2.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",

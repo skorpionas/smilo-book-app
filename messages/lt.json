@@ -135,7 +135,8 @@
     "pastDate": "Praėjusiai dienai registruoti negalima.",
     "contactRequired": "Įrašykite bent vieną: vardą, telefoną arba el. paštą.",
     "forbidden": "Šio veiksmo atlikti negalima. Atnaujinkite puslapį ir bandykite dar kartą.",
-    "visitInFuture": "Vizito, kuris dar neprasidėjo, užbaigti negalima."
+    "visitInFuture": "Vizito, kuris dar neprasidėjo, užbaigti negalima.",
+    "endBeforeStart": "Pabaiga turi būti vėliau nei pradžia."
   },
   "common": {
     "close": "Uždaryti",
@@ -348,7 +349,18 @@
     "openPet": "Atidaryti {name}",
     "contactHint": "Visi laukai neprivalomi – klientas gali būti ir be kontaktų.",
     "noContact": "Kontaktų nėra – klientas rodomas pagal augintinius. Telefoną ar el. paštą galite pridėti bet kada.",
-    "addContact": "Pridėti kontaktus"
+    "addContact": "Pridėti kontaktus",
+    "privacyTitle": "Kliento duomenys (BDAR)",
+    "privacyText": "Kliento prašymu galite atsisiųsti visus jo duomenis arba juos ištrinti.",
+    "export": "Atsisiųsti duomenis (JSON)",
+    "anonymize": "Anonimizuoti klientą",
+    "anonymizeTitle": "Anonimizuoti klientą?",
+    "anonymizeText": "Vardas, telefonas, el. paštas ir pastabos bus ištrinti visam laikui. Vizitų istorija liks be asmens duomenų. Šio veiksmo atšaukti negalima.",
+    "anonymizeTypeLabel": "Įrašykite {word}, kad patvirtintumėte",
+    "anonymizeConfirmWrong": "Patvirtinimo žodis neteisingas.",
+    "anonymizeHasFuture": "Klientas turi būsimų vizitų. Pirmiausia juos atšaukite.",
+    "anonymizeBlocked": "Anonimizuoti galėsite, kai neliks būsimų vizitų.",
+    "anonymized": "Klientas anonimizuotas"
   },
   "pets": {
     "add": "Pridėti augintinį",
@@ -674,5 +686,22 @@
     "removeText": "Registruojant „Kartu“ kiekvienam augintiniui bus siūloma jo paties kaina.",
     "removed": "Paslauga pašalinta",
     "removeNamed": "Pašalinti {name}"
+  },
+  "block": {
+    "modeLabel": "Ką žymite",
+    "modeBooking": "Vizitas",
+    "modeBlock": "Nedarbo laikas",
+    "title": "Nedarbo laikas",
+    "description": "Pertrauka, atostogos ar liga – šiuo laiku registruoti nebus galima.",
+    "groomers": "Meistrės",
+    "bothGroomers": "Abiem meistrams",
+    "date": "Data",
+    "from": "Nuo",
+    "to": "Iki",
+    "wholeDay": "Visa diena ({from}–{to})",
+    "reason": "Priežastis",
+    "reasonPlaceholder": "Pvz. atostogos, pietūs, liga",
+    "saved": "Nedarbo laikas pažymėtas",
+    "save": "Pažymėti"
   }
 }

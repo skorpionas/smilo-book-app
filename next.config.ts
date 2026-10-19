@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import { assertEnv } from "./lib/app-env";
@@ -62,4 +63,16 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withNextIntl(nextConfig);
+// Sentry (issue #20): source maps are uploaded only when SENTRY_AUTH_TOKEN is set
+// (Vercel build); the browser SDK is a no-op without NEXT_PUBLIC_SENTRY_DSN.
+const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
+
+export default withSentryConfig(withNextIntl(nextConfig), {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: sentryAuthToken,
+  silent: !process.env.CI,
+  telemetry: false,
+  widenClientFileUpload: true,
+  sourcemaps: { disable: !sentryAuthToken, deleteSourcemapsAfterUpload: true },
+});

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { ClientActions, PetsSection } from "@/components/clients/client-detail";
+import { ClientPrivacy } from "@/components/clients/client-privacy";
 import { PageBody, PageHeader } from "@/components/page-header";
 import { PetServicesSection } from "@/components/pets/pet-services-section";
 import { Avatar } from "@/components/ui/avatar";
@@ -208,6 +209,10 @@ export default async function ClientPage({ params }: PageProps<"/clients/[id]">)
 
         <VisitSection id="upcoming" title={t("upcoming")} empty={t("noUpcoming")} visits={upcoming} />
         <VisitSection id="history" title={t("history")} empty={t("noHistory")} visits={history} />
+
+        {client.anonymized_at ? null : (
+          <ClientPrivacy clientId={client.id} hasUpcoming={upcoming.length > 0} />
+        )}
       </PageBody>
     </>
   );
