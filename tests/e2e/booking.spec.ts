@@ -114,7 +114,7 @@ test("book an existing client, then hit the overlap rule (US-05, US-09)", async 
 });
 
 test("overlapping visits for one groomer, after confirming", async ({ page }, testInfo) => {
-  const day = futureSunday({ mobile: 6, desktop: 7, tablet: 12 }[testInfo.project.name] ?? 7);
+  const day = futureSunday({ mobile: 25, tablet: 26, desktop: 27 }[testInfo.project.name] ?? 27);
   const hour = 9 + testInfo.retry * 4;
   const start = `${String(hour).padStart(2, "0")}:00`;
   const nails = `${String(hour).padStart(2, "0")}:30`;
