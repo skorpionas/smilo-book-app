@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import * as React from "react";
 import { SpeciesToggle } from "@/components/clients/pet-sheet";
+import { BlockForm, SheetModeSwitch } from "@/components/calendar/block-form";
 import { Field, FormSection } from "@/components/forms/field";
 import { useDebounced } from "@/components/search-field";
 import { Alert } from "@/components/ui/alert";
@@ -98,15 +99,31 @@ export function BookingSheet({
   groomers: CalendarGroomer[];
   services: CalendarService[];
 }) {
+  // "Vizitas | Nedarbo laikas" (US-16): the same tap on a slot can block the time instead.
+  // Remembered per opening: a new tap on the grid starts as a visit again.
+  const [picked, setPicked] = React.useState<{ for: BookingDefaults | null; mode: "booking" | "block" }>({
+    for: null,
+    mode: "booking",
+  });
+  const mode = picked.for === defaults ? picked.mode : "booking";
+  const setMode = (m: "booking" | "block") => setPicked({ for: defaults, mode: m });
+  // A booking opened for a chosen client (client / pet page) is always a visit.
+  const canBlock = defaults !== null && !defaults.client && !defaults.petId;
+
   return (
     <Sheet open={defaults !== null} onOpenChange={(o) => !o && onClose()}>
       <SheetContent aria-describedby={undefined}>
         {defaults ? (
-          services.length === 0 ? (
-            <NoServices />
-          ) : (
-            <BookingForm defaults={defaults} groomers={groomers} services={services} onSaved={onSaved} />
-          )
+          <>
+            {canBlock ? <SheetModeSwitch mode={mode} onChange={setMode} /> : null}
+            {canBlock && mode === "block" ? (
+              <BlockForm defaults={defaults} groomers={groomers} onSaved={onSaved} />
+            ) : services.length === 0 ? (
+              <NoServices />
+            ) : (
+              <BookingForm defaults={defaults} groomers={groomers} services={services} onSaved={onSaved} />
+            )}
+          </>
         ) : null}
       </SheetContent>
     </Sheet>

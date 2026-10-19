@@ -5,9 +5,11 @@ import { getTranslations } from "next-intl/server";
 import { dbFailed, validationFailed, type ActionState } from "@/lib/action-helpers";
 import { requireUser } from "@/lib/auth";
 import {
+  blockSchema,
   bookingSchema,
   completeVisitSchema,
   rescheduleSchema,
+  type BlockInput,
   type BookingInput,
   type CompleteVisitInput,
   type RescheduleInput,
@@ -283,6 +285,51 @@ export async function createBooking(input: BookingInput): Promise<CreateBookingR
   return { ok: true, savedAt: Date.now(), id: bookingId, summary: { range } };
 }
 
+/**
+ * US-16: blocked time for one or more groomers (break, holiday, sick day). One row per
+ * groomer in a single insert, so it is all or nothing; the exclusion constraint stops it
+ * from overlapping a booking or another block, and later bookings from overlapping it.
+ */
+export async function createBlock(input: BlockInput): Promise<CreateBookingResult> {
+  await requireUser();
+  const parsed = blockSchema.safeParse(input);
+  if (!parsed.success) return validationFailed(parsed.error.issues);
+
+  const { groomerIds, date, startTime, endTime, reason } = parsed.data;
+  const start = vilniusToUtc(date, startTime);
+  const end = vilniusToUtc(date, endTime);
+  const supabase = await createClient();
+  const { error } = await supabase.from("bookings").insert(
+    groomerIds.map((groomerId) => ({
+      kind: "block" as const,
+      groomer_id: groomerId,
+      start_at: start.toISOString(),
+      end_at: end.toISOString(),
+      block_reason: reason,
+    })),
+  );
+
+  if (error) {
+    if (error.code === "23P01") {
+      // Name the first thing in the way, for whichever groomer it is.
+      for (const groomerId of groomerIds) {
+        const message = await findConflict(groomerId, start, end);
+        if (!message) continue;
+        if (groomerIds.length === 1) return { ok: false, error: message };
+        const { data: g } = await supabase.from("groomers").select("name").eq("id", groomerId).maybeSingle();
+        return { ok: false, error: g?.name ? `${g.name}. ${message}` : message };
+      }
+      return { ok: false, error: (await getTranslations("errors"))("slotTakenUnknown") };
+    }
+    return dbFailed(error, "createBlock");
+  }
+
+  revalidatePath("/calendar", "layout");
+  revalidatePath("/upcoming");
+  const range = `${toVilniusTime(start)}–${toVilniusTime(end)}`;
+  return { ok: true, savedAt: Date.now(), summary: { range } };
+}
+
 /** "Šis laikas jau užimtas: 10:00–12:00, Maksas" — names the booking (or block) in the way (US-09). */
 async function describeConflict(
   groomerId: string,
@@ -290,6 +337,18 @@ async function describeConflict(
   end: Date,
   excludeId?: string,
 ): Promise<string> {
+  const found = await findConflict(groomerId, start, end, excludeId);
+  if (found) return found;
+  return (await getTranslations("errors"))("slotTakenUnknown");
+}
+
+/** The message for the first booking or block of this groomer in [start, end), or null. */
+async function findConflict(
+  groomerId: string,
+  start: Date,
+  end: Date,
+  excludeId?: string,
+): Promise<string | null> {
   const t = await getTranslations("errors");
   const supabase = await createClient();
   let query = supabase
@@ -304,7 +363,7 @@ async function describeConflict(
   if (excludeId) query = query.neq("id", excludeId);
   const { data } = await query.maybeSingle();
 
-  if (!data) return t("slotTakenUnknown");
+  if (!data) return null;
   const range = `${toVilniusTime(data.start_at)}–${toVilniusTime(data.end_at)}`;
   if (data.kind === "block") return t("slotTakenBlock", { range });
   const pets = [...data.booking_items]

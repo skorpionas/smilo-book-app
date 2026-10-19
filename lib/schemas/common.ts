@@ -24,6 +24,7 @@ export type ErrorKey =
   | "workDaysRequired"
   | "pastDate"
   | "contactRequired"
+  | "endBeforeStart"
   | "invalid";
 
 const err = (key: ErrorKey) => ({ error: key });
@@ -130,6 +131,7 @@ const KNOWN = new Set<string>([
   "workDaysRequired",
   "pastDate",
   "contactRequired",
+  "endBeforeStart",
   "invalid",
 ]);
 

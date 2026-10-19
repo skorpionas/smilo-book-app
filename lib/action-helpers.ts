@@ -1,4 +1,5 @@
 import "server-only";
+import * as Sentry from "@sentry/nextjs";
 import { getTranslations } from "next-intl/server";
 import type { z } from "zod";
 import { classifyDbError } from "@/lib/db-errors";
@@ -36,6 +37,14 @@ export async function dbFailed(
   console.error(`[action] ${context} failed`, { code: error?.code });
   if (error?.code && overrides[error.code]) return { ok: false, error: overrides[error.code] };
   const kind = classifyDbError(error);
+  // Expected outcomes (slot taken, invalid input, not found) are not bugs; the rest goes
+  // to Sentry with the error code only — never the message, which can quote data.
+  if (kind === "unknown") {
+    Sentry.captureMessage(`[action] ${context} failed`, {
+      level: "error",
+      tags: { code: error?.code ?? "none" },
+    });
+  }
   const key = kind === "slotTaken" ? "unknown" : kind;
   return { ok: false, error: t(key) };
 }

@@ -40,6 +40,19 @@ Supabase dashboards: [dev](https://supabase.com/dashboard/project/gfnrlbpiqdmlku
 
 Publishable keys are public by design (RLS protects the data). There is no service-role key anywhere.
 
+Error tracking and speed (issue #20), all optional — the app runs without them:
+
+| Variable                 | Where                  | Value                                                                                      |
+| ------------------------ | ---------------------- | ------------------------------------------------------------------------------------------ |
+| `NEXT_PUBLIC_SENTRY_DSN` | Production + Preview   | DSN of a Sentry project created in the **EU (Frankfurt)** region (`*.ingest.de.sentry.io`) |
+| `SENTRY_AUTH_TOKEN`      | Production (sensitive) | Sentry org auth token — uploads source maps at build time, then they are deleted           |
+| `SENTRY_ORG`             | Production             | Sentry organisation slug                                                                   |
+| `SENTRY_PROJECT`         | Production             | Sentry project slug                                                                        |
+
+Without a DSN Sentry stays off. Events never carry personal data: no user, IP, cookies, headers, request bodies, query
+strings or console breadcrumbs (`lib/sentry.ts`). Speed Insights needs no variable: turn it on in Vercel → project →
+**Speed Insights → Enable**; it records route paths only.
+
 ## Migrations
 
 1. `supabase migration new <name>` locally, test with `pnpm db:reset` + `pnpm db:test`, commit.

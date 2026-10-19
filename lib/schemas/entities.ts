@@ -162,3 +162,6 @@ export const newPetsSchema = z.object({
   ownerEmail: optionalEmail,
 });
 export type NewPetsInput = z.input<typeof newPetsSchema>;
+
+/** The word the owner types to confirm anonymising a client (US-17: irreversible). */
+export const ANONYMIZE_CONFIRM = "ANONIMIZUOTI";

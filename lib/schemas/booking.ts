@@ -13,6 +13,7 @@ import {
   uuid,
 } from "./common";
 import { SPECIES } from "@/lib/pets";
+import { isTimeStr, timeToMinutes } from "@/lib/clock";
 import { todayInVilnius } from "@/lib/time";
 
 /** Bookings can be made for today (any time) or later, never for a past day. */
@@ -100,6 +101,30 @@ export const rescheduleSchema = z.object({
   durationMin: duration,
 });
 export type RescheduleInput = z.input<typeof rescheduleSchema>;
+
+/**
+ * US-16: blocked time ("Nedarbo laikas") for one or both groomers. One row per groomer,
+ * all or nothing; the same exclusion constraint as bookings keeps it from overlapping.
+ */
+export const blockSchema = z
+  .object({
+    groomerIds: z
+      .array(uuid)
+      .min(1, { error: "required" })
+      .max(10, { error: "invalid" })
+      .refine((ids) => new Set(ids).size === ids.length, { error: "invalid" }),
+    date: bookingDate,
+    startTime: gridTime,
+    endTime: gridTime,
+    reason: optionalText(200),
+  })
+  .superRefine((v, ctx) => {
+    if (isTimeStr(v.startTime) && isTimeStr(v.endTime)) {
+      if (timeToMinutes(v.endTime) <= timeToMinutes(v.startTime))
+        ctx.addIssue({ code: "custom", message: "endBeforeStart", path: ["endTime"] });
+    }
+  });
+export type BlockInput = z.input<typeof blockSchema>;
 
 /** Visit results the owner can record (US-11). */
 export const VISIT_RESULTS = ["completed", "no_show", "cancelled"] as const;
