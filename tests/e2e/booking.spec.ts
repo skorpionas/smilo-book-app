@@ -113,7 +113,7 @@ test("book an existing client, then hit the overlap rule (US-05, US-09)", async 
   await expect(page.getByText("Registracija išsaugota").first()).toBeVisible();
 });
 
-test("two visits at the same time for one groomer, after confirming", async ({ page }, testInfo) => {
+test("overlapping visits for one groomer, after confirming", async ({ page }, testInfo) => {
   const day = futureSunday({ mobile: 6, desktop: 7, tablet: 12 }[testInfo.project.name] ?? 7);
   const hour = 9 + testInfo.retry * 4;
   const start = `${String(hour).padStart(2, "0")}:00`;
@@ -129,9 +129,9 @@ test("two visits at the same time for one groomer, after confirming", async ({ p
   await sheet.getByRole("button", { name: "Išsaugoti" }).click();
   await expect(page.getByText("Registracija išsaugota").first()).toBeVisible();
 
-  // From the visit: "Pridėti vizitą tuo pačiu metu" opens a new booking at its time.
+  // From the visit: "Pridėti persidengiantį vizitą" opens a new booking at its start; any overlapping time works.
   await page.getByRole("button", { name: new RegExp(`^${start}–.+, Rasa Petrauskienė$`) }).click();
-  await sheet.getByRole("button", { name: "Pridėti vizitą tuo pačiu metu" }).click();
+  await sheet.getByRole("button", { name: "Pridėti persidengiantį vizitą" }).click();
   await expect(sheet.getByRole("heading", { name: "Nauja registracija" })).toBeVisible();
   await expect(sheet.getByLabel("Pradžia")).toHaveValue(start);
   await sheet.getByLabel("Pradžia").selectOption(nails);
@@ -144,10 +144,10 @@ test("two visits at the same time for one groomer, after confirming", async ({ p
 
   const ask = page.getByRole("dialog", { name: "Šis laikas jau užimtas" });
   await ask.getByRole("button", { name: "Taip, registruoti" }).click();
-  await expect(page.getByText("Užregistruota tuo pačiu metu").first()).toBeVisible();
+  await expect(page.getByText("Užregistruota – persidengia su kitu vizitu").first()).toBeVisible();
 
   // Both visits stay on the grid, side by side.
-  await expect(page.getByRole("button", { name: /· Tuo pačiu metu$/ })).toHaveCount(2);
+  await expect(page.getByRole("button", { name: /· Persidengia$/ })).toHaveCount(2);
 });
 
 test("change the time, cancel and delete a booking (US-10)", async ({ page }, testInfo) => {

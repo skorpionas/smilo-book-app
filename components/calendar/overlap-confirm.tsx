@@ -14,7 +14,7 @@ type Ask = {
 };
 
 /**
- * "Šis laikas jau užimtas — registruoti dar vieną vizitą tuo pačiu metu?" (owner feedback
+ * "Šis laikas jau užimtas — registruoti vizitą, kuris su juo persidengia?" (owner feedback
  * 2026-10-19). A save that lands on another visit of the same groomer comes back with
  * `overlap`; `ask` shows what is already there and, on "Taip", saves again with
  * `allowOverlap`. Blocked time never gets here: the server answers with a plain error.

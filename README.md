@@ -133,17 +133,18 @@ supabase/tests/        pgTAP: overlap constraint, RLS, RPC functions
   service is split per pet like when booking) and notes per pet. No-show and cancelled clear the actual price, so
   money totals only count visits that happened.
 
-## Decisions: two visits at the same time (owner feedback 2026-10-19)
+## Decisions: overlapping visits (owner feedback 2026-10-19)
 
 - **Allowed, but never by accident.** A groomer can have a short extra visit (nails) during a long groom, or pets of
-  two families at once. Saving onto another visit asks "Šis laikas jau užimtas — registruoti dar vieną vizitą tuo
-  pačiu metu?" and lists what is already there; only "Taip, registruoti" saves it. The same question appears when
-  changing a visit's time ("Keisti datą ar laiką", "Keisti paslaugas") and inside the drag-and-drop "Perkelti?"
-  dialog (one question, not two).
-- **"Pridėti vizitą tuo pačiu metu"** in a visit's sheet opens a new booking at that groomer and time.
+  two families at once. Times need not match — any overlap counts (10:00–12:00 and 10:30–11:00). Saving onto
+  another visit asks "Šis laikas jau užimtas … Registruoti vizitą, kuris su juo persidengia?" and lists what is
+  already there; only "Taip, registruoti" saves it. The same question appears when changing a visit's time
+  ("Keisti datą ar laiką", "Keisti paslaugas") and inside the drag-and-drop "Perkelti?" dialog (one question, not
+  two).
+- **"Pridėti persidengiantį vizitą"** in a visit's sheet opens a new booking for that groomer, starting at that visit's start (start and length can be changed).
 - **The database keeps the rule.** `bookings.overlap_ok` marks a visit saved on top of others on purpose.
   `bookings_no_overlap` now covers rows without the flag; the trigger `check_booking_overlap` (also 23P01) stops a
   flagged visit on blocked time and an ordinary row on a flagged visit. It runs only when a row is placed, so
   finishing or cancelling an overlapping visit is never blocked. Blocked time is never shared.
 - **Side by side.** Overlapping cards in a lane split its width (`lib/side-by-side.ts`) and use the narrow layout;
-  screen readers hear "· Tuo pačiu metu".
+  screen readers hear "· Persidengia".

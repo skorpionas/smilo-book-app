@@ -62,7 +62,7 @@ export type BookingDefaults = {
   petId?: string | null;
   /** Change this existing visit instead of creating one (client fixed). */
   edit?: CalendarBooking;
-  /** Opened from "Pridėti vizitą tuo pačiu metu" on this visit: show a hint. */
+  /** Opened from "Pridėti persidengiantį vizitą" on this visit: show a hint. */
   sameTimeAs?: CalendarBooking;
 };
 

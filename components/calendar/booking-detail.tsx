@@ -69,7 +69,7 @@ export function BookingDetailSheet({
   /** Active services, for changing a visit's services. */
   services: CalendarService[];
   onClose: () => void;
-  /** "Pridėti vizitą tuo pačiu metu": open a new booking at this visit's groomer and time. */
+  /** "Pridėti persidengiantį vizitą": open a new booking at this visit's groomer and time. */
   onAddSameTime?: (booking: CalendarBooking) => void;
 }) {
   const t = useTranslations("booking");
