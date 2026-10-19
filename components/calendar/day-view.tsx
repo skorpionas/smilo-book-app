@@ -23,6 +23,7 @@ import {
   type DateStr,
   type GridWindow,
 } from "@/lib/clock";
+import { sideBySide } from "@/lib/side-by-side";
 import { cn } from "@/lib/utils";
 import { CALENDAR_STICKY_TOP } from "./sticky";
 import { BookingDetailSheet } from "./booking-detail";
@@ -171,6 +172,16 @@ export function DayView({
         groomers={groomers}
         services={services}
         onClose={() => setSelected(null)}
+        onAddSameTime={(b) => {
+          setSelected(null);
+          setNewBooking({
+            groomerId: b.groomerId,
+            date: b.date,
+            startTime: b.startTime,
+            client: null,
+            sameTimeAs: b,
+          });
+        }}
       />
     </>
   );
@@ -371,26 +382,32 @@ export function GroomerColumn({
         </div>
       ))}
 
-      {placed.map(({ booking, pos }) => (
-        <BookingBlock
-          key={booking.id}
-          booking={booking}
-          color={groomer.color}
-          row={pos.row}
-          span={pos.span}
-          narrow={compact}
-          onOpen={onOpen}
-          dragging={draggingId === booking.id}
-          onDragStart={onDragStart}
-        />
-      ))}
+      {sideBySide(placed.map((p) => ({ ...p, row: p.pos.row, span: p.pos.span }))).map(
+        ({ item: { booking, pos }, col, cols }) => (
+          <BookingBlock
+            key={booking.id}
+            booking={booking}
+            color={groomer.color}
+            row={pos.row}
+            span={pos.span}
+            col={col}
+            cols={cols}
+            narrow={compact}
+            onOpen={onOpen}
+            dragging={draggingId === booking.id}
+            onDragStart={onDragStart}
+          />
+        ),
+      )}
 
       {preview ? (
         <div
           aria-hidden
           className={cn(
             "pointer-events-none relative z-20 col-start-1 mx-0.5 my-px rounded-md border-2 border-dashed px-1.5 py-0.5 text-xs font-semibold tabular-nums shadow-md",
-            preview.busy && "border-danger bg-danger-soft text-danger-soft-foreground",
+            preview.busy === "blocked" && "border-danger bg-danger-soft text-danger-soft-foreground",
+            preview.busy === "visit" &&
+              "bg-warning-soft text-warning-foreground border-[var(--warning-foreground)]",
           )}
           style={{
             gridRow: `${preview.row + 1} / span ${preview.span}`,
@@ -414,7 +431,9 @@ function BookingBlock({
   color,
   row,
   span,
-  narrow = false,
+  col = 0,
+  cols = 1,
+  narrow: narrowLane = false,
   onOpen,
   dragging = false,
   onDragStart,
@@ -423,14 +442,28 @@ function BookingBlock({
   color: string;
   row: number;
   span: number;
+  /** Side by side with visits at the same time: this card's column of `cols`. */
+  col?: number;
+  cols?: number;
   narrow?: boolean;
   onOpen: (b: CalendarBooking) => void;
   dragging?: boolean;
   onDragStart?: (e: React.PointerEvent<HTMLElement>, booking: CalendarBooking) => void;
 }) {
   const t = useTranslations("calendar");
+  const tb = useTranslations("booking");
   const range = `${booking.startTime}–${booking.endTime}`;
   const compact = span <= 3;
+  // Sharing the lane: half (or less) of its width, so use the stacked narrow layout.
+  const shared = cols > 1;
+  const narrow = narrowLane || shared;
+  const place: React.CSSProperties = shared
+    ? {
+        justifySelf: "start",
+        width: `calc((100% - 0.25rem) / ${cols} - 2px)`,
+        marginLeft: `calc(0.125rem + (100% - 0.25rem) * ${col} / ${cols})`,
+      }
+    : {};
   const movable = Boolean(onDragStart) && booking.status === "scheduled";
   const dragProps = movable
     ? {
@@ -448,6 +481,7 @@ function BookingBlock({
         aria-label={`${t("blockLabel")} ${range}${booking.blockReason ? `, ${booking.blockReason}` : ""}`}
         onPointerDown={dragProps.onPointerDown}
         data-booking-id={booking.id}
+        data-kind="block"
         data-row={row}
         data-span={span}
         className={cn(
@@ -458,6 +492,7 @@ function BookingBlock({
         )}
         style={{
           ...dragProps.style,
+          ...place,
           gridRow: `${row + 1} / span ${span}`,
           backgroundImage:
             "repeating-linear-gradient(135deg, var(--surface-muted) 0 6px, transparent 6px 12px)",
@@ -486,9 +521,9 @@ function BookingBlock({
       type="button"
       onClick={() => onOpen(booking)}
       aria-label={
-        booking.client?.hasContact
+        (booking.client?.hasContact
           ? t("openBooking", { time: range, pets, client: booking.client.fullName })
-          : t("openBookingNoClient", { time: range, pets })
+          : t("openBookingNoClient", { time: range, pets })) + (shared ? ` · ${tb("sameTimeBadge")}` : "")
       }
       className={cn(
         "border-border bg-surface hover:border-border-strong relative z-10 col-start-1 mx-0.5 my-px flex min-w-0 flex-col overflow-hidden rounded-md border border-l-[3px] py-1 text-left text-xs leading-tight shadow-xs transition-colors",
@@ -499,10 +534,13 @@ function BookingBlock({
       )}
       onPointerDown={dragProps.onPointerDown}
       data-booking-id={booking.id}
+      data-kind="booking"
+      data-shared={shared ? "true" : undefined}
       data-row={row}
       data-span={span}
       style={{
         ...dragProps.style,
+        ...place,
         gridRow: `${row + 1} / span ${span}`,
         borderLeftColor: color,
         backgroundColor: `color-mix(in oklab, ${color} 16%, var(--surface))`,

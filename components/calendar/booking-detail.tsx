@@ -6,6 +6,7 @@ import {
   Cat,
   ChevronRight,
   CircleCheck,
+  CopyPlus,
   Dog,
   PawPrint,
   Pencil,
@@ -42,6 +43,7 @@ import type { CalendarBooking, CalendarGroomer, CalendarService } from "@/lib/ca
 import { BOOKING_START_TIMES, DAY_CLOSE, DAY_OPEN, timeToMinutes, vilniusClock } from "@/lib/clock";
 import { DURATION_OPTIONS, formatDuration } from "@/lib/format";
 import { worksOn } from "@/lib/schedule";
+import { useOverlapConfirm } from "./overlap-confirm";
 import { formatEur } from "@/lib/money";
 
 // The booking form is large; load it only when a visit's services are changed.
@@ -59,6 +61,7 @@ export function BookingDetailSheet({
   groomers,
   services,
   onClose,
+  onAddSameTime,
 }: {
   booking: CalendarBooking | null;
   /** All active groomers (for the reschedule form); the booking's own one is looked up here. */
@@ -66,6 +69,8 @@ export function BookingDetailSheet({
   /** Active services, for changing a visit's services. */
   services: CalendarService[];
   onClose: () => void;
+  /** "Pridėti persidengiantį vizitą": open a new booking at this visit's groomer and time. */
+  onAddSameTime?: (booking: CalendarBooking) => void;
 }) {
   const t = useTranslations("booking");
   const tc = useTranslations("clients");
@@ -304,6 +309,12 @@ export function BookingDetailSheet({
                       {t("changeServices")}
                     </Button>
                   ) : null}
+                  {onAddSameTime && b.kind === "booking" && b.date >= vilniusClock().date ? (
+                    <Button variant="secondary" onClick={() => onAddSameTime(b)}>
+                      <CopyPlus aria-hidden />
+                      {t("addSameTime")}
+                    </Button>
+                  ) : null}
                   <Button variant="secondary" onClick={() => setEditing(true)}>
                     <CalendarClock aria-hidden />
                     {t("reschedule")}
@@ -369,6 +380,7 @@ function RescheduleForm({
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   const [pending, startTransition] = React.useTransition();
+  const overlap = useOverlapConfirm();
 
   const start = timeToMinutes(startTime);
   const outsideHours = start < timeToMinutes(DAY_OPEN) || start + durationMin > timeToMinutes(DAY_CLOSE);
@@ -383,18 +395,38 @@ function RescheduleForm({
     e.preventDefault();
     setError(null);
     setFieldErrors({});
-    startTransition(async () => {
-      const res = await rescheduleBooking({ id: booking.id, groomerId, date, startTime, durationMin });
+    async function save(allowOverlap: boolean): Promise<boolean> {
+      const res = await rescheduleBooking({
+        id: booking.id,
+        groomerId,
+        date,
+        startTime,
+        durationMin,
+        allowOverlap,
+      });
+      if (res.overlap && !allowOverlap) {
+        overlap.ask({
+          groomer: groomer?.name ?? "",
+          visits: res.overlap.visits,
+          move: true,
+          retry: () => save(true),
+        });
+        return false;
+      }
       if (res.ok) {
         toast({
           title: booking.kind === "block" ? t("blockRescheduled") : t("rescheduled"),
           description: `${date} ${res.summary?.range ?? ""}`,
         });
         onSaved();
-        return;
+        return true;
       }
       setError(res.error ?? null);
       setFieldErrors(res.fieldErrors ?? {});
+      return true;
+    }
+    startTransition(async () => {
+      await save(false);
     });
   }
 
@@ -492,6 +524,7 @@ function RescheduleForm({
           {pending ? tc("saving") : tc("save")}
         </Button>
       </SheetFooter>
+      {overlap.dialog}
     </form>
   );
 }

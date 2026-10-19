@@ -91,6 +91,7 @@ export type Database = {
           id: string;
           kind: Database["public"]["Enums"]["booking_kind"];
           notes: string;
+          overlap_ok: boolean;
           owner_id: string;
           start_at: string;
           status: Database["public"]["Enums"]["booking_status"];
@@ -108,6 +109,7 @@ export type Database = {
           id?: string;
           kind?: Database["public"]["Enums"]["booking_kind"];
           notes?: string;
+          overlap_ok?: boolean;
           owner_id?: string;
           start_at: string;
           status?: Database["public"]["Enums"]["booking_status"];
@@ -125,6 +127,7 @@ export type Database = {
           id?: string;
           kind?: Database["public"]["Enums"]["booking_kind"];
           notes?: string;
+          overlap_ok?: boolean;
           owner_id?: string;
           start_at?: string;
           status?: Database["public"]["Enums"]["booking_status"];
@@ -433,6 +436,7 @@ export type Database = {
       };
       create_booking_with_items: {
         Args: {
+          p_allow_overlap?: boolean;
           p_client_id?: string;
           p_end_at: string;
           p_groomer_id: string;
@@ -474,6 +478,7 @@ export type Database = {
       };
       update_booking_with_items: {
         Args: {
+          p_allow_overlap?: boolean;
           p_booking_id: string;
           p_end_at: string;
           p_groomer_id: string;

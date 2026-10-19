@@ -201,7 +201,14 @@ export async function getPricePrefill(petId: string, serviceId: string): Promise
   return data === null ? null : Number(data);
 }
 
-export type CreateBookingResult = ActionState & { summary?: { range: string } };
+export type CreateBookingResult = ActionState & {
+  summary?: { range: string };
+  /**
+   * The time is taken by other visits only (not blocked time): the owner may confirm
+   * and save it again with `allowOverlap: true`. Lines like "10:00–12:00 · Maksas".
+   */
+  overlap?: { visits: string[] };
+};
 
 /** US-05/06/07/09: create client (optional) + new pets + booking + items in one transaction. */
 export async function createBooking(input: BookingInput): Promise<CreateBookingResult> {
@@ -228,12 +235,15 @@ export async function createBooking(input: BookingInput): Promise<CreateBookingR
         ? { full_name: b.client.fullName, phone_e164: b.client.phone ?? "", email: b.client.email ?? "" }
         : undefined,
     p_notes: b.notes,
+    // Sent only when confirmed: an ordinary save still matches the function before the
+    // overlap migration is approved on production.
+    ...(b.allowOverlap ? { p_allow_overlap: true } : {}),
   });
 
   if (error) {
     const t = await getTranslations("errors");
     if (error.code === "23P01") {
-      return { ok: false, error: await describeConflict(b.groomerId, start, end) };
+      return conflictResult({ groomerId: b.groomerId, start, end, confirmed: b.allowOverlap });
     }
     if (error.code === "23505") {
       return { ok: false, error: t("checkFields"), fieldErrors: { "client.phone": t("phoneTaken") } };
@@ -315,7 +325,7 @@ export async function updateBooking(input: UpdateBookingInput): Promise<CreateBo
   const supabase = await createClient();
   const { data: current } = await supabase
     .from("bookings")
-    .select("id, client_id, start_at")
+    .select("*") // "*": also works before the overlap_ok migration is applied
     .eq("id", b.id)
     .maybeSingle();
   if (!current) return dbFailed({ code: "P0002" }, "updateBooking");
@@ -325,6 +335,12 @@ export async function updateBooking(input: UpdateBookingInput): Promise<CreateBo
 
   const start = vilniusToUtc(b.date, b.startTime);
   const end = new Date(start.getTime() + b.durationMin * 60_000);
+  // Only the services changed: a visit already confirmed on top of another stays so.
+  const samePlace =
+    b.groomerId === current.groomer_id &&
+    start.getTime() === new Date(current.start_at).getTime() &&
+    end.getTime() === new Date(current.end_at).getTime();
+  const allowOverlap = b.allowOverlap || (samePlace && current.overlap_ok === true);
   const { error } = await supabase.rpc("update_booking_with_items", {
     p_booking_id: b.id,
     p_groomer_id: b.groomerId,
@@ -332,11 +348,12 @@ export async function updateBooking(input: UpdateBookingInput): Promise<CreateBo
     p_end_at: end.toISOString(),
     p_items: toRpcItems(b.items),
     p_notes: b.notes,
+    ...(allowOverlap ? { p_allow_overlap: true } : {}),
   });
 
   if (error) {
     if (error.code === "23P01") {
-      return { ok: false, error: await describeConflict(b.groomerId, start, end, b.id) };
+      return conflictResult({ groomerId: b.groomerId, start, end, excludeId: b.id, confirmed: allowOverlap });
     }
     return dbFailed(error, "updateBooking");
   }
@@ -396,48 +413,75 @@ export async function createBlock(input: BlockInput): Promise<CreateBookingResul
   return { ok: true, savedAt: Date.now(), summary: { range } };
 }
 
-/** "Šis laikas jau užimtas: 10:00–12:00, Maksas" — names the booking (or block) in the way (US-09). */
-async function describeConflict(
-  groomerId: string,
-  start: Date,
-  end: Date,
-  excludeId?: string,
-): Promise<string> {
-  const found = await findConflict(groomerId, start, end, excludeId);
-  if (found) return found;
-  return (await getTranslations("errors"))("slotTakenUnknown");
+type Conflict = { kind: "booking" | "block"; range: string; pets: string };
+
+/**
+ * The time is taken (23P01). Blocked time in the way, or a save that was already
+ * confirmed: a plain error ("Šis laikas jau užimtas: 10:00–12:00, Maksas", US-09).
+ * Only other visits in the way: the same message plus `overlap`, so the sheet can
+ * ask "Vis tiek registruoti?" and send it again with `allowOverlap`.
+ */
+async function conflictResult(args: {
+  groomerId: string;
+  start: Date;
+  end: Date;
+  excludeId?: string;
+  /** Overlap already allowed (or the row is blocked time): nothing left to confirm. */
+  confirmed: boolean;
+}): Promise<CreateBookingResult> {
+  const t = await getTranslations("errors");
+  const conflicts = await findConflicts(args.groomerId, args.start, args.end, args.excludeId);
+  const block = conflicts.find((c) => c.kind === "block");
+  if (block) return { ok: false, error: t("slotTakenBlock", { range: block.range }) };
+  if (conflicts.length === 0) return { ok: false, error: t("slotTakenUnknown") };
+  const first = conflicts[0];
+  const error = t("slotTaken", { range: first.range, pets: first.pets });
+  if (args.confirmed) return { ok: false, error };
+  return {
+    ok: false,
+    error,
+    overlap: { visits: conflicts.map((c) => (c.pets ? `${c.range} · ${c.pets}` : c.range)) },
+  };
 }
 
 /** The message for the first booking or block of this groomer in [start, end), or null. */
-async function findConflict(
+async function findConflict(groomerId: string, start: Date, end: Date): Promise<string | null> {
+  const t = await getTranslations("errors");
+  const [first] = await findConflicts(groomerId, start, end);
+  if (!first) return null;
+  if (first.kind === "block") return t("slotTakenBlock", { range: first.range });
+  return t("slotTaken", { range: first.range, pets: first.pets });
+}
+
+/** Active bookings and blocks of this groomer overlapping [start, end), earliest first. */
+async function findConflicts(
   groomerId: string,
   start: Date,
   end: Date,
   excludeId?: string,
-): Promise<string | null> {
-  const t = await getTranslations("errors");
+): Promise<Conflict[]> {
   const supabase = await createClient();
   let query = supabase
     .from("bookings")
-    .select("kind, start_at, end_at, block_reason, booking_items(position, pets(name))")
+    .select("kind, start_at, end_at, booking_items(position, pets(name))")
     .eq("groomer_id", groomerId)
     .neq("status", "cancelled")
     .lt("start_at", end.toISOString())
     .gt("end_at", start.toISOString())
     .order("start_at")
-    .limit(1);
+    .limit(10);
   if (excludeId) query = query.neq("id", excludeId);
-  const { data } = await query.maybeSingle();
+  const { data } = await query;
 
-  if (!data) return null;
-  const range = `${toVilniusTime(data.start_at)}–${toVilniusTime(data.end_at)}`;
-  if (data.kind === "block") return t("slotTakenBlock", { range });
-  const pets = [...data.booking_items]
-    .sort((a, b) => a.position - b.position)
-    .map((i) => i.pets?.name)
-    .filter(Boolean)
-    .join(", ");
-  return t("slotTaken", { range, pets });
+  return (data ?? []).map((row) => ({
+    kind: row.kind,
+    range: `${toVilniusTime(row.start_at)}–${toVilniusTime(row.end_at)}`,
+    pets: [...row.booking_items]
+      .sort((a, b) => a.position - b.position)
+      .map((i) => i.pets?.name)
+      .filter((n, i, all): n is string => Boolean(n) && all.indexOf(n) === i)
+      .join(", "),
+  }));
 }
 
 /** US-10 (cancel part): status → cancelled; the slot frees up, the visit stays in history. */
@@ -472,13 +516,23 @@ export async function rescheduleBooking(input: RescheduleInput): Promise<CreateB
   const parsed = rescheduleSchema.safeParse(input);
   if (!parsed.success) return validationFailed(parsed.error.issues);
 
-  const { id, groomerId, date, startTime, durationMin } = parsed.data;
+  const { id, groomerId, date, startTime, durationMin, allowOverlap } = parsed.data;
   const start = vilniusToUtc(date, startTime);
   const end = new Date(start.getTime() + durationMin * 60_000);
   const supabase = await createClient();
+  const { data: current } = await supabase.from("bookings").select("*").eq("id", id).maybeSingle();
+  if (!current) return dbFailed({ code: "P0002" }, "rescheduleBooking");
+  // Blocked time never goes on top of anything.
+  const isBlock = current.kind === "block";
   const { data, error } = await supabase
     .from("bookings")
-    .update({ groomer_id: groomerId, start_at: start.toISOString(), end_at: end.toISOString() })
+    .update({
+      groomer_id: groomerId,
+      start_at: start.toISOString(),
+      end_at: end.toISOString(),
+      // Moving clears the flag unless confirmed again (only sent when there is one to clear or set).
+      ...(current.overlap_ok || (!isBlock && allowOverlap) ? { overlap_ok: !isBlock && allowOverlap } : {}),
+    })
     .eq("id", id)
     .eq("status", "scheduled")
     .select("id, client_id")
@@ -486,7 +540,13 @@ export async function rescheduleBooking(input: RescheduleInput): Promise<CreateB
 
   if (error) {
     if (error.code === "23P01") {
-      return { ok: false, error: await describeConflict(groomerId, start, end, id) };
+      return conflictResult({
+        groomerId,
+        start,
+        end,
+        excludeId: id,
+        confirmed: isBlock || allowOverlap,
+      });
     }
     return dbFailed(error, "rescheduleBooking");
   }

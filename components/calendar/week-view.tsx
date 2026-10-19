@@ -100,6 +100,16 @@ export function WeekView({
         groomers={groomers}
         services={services}
         onClose={() => setSelected(null)}
+        onAddSameTime={(b) => {
+          setSelected(null);
+          setNewBooking({
+            groomerId: b.groomerId,
+            date: b.date,
+            startTime: b.startTime,
+            client: null,
+            sameTimeAs: b,
+          });
+        }}
       />
     </>
   );

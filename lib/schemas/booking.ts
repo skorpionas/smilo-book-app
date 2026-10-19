@@ -84,6 +84,8 @@ export const bookingSchema = z
       .max(6)
       .optional()
       .default([]),
+    /** The owner confirmed saving on top of another visit ("Vis tiek registruoti"). */
+    allowOverlap: z.boolean().optional().default(false),
   })
   .superRefine((value, ctx) => noDuplicateItems(value.items, ctx));
 
@@ -110,6 +112,8 @@ export const updateBookingSchema = z
       .max(6)
       .optional()
       .default([]),
+    /** The owner confirmed saving on top of another visit ("Vis tiek registruoti"). */
+    allowOverlap: z.boolean().optional().default(false),
   })
   .superRefine((value, ctx) => noDuplicateItems(value.items, ctx));
 export type UpdateBookingInput = z.input<typeof updateBookingSchema>;
@@ -126,6 +130,8 @@ export const rescheduleSchema = z.object({
   date: bookingDate,
   startTime: gridTime,
   durationMin: duration,
+  /** The owner confirmed saving on top of another visit ("Vis tiek registruoti"). */
+  allowOverlap: z.boolean().optional().default(false),
 });
 export type RescheduleInput = z.input<typeof rescheduleSchema>;
 

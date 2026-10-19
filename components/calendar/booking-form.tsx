@@ -51,6 +51,7 @@ import {
 } from "@/lib/clock";
 import { cn } from "@/lib/utils";
 import { worksOn } from "@/lib/schedule";
+import { useOverlapConfirm } from "./overlap-confirm";
 
 export type BookingDefaults = {
   groomerId: string;
@@ -61,6 +62,8 @@ export type BookingDefaults = {
   petId?: string | null;
   /** Change this existing visit instead of creating one (client fixed). */
   edit?: CalendarBooking;
+  /** Opened from "Pridėti persidengiantį vizitą" on this visit: show a hint. */
+  sameTimeAs?: CalendarBooking;
 };
 
 const START_TIMES = BOOKING_START_TIMES;
@@ -114,7 +117,7 @@ export function BookingSheet({
   const mode = picked.for === defaults ? picked.mode : "booking";
   const setMode = (m: "booking" | "block") => setPicked({ for: defaults, mode: m });
   // A booking opened for a chosen client (client / pet page) is always a visit.
-  const canBlock = defaults !== null && !defaults.client && !defaults.petId;
+  const canBlock = defaults !== null && !defaults.client && !defaults.petId && !defaults.sameTimeAs;
 
   return (
     <Sheet open={defaults !== null} onOpenChange={(o) => !o && onClose()}>
@@ -202,6 +205,7 @@ function BookingForm({
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   const [pending, startTransition] = React.useTransition();
+  const overlap = useOverlapConfirm();
 
   const pets = client.mode === "existing" ? client.option.pets : [];
   const itemsSum = items.reduce((s, i) => s + i.durationMin, 0);
@@ -477,7 +481,8 @@ function BookingForm({
       notes,
     };
 
-    startTransition(async () => {
+    /** Save; `allowOverlap` after the owner confirmed booking on top of another visit. */
+    async function save(allowOverlap: boolean): Promise<boolean> {
       const res = edit
         ? await updateBooking({
             id: edit.id,
@@ -488,8 +493,18 @@ function BookingForm({
             items: input.items,
             rememberFamily: input.rememberFamily,
             notes,
+            allowOverlap,
           })
-        : await createBooking(input);
+        : await createBooking({ ...input, allowOverlap });
+      if (res.overlap && !allowOverlap) {
+        // Another visit at this time: ask before putting this one next to it.
+        overlap.ask({
+          groomer: groomer?.name ?? "",
+          visits: res.overlap.visits,
+          retry: () => save(true),
+        });
+        return false;
+      }
       if (res.ok) {
         const petNames = items
           .flatMap((i) =>
@@ -500,16 +515,21 @@ function BookingForm({
           .filter(Boolean)
           .join(", ");
         toast({
-          title: edit ? t("changed") : t("saved"),
+          title: allowOverlap ? t("overlapSaved") : edit ? t("changed") : t("saved"),
           description: [res.summary?.range, petNames].filter(Boolean).join(", "),
         });
         onSaved(date);
-        return;
+        return true;
       }
       setError(res.error ?? null);
       setFieldErrors(res.fieldErrors ?? {});
       if (!res.fieldErrors) toast({ title: res.error ?? "", tone: "danger" });
       bodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      return true;
+    }
+
+    startTransition(async () => {
+      await save(false);
     });
   }
 
@@ -538,6 +558,15 @@ function BookingForm({
         ) : null}
 
         {edit?.status === "completed" ? <Alert tone="info">{t("editCompletedNote")}</Alert> : null}
+
+        {defaults.sameTimeAs ? (
+          <Alert tone="info">
+            <span className="font-semibold tabular-nums">
+              {`${defaults.sameTimeAs.startTime}–${defaults.sameTimeAs.endTime} · ${defaults.sameTimeAs.items.map((i) => i.petName).join(", ")}`}
+            </span>{" "}
+            {t("addSameTimeHint")}
+          </Alert>
+        ) : null}
 
         {/* When + who (a completed visit keeps its time) */}
         <div className={cn("grid grid-cols-2 gap-3", edit?.status === "completed" && "hidden")}>
@@ -874,6 +903,7 @@ function BookingForm({
           {pending ? tc("saving") : tc("save")}
         </Button>
       </SheetFooter>
+      {overlap.dialog}
     </form>
   );
 }

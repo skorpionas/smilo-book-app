@@ -161,7 +161,7 @@ test("pet page books the whole family together", async ({ page }) => {
 });
 
 // Pet first, client optional (owner feedback 2026-10-16)
-const WEEKS_NO_CLIENT: Record<string, number> = { mobile: 15, tablet: 16, desktop: 17 };
+const WEEKS_NO_CLIENT: Record<string, number> = { mobile: 28, tablet: 29, desktop: 17 };
 
 test("a new pet gets its own family; its contact can be added later", async ({ page }) => {
   const name = `Testukas${Date.now().toString().slice(-6)}`;

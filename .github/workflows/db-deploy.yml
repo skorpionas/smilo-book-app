@@ -2,9 +2,13 @@ name: DB migrations
 
 # dev:        every push to main that changes supabase/migrations applies them to the
 #             DEV project (Vercel previews use it).
+#             Before merging: add the label "db-dev" to a PR with new migrations — they
+#             are applied to DEV (and again on every new push while the label is on), so
+#             the PR's Vercel preview can be tested end to end. Never production.
 # production: runs after dev on the same push, gated by the "production" GitHub
 #             environment (required reviewer approves the run). Can also be started
-#             by hand (Actions → DB migrations → Run workflow → production).
+#             by hand (Actions → DB migrations → Run workflow → production), from
+#             main only: an unmerged branch can never reach production.
 #
 # Each job reads SUPABASE_PROJECT_REF / SUPABASE_ACCESS_TOKEN / SUPABASE_DB_PASSWORD
 # from ITS OWN GitHub environment, so dev and prod credentials never mix.
@@ -12,6 +16,9 @@ name: DB migrations
 on:
   push:
     branches: [main]
+    paths: ["supabase/migrations/**"]
+  pull_request:
+    types: [labeled, synchronize]
     paths: ["supabase/migrations/**"]
   workflow_dispatch:
     inputs:
@@ -25,11 +32,20 @@ concurrency:
   group: db-migrations
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 # EXPECTED_REF per job = public project ref (docs/environments.md). The guard step
 # refuses to run if an environment's SUPABASE_PROJECT_REF points at the wrong database.
 jobs:
   dev:
-    if: github.event_name == 'push' || inputs.target == 'dev'
+    # push to main; by hand (any branch); a PR from this repo carrying the "db-dev" label
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.target == 'dev') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       contains(github.event.pull_request.labels.*.name, 'db-dev'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: dev
@@ -64,6 +80,7 @@ jobs:
     # after dev on a push; on its own when started by hand with target=production
     if: >-
       always() &&
+      github.ref == 'refs/heads/main' &&
       ((github.event_name == 'push' && needs.dev.result == 'success') ||
        (github.event_name == 'workflow_dispatch' && inputs.target == 'production'))
     runs-on: ubuntu-latest

@@ -234,7 +234,8 @@ describe("bookingSchema", () => {
 
   it("validates a reschedule the same way", () => {
     const move = { id: ID, groomerId: ID, date: "2026-10-15", startTime: "09:00", durationMin: 90 };
-    expect(rescheduleSchema.parse(move)).toEqual(move);
+    expect(rescheduleSchema.parse(move)).toEqual({ ...move, allowOverlap: false });
+    expect(rescheduleSchema.parse({ ...move, allowOverlap: true }).allowOverlap).toBe(true);
     expect(errors(rescheduleSchema.safeParse({ ...move, date: "2026-10-01" }))).toEqual({ date: "pastDate" });
     expect(errors(rescheduleSchema.safeParse({ ...move, startTime: "09:05" }))).toEqual({
       startTime: "offGrid",

@@ -58,7 +58,29 @@ strings or console breadcrumbs (`lib/sentry.ts`). Speed Insights needs no variab
 1. `supabase migration new <name>` locally, test with `pnpm db:reset` + `pnpm db:test`, commit.
 2. Merge to `main` → **DB migrations** workflow (`db-deploy.yml`): job `dev` pushes to DEV, then job
    `production` waits for the `production` environment reviewer, runs `db push --dry-run`, then `db push`.
-3. Manual run: GitHub → Actions → DB migrations → Run workflow → target `dev` or `production`.
+3. Manual run: GitHub → Actions → DB migrations → Run workflow → target `dev` (any branch) or `production`
+   (`main` only — the job refuses other branches).
+
+### Testing a PR with migrations before merging
+
+The PR's Vercel preview already uses the DEV database; only its migrations are missing there.
+
+1. Add the label **`db-dev`** to the PR. The `dev` job applies the PR's migrations (main + the PR) to DEV; it runs
+   again on every new push while the label is on. Production is never touched.
+2. Open the preview link from the PR (Vercel comment) and test the whole flow on DEV data.
+3. Merge. The push to `main` finds the migration already on DEV (nothing to do there) and the `production` job
+   waits for approval as usual.
+
+Rules, because DEV then runs ahead of `main`:
+
+- **Don't edit a migration after it reached DEV.** `db push` goes by version number only, so the change would never
+  be applied. Add a new migration file instead (or reset DEV, below).
+- **One PR with migrations on DEV at a time.** A second PR's run fails on the first one's version
+  ("remote migration versions not found locally") until that PR is merged.
+- **Closing such a PR without merging:** undo its schema changes on DEV (Supabase SQL editor), then mark it
+  not applied: `pnpm exec supabase link --project-ref gfnrlbpiqdmlkuyhbwde` and
+  `pnpm exec supabase migration repair --status reverted <version>`. Or rebuild DEV from scratch with
+  `pnpm exec supabase db reset --linked` (DEV holds only test data; re-create the test login afterwards).
 
 Never edit an applied migration. Both hosted projects record the same versions in
 `supabase_migrations.schema_migrations` (PROD was initialised on 2026-10-14 with 20261019080000–080300).

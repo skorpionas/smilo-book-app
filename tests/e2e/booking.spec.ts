@@ -93,7 +93,7 @@ test("book an existing client, then hit the overlap rule (US-05, US-09)", async 
     page.getByRole("button", { name: new RegExp(`^${start}–${end}, .+, Rasa Petrauskienė$`) }),
   ).toBeVisible();
 
-  // Same groomer, overlapping time → nothing saved, Lithuanian message naming the conflict.
+  // Same groomer, overlapping time → asked first, naming the visit in the way; "Ne" saves nothing.
   await page.getByRole("button", { name: `Registruoti: Meistrė A, ${end}` }).click();
   await sheet.getByLabel("Pradžia").selectOption(overlapStart);
   await sheet.getByPlaceholder("Augintinis, klientas ar telefonas").fill("Petrausk");
@@ -101,12 +101,53 @@ test("book an existing client, then hit the overlap rule (US-05, US-09)", async 
   await sheet.getByLabel("Augintinis", { exact: true }).selectOption({ index: 1 });
   await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
   await sheet.getByRole("button", { name: "Išsaugoti" }).click();
-  await expect(sheet.getByText(`Šis laikas jau užimtas: ${start}–${end}`)).toBeVisible();
+  const ask = page.getByRole("dialog", { name: "Šis laikas jau užimtas" });
+  await expect(ask.getByText(`Meistrė A tuo metu jau turi: ${start}–${end} · Maksas`)).toBeVisible();
+  await ask.getByRole("button", { name: "Ne, keisti laiką" }).click();
+  await expect(ask).toHaveCount(0);
+  await expect(page.getByRole("button", { name: new RegExp(`^${overlapStart}–`) })).toHaveCount(0);
 
   // Groomer B is free at that time.
   await sheet.getByLabel("Meistrė").selectOption({ label: "Meistrė B" });
   await sheet.getByRole("button", { name: "Išsaugoti" }).click();
   await expect(page.getByText("Registracija išsaugota").first()).toBeVisible();
+});
+
+test("overlapping visits for one groomer, after confirming", async ({ page }, testInfo) => {
+  const day = futureSunday({ mobile: 25, tablet: 26, desktop: 27 }[testInfo.project.name] ?? 27);
+  const hour = 9 + testInfo.retry * 4;
+  const start = `${String(hour).padStart(2, "0")}:00`;
+  const nails = `${String(hour).padStart(2, "0")}:30`;
+  const sheet = page.getByRole("dialog").first();
+
+  await login(page, `/calendar?date=${day}`);
+  await page.getByRole("button", { name: `Registruoti: Meistrė A, ${start}` }).click();
+  await sheet.getByPlaceholder("Augintinis, klientas ar telefonas").fill("Petrausk");
+  await sheet.getByRole("button", { name: "Pasirinkti Maksas (Rasa Petrauskienė)" }).click();
+  await sheet.getByLabel("Augintinis", { exact: true }).selectOption({ index: 1 });
+  await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
+  await sheet.getByRole("button", { name: "Išsaugoti" }).click();
+  await expect(page.getByText("Registracija išsaugota").first()).toBeVisible();
+
+  // From the visit: "Pridėti persidengiantį vizitą" opens a new booking at its start; any overlapping time works.
+  await page.getByRole("button", { name: new RegExp(`^${start}–.+, Rasa Petrauskienė$`) }).click();
+  await sheet.getByRole("button", { name: "Pridėti persidengiantį vizitą" }).click();
+  await expect(sheet.getByRole("heading", { name: "Nauja registracija" })).toBeVisible();
+  await expect(sheet.getByLabel("Pradžia")).toHaveValue(start);
+  await sheet.getByLabel("Pradžia").selectOption(nails);
+  await sheet.getByPlaceholder("Augintinis, klientas ar telefonas").fill("Petrausk");
+  await sheet.getByRole("button", { name: "Pasirinkti Maksas (Rasa Petrauskienė)" }).click();
+  await sheet.getByLabel("Augintinis", { exact: true }).selectOption({ index: 1 });
+  await sheet.getByLabel("Paslauga").selectOption({ label: "Pilnas kirpimas" });
+  await sheet.getByLabel("Visa trukmė").selectOption("30");
+  await sheet.getByRole("button", { name: "Išsaugoti" }).click();
+
+  const ask = page.getByRole("dialog", { name: "Šis laikas jau užimtas" });
+  await ask.getByRole("button", { name: "Taip, registruoti" }).click();
+  await expect(page.getByText("Užregistruota – persidengia su kitu vizitu").first()).toBeVisible();
+
+  // Both visits stay on the grid, side by side.
+  await expect(page.getByRole("button", { name: /· Persidengia$/ })).toHaveCount(2);
 });
 
 test("change the time, cancel and delete a booking (US-10)", async ({ page }, testInfo) => {
