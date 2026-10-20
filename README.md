@@ -148,3 +148,18 @@ supabase/tests/        pgTAP: overlap constraint, RLS, RPC functions
   finishing or cancelling an overlapping visit is never blocked. Blocked time is never shared.
 - **Side by side.** Overlapping cards in a lane split its width (`lib/side-by-side.ts`) and use the narrow layout;
   screen readers hear "· Persidengia".
+
+## Decisions: blocked time over several days (owner feedback 2026-10-20)
+
+- **A period, not only a date.** "Nedarbo laikas" has "Data nuo" / "Data iki" (at most 62 days). Choosing a later
+  "Data iki" ticks "Visa diena"; specific hours repeat on each day.
+- **One row per groomer and day,** linked by `bookings.block_group` (only blocked time carries it). The calendar,
+  drag-and-drop and overlap rules keep working per day; one long row would also cover nights and closed days.
+- **Days off are skipped** over several days (each groomer's `work_days`), so a vacation adds no "off day" lanes. A
+  single date is kept as chosen, even on a day off.
+- **All or nothing.** If anything is already booked in the period, nothing is saved and the error lists what is in
+  the way with its date ("2026-11-04 10:00–12:00, Maksas").
+- **Deleting** a day of a period asks "Tik šią dieną" / "Visą laikotarpį"; moving one day by drag-and-drop moves
+  only that day. Editing the whole period at once is not offered.
+- **Safe before the migration is approved:** `block_group` is sent only for multi-day periods, and the period lookup
+  in the block's sheet returns nothing while the column is missing.

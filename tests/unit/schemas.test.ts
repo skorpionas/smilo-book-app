@@ -434,6 +434,25 @@ describe("blockSchema (US-16)", () => {
     expect(errors(blockSchema.safeParse({ ...block, startTime: "12:10" }))).toEqual({ startTime: "offGrid" });
     expect(blockSchema.safeParse({ ...block, groomerIds: [ID, ID] }).success).toBe(false);
   });
+
+  it("takes a period: the last day defaults to the first", () => {
+    expect(blockSchema.parse(block).dateTo).toBe("2026-10-16");
+    expect(blockSchema.parse({ ...block, dateTo: "" }).dateTo).toBe("2026-10-16");
+    expect(blockSchema.parse({ ...block, dateTo: "2026-10-26" }).dateTo).toBe("2026-10-26");
+  });
+
+  it("rejects a period that ends before it starts or is longer than 62 days", () => {
+    expect(errors(blockSchema.safeParse({ ...block, dateTo: "2026-10-15" }))).toEqual({
+      dateTo: "dateToBeforeFrom",
+    });
+    expect(blockSchema.safeParse({ ...block, dateTo: "2026-12-16" }).success).toBe(true); // 62 days
+    expect(errors(blockSchema.safeParse({ ...block, dateTo: "2026-12-17" }))).toEqual({
+      dateTo: "periodTooLong",
+    });
+    expect(errors(blockSchema.safeParse({ ...block, dateTo: "2026-13-01" }))).toEqual({
+      dateTo: "invalidDate",
+    });
+  });
 });
 
 describe("updateBookingSchema (change a visit's services)", () => {

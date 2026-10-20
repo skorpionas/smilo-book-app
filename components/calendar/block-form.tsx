@@ -19,6 +19,7 @@ import {
   timeToMinutes,
   vilniusClock,
 } from "@/lib/clock";
+import { datesBetween, shiftDate } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
 
 export type BlockDefaults = { groomerId: string; date: string; startTime: string };
@@ -68,8 +69,9 @@ export function SheetModeSwitch({
 }
 
 /**
- * US-16: blocked time for one or both groomers — date, from–to (or the whole working
- * day) and an optional reason. Shown in the calendar; nothing can be booked over it.
+ * US-16: blocked time for one or both groomers — one date or a period (vacation,
+ * sick leave), from–to each day (or the whole working day) and an optional reason.
+ * Shown in the calendar; nothing can be booked over it.
  */
 export function BlockForm({
   defaults,
@@ -85,6 +87,7 @@ export function BlockForm({
   const startDefault = BOOKING_START_TIMES.includes(defaults.startTime) ? defaults.startTime : DAY_OPEN;
   const [groomerIds, setGroomerIds] = React.useState<string[]>([defaults.groomerId]);
   const [date, setDate] = React.useState(defaults.date);
+  const [dateTo, setDateTo] = React.useState(defaults.date);
   const [startTime, setStartTime] = React.useState(startDefault);
   const [endTime, setEndTime] = React.useState(() =>
     minutesToTime(Math.min(timeToMinutes(startDefault) + 60, timeToMinutes(END_TIMES.at(-1)!))),
@@ -96,6 +99,29 @@ export function BlockForm({
 
   const allSelected = groomers.length > 1 && groomers.every((g) => groomerIds.includes(g.id));
   const wholeDay = startTime === DAY_OPEN && endTime === DAY_CLOSE;
+  const dayCount = dateTo >= date ? datesBetween(date, dateTo).length : 0;
+  const multiDay = dayCount > 1;
+
+  function changeDate(value: string) {
+    setDate(value);
+    // keep the period's length when its start moves
+    if (value && dateTo && date && dateTo >= date) {
+      const length = datesBetween(date, dateTo).length - 1;
+      setDateTo(length > 0 ? shiftDate(value, length) : value);
+    } else {
+      setDateTo(value);
+    }
+  }
+
+  function changeDateTo(value: string) {
+    const wasSingle = dateTo === date;
+    setDateTo(value);
+    // a vacation or sick leave is usually whole days
+    if (wasSingle && value > date) {
+      setStartTime(DAY_OPEN);
+      setEndTime(DAY_CLOSE);
+    }
+  }
 
   function toggleGroomer(id: string) {
     setGroomerIds((prev) => (prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id]));
@@ -114,10 +140,10 @@ export function BlockForm({
     setError(null);
     setFieldErrors({});
     startTransition(async () => {
-      const res = await createBlock({ groomerIds, date, startTime, endTime, reason });
+      const res = await createBlock({ groomerIds, date, dateTo, startTime, endTime, reason });
       if (res.ok) {
         toast({
-          title: t("saved"),
+          title: multiDay ? t("savedPeriod") : t("saved"),
           description: [res.summary?.range, reason.trim()].filter(Boolean).join(", "),
         });
         onSaved(date);
@@ -188,20 +214,41 @@ export function BlockForm({
           ) : null}
         </fieldset>
 
-        <Field id="block-date" label={t("date")} error={fe.date}>
-          {(p) => (
-            <Input
-              {...p}
-              type="date"
-              min={vilniusClock().date}
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
-            />
-          )}
-        </Field>
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-3">
+            <Field id="block-date" label={t("dateFrom")} error={fe.date}>
+              {(p) => (
+                <Input
+                  {...p}
+                  type="date"
+                  min={vilniusClock().date}
+                  value={date}
+                  onChange={(e) => changeDate(e.target.value)}
+                  required
+                />
+              )}
+            </Field>
+            <Field id="block-date-to" label={t("dateTo")} error={fe.dateTo}>
+              {(p) => (
+                <Input
+                  {...p}
+                  type="date"
+                  min={date || vilniusClock().date}
+                  value={dateTo}
+                  onChange={(e) => changeDateTo(e.target.value)}
+                  required
+                />
+              )}
+            </Field>
+          </div>
+          <p className="text-muted text-sm" aria-live="polite">
+            {multiDay ? `${t("periodDays", { count: dayCount })}. ` : ""}
+            {t("periodHint")}
+          </p>
+        </div>
 
         <div className="space-y-3">
+          {multiDay ? <p className="text-foreground text-sm font-medium">{t("timeEachDay")}</p> : null}
           <label className="flex min-h-11 cursor-pointer items-center gap-3 text-base">
             <input
               type="checkbox"

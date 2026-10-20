@@ -25,6 +25,8 @@ export type ErrorKey =
   | "pastDate"
   | "contactRequired"
   | "endBeforeStart"
+  | "dateToBeforeFrom"
+  | "periodTooLong"
   | "invalid";
 
 const err = (key: ErrorKey) => ({ error: key });
@@ -132,6 +134,8 @@ const KNOWN = new Set<string>([
   "pastDate",
   "contactRequired",
   "endBeforeStart",
+  "dateToBeforeFrom",
+  "periodTooLong",
   "invalid",
 ]);
 

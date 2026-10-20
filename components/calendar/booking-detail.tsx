@@ -37,7 +37,14 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/toast";
-import { cancelBooking, deleteBooking, rescheduleBooking } from "@/lib/actions/bookings";
+import {
+  cancelBooking,
+  deleteBlockPeriod,
+  deleteBooking,
+  getBlockPeriod,
+  rescheduleBooking,
+  type BlockPeriod,
+} from "@/lib/actions/bookings";
 import { groupItems } from "@/lib/booking-groups";
 import type { CalendarBooking, CalendarGroomer, CalendarService } from "@/lib/calendar-data";
 import { BOOKING_START_TIMES, DAY_CLOSE, DAY_OPEN, timeToMinutes, vilniusClock } from "@/lib/clock";
@@ -90,6 +97,20 @@ export function BookingDetailSheet({
     setChangingServices(false);
   }
   const b = booking ?? shown;
+  // Blocked time saved over several days: its period, for "Visą laikotarpį".
+  const [period, setPeriod] = React.useState<{ id: string; value: BlockPeriod | null } | null>(null);
+  const blockId = booking?.kind === "block" ? booking.id : null;
+  React.useEffect(() => {
+    if (!blockId) return;
+    let live = true;
+    getBlockPeriod(blockId)
+      .then((value) => live && setPeriod({ id: blockId, value }))
+      .catch(() => live && setPeriod({ id: blockId, value: null }));
+    return () => {
+      live = false;
+    };
+  }, [blockId]);
+  const blockPeriod = b && period?.id === b.id ? period.value : null;
   const groomer = groomers.find((g) => g.id === b?.groomerId) ?? null;
   const editable = b !== null && b.status === "scheduled";
   const servicesEditable =
@@ -105,6 +126,21 @@ export function BookingDetailSheet({
       toast({
         title: b.kind === "block" ? t("blockDeleted") : t("deleted"),
         description: `${b.date} ${b.startTime}–${b.endTime}`,
+      });
+      onClose();
+      return true;
+    }
+    toast({ title: res.error ?? "", tone: "danger" });
+    return false;
+  }
+
+  async function removePeriod() {
+    if (!b) return true;
+    const res = await deleteBlockPeriod(b.id);
+    if (res.ok) {
+      toast({
+        title: t("blockPeriodDeleted"),
+        description: blockPeriod ? `${blockPeriod.from} – ${blockPeriod.to}` : undefined,
       });
       onClose();
       return true;
@@ -171,6 +207,11 @@ export function BookingDetailSheet({
                       {t("blockTitle")}
                     </p>
                     {b.blockReason ? <p className="text-foreground-soft">{b.blockReason}</p> : null}
+                    {blockPeriod ? (
+                      <p className="text-foreground-soft tabular-nums">
+                        {t("blockPeriod", { from: blockPeriod.from, to: blockPeriod.to })}
+                      </p>
+                    ) : null}
                   </div>
                 ) : (
                   <>
@@ -348,10 +389,17 @@ export function BookingDetailSheet({
         open={deleting}
         onOpenChange={setDeleting}
         title={b?.kind === "block" ? t("deleteBlockTitle") : t("deleteTitle")}
-        description={b?.kind === "block" ? t("deleteBlockText") : t("deleteText")}
-        confirmLabel={t("delete")}
+        description={
+          b?.kind !== "block"
+            ? t("deleteText")
+            : blockPeriod
+              ? t("deleteBlockPeriodText", { ...blockPeriod })
+              : t("deleteBlockText")
+        }
+        confirmLabel={blockPeriod ? t("deleteBlockPeriod") : t("delete")}
         cancelLabel={t("keep")}
-        onConfirm={remove}
+        onConfirm={blockPeriod ? removePeriod : remove}
+        secondary={blockPeriod ? { label: t("deleteBlockDay"), onConfirm: remove } : undefined}
       />
     </>
   );

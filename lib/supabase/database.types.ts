@@ -80,6 +80,7 @@ export type Database = {
       };
       bookings: {
         Row: {
+          block_group: string | null;
           block_reason: string;
           cancelled_at: string | null;
           client_id: string | null;
@@ -98,6 +99,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          block_group?: string | null;
           block_reason?: string;
           cancelled_at?: string | null;
           client_id?: string | null;
@@ -116,6 +118,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          block_group?: string | null;
           block_reason?: string;
           cancelled_at?: string | null;
           client_id?: string | null;

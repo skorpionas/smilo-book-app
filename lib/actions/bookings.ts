@@ -17,7 +17,9 @@ import {
   type UpdateBookingInput,
 } from "@/lib/schemas/booking";
 import { uuid } from "@/lib/schemas/common";
+import { DAY_CLOSE, DAY_OPEN } from "@/lib/clock";
 import { contactLabel, formatPhone } from "@/lib/phone";
+import { blockDays } from "@/lib/schedule";
 import { createClient } from "@/lib/supabase/server";
 import { todayInVilnius, toVilniusDate, toVilniusTime, vilniusToUtc } from "@/lib/time";
 
@@ -378,22 +380,48 @@ export async function createBlock(input: BlockInput): Promise<CreateBookingResul
   const parsed = blockSchema.safeParse(input);
   if (!parsed.success) return validationFailed(parsed.error.issues);
 
-  const { groomerIds, date, startTime, endTime, reason } = parsed.data;
-  const start = vilniusToUtc(date, startTime);
-  const end = vilniusToUtc(date, endTime);
+  const { groomerIds, date, dateTo, startTime, endTime, reason } = parsed.data;
   const supabase = await createClient();
-  const { error } = await supabase.from("bookings").insert(
-    groomerIds.map((groomerId) => ({
-      kind: "block" as const,
-      groomer_id: groomerId,
-      start_at: start.toISOString(),
-      end_at: end.toISOString(),
-      block_reason: reason,
-    })),
-  );
+  const t = await getTranslations("errors");
+
+  // One date: exactly as chosen. Several days: one row per groomer and working day.
+  const multiDay = dateTo !== date;
+  let days: { groomerId: string; date: string }[];
+  if (multiDay) {
+    const { data: groomers, error: gErr } = await supabase
+      .from("groomers")
+      .select("id, work_days")
+      .in("id", groomerIds);
+    if (gErr) return dbFailed(gErr, "createBlock");
+    if ((groomers ?? []).length !== groomerIds.length) return dbFailed({ code: "P0002" }, "createBlock");
+    days = blockDays(
+      (groomers ?? []).map((g) => ({ id: g.id, workDays: g.work_days })),
+      date,
+      dateTo,
+    );
+    if (days.length === 0) return { ok: false, error: t("blockNoWorkDays") };
+  } else {
+    days = groomerIds.map((groomerId) => ({ groomerId, date }));
+  }
+
+  // The column only exists after the block_group migration: send it only when needed,
+  // so single-day blocks keep working on production until it is approved.
+  const group = multiDay ? crypto.randomUUID() : null;
+  const rows = days.map((d) => ({
+    kind: "block" as const,
+    groomer_id: d.groomerId,
+    start_at: vilniusToUtc(d.date, startTime).toISOString(),
+    end_at: vilniusToUtc(d.date, endTime).toISOString(),
+    block_reason: reason,
+    ...(group ? { block_group: group } : {}),
+  }));
+  const { error } = await supabase.from("bookings").insert(rows);
 
   if (error) {
     if (error.code === "23P01") {
+      if (multiDay) return periodConflictResult(groomerIds, rows);
+      const start = vilniusToUtc(date, startTime);
+      const end = vilniusToUtc(date, endTime);
       // Name the first thing in the way, for whichever groomer it is.
       for (const groomerId of groomerIds) {
         const message = await findConflict(groomerId, start, end);
@@ -402,15 +430,128 @@ export async function createBlock(input: BlockInput): Promise<CreateBookingResul
         const { data: g } = await supabase.from("groomers").select("name").eq("id", groomerId).maybeSingle();
         return { ok: false, error: g?.name ? `${g.name}. ${message}` : message };
       }
-      return { ok: false, error: (await getTranslations("errors"))("slotTakenUnknown") };
+      return { ok: false, error: t("slotTakenUnknown") };
     }
     return dbFailed(error, "createBlock");
   }
 
   revalidatePath("/calendar", "layout");
   revalidatePath("/upcoming");
-  const range = `${toVilniusTime(start)}–${toVilniusTime(end)}`;
+  const hours = `${startTime}–${endTime}`;
+  const wholeDay = startTime === DAY_OPEN && endTime === DAY_CLOSE;
+  const range = multiDay ? [`${date} – ${dateTo}`, wholeDay ? "" : hours].filter(Boolean).join(", ") : hours;
   return { ok: true, savedAt: Date.now(), summary: { range } };
+}
+
+/**
+ * A blocked-time period hits other bookings or blocks (23P01): list them with their
+ * date ("2026-11-04 10:00–12:00, Maksas"), so the owner can move them first.
+ */
+async function periodConflictResult(
+  groomerIds: string[],
+  rows: { groomer_id: string; start_at: string; end_at: string }[],
+): Promise<CreateBookingResult> {
+  const t = await getTranslations("errors");
+  const tb = await getTranslations("block");
+  const supabase = await createClient();
+  const from = rows.reduce((m, r) => (r.start_at < m ? r.start_at : m), rows[0].start_at);
+  const to = rows.reduce((m, r) => (r.end_at > m ? r.end_at : m), rows[0].end_at);
+  const [{ data }, { data: groomers }] = await Promise.all([
+    supabase
+      .from("bookings")
+      .select("kind, groomer_id, start_at, end_at, booking_items(position, pets(name))")
+      .in("groomer_id", groomerIds)
+      .neq("status", "cancelled")
+      .lt("start_at", to)
+      .gt("end_at", from)
+      .order("start_at")
+      .limit(200),
+    supabase.from("groomers").select("id, name").in("id", groomerIds),
+  ]);
+  const names = new Map((groomers ?? []).map((g) => [g.id, g.name]));
+  const hits = (data ?? []).filter((b) =>
+    rows.some((r) => r.groomer_id === b.groomer_id && r.start_at < b.end_at && r.end_at > b.start_at),
+  );
+  if (hits.length === 0) return { ok: false, error: t("slotTakenUnknown") };
+
+  const lines = hits.map((b) => {
+    const what =
+      b.kind === "block"
+        ? tb("title").toLowerCase()
+        : [...b.booking_items]
+            .sort((x, y) => x.position - y.position)
+            .map((i) => i.pets?.name)
+            .filter((n, i, all): n is string => Boolean(n) && all.indexOf(n) === i)
+            .join(", ");
+    const who = groomerIds.length > 1 ? `${names.get(b.groomer_id) ?? ""}: ` : "";
+    const when = `${toVilniusDate(b.start_at)} ${toVilniusTime(b.start_at)}–${toVilniusTime(b.end_at)}`;
+    return `${who}${when}${what ? `, ${what}` : ""}`;
+  });
+  const shown = lines.slice(0, 5).join("; ");
+  const list = lines.length > 5 ? `${shown} (+${lines.length - 5})` : shown;
+  return { ok: false, error: t("blockPeriodTaken", { list }) };
+}
+
+export type BlockPeriod = { from: string; to: string; count: number };
+
+/**
+ * The period a blocked-time row was saved with (several days at once), or null for a
+ * single block. Null as well while the block_group migration is not yet applied.
+ */
+export async function getBlockPeriod(id: string): Promise<BlockPeriod | null> {
+  await requireUser();
+  if (!uuid.safeParse(id).success) return null;
+  const supabase = await createClient();
+  const { data: row, error } = await supabase
+    .from("bookings")
+    .select("block_group")
+    .eq("id", id)
+    .eq("kind", "block")
+    .maybeSingle();
+  if (error || !row?.block_group) return null;
+  const { data: rows } = await supabase
+    .from("bookings")
+    .select("start_at")
+    .eq("block_group", row.block_group)
+    .eq("kind", "block")
+    .eq("status", "scheduled")
+    .order("start_at");
+  if (!rows || rows.length < 2) return null;
+  return {
+    from: toVilniusDate(rows[0].start_at),
+    to: toVilniusDate(rows.at(-1)!.start_at),
+    count: rows.length,
+  };
+}
+
+export type DeletePeriodResult = ActionState & { count?: number };
+
+/** Delete every blocked-time row saved together with this one ("Visą laikotarpį"). */
+export async function deleteBlockPeriod(id: string): Promise<DeletePeriodResult> {
+  await requireUser();
+  if (!uuid.safeParse(id).success) return dbFailed({ code: "22023" }, "deleteBlockPeriod");
+  const supabase = await createClient();
+  const { data: row, error: readErr } = await supabase
+    .from("bookings")
+    .select("block_group")
+    .eq("id", id)
+    .eq("kind", "block")
+    .maybeSingle();
+  if (readErr) return dbFailed(readErr, "deleteBlockPeriod");
+  if (!row?.block_group) return dbFailed({ code: "P0002" }, "deleteBlockPeriod");
+  const { data, error } = await supabase
+    .from("bookings")
+    .delete()
+    .eq("block_group", row.block_group)
+    .eq("kind", "block")
+    .eq("status", "scheduled")
+    .select("id");
+  if (error) return dbFailed(error, "deleteBlockPeriod");
+  if (!data || data.length === 0) return dbFailed({ code: "P0002" }, "deleteBlockPeriod");
+
+  revalidatePath("/calendar", "layout");
+  revalidatePath("/upcoming");
+  return { ok: true, savedAt: Date.now(), id, count: data.length };
 }
 
 type Conflict = { kind: "booking" | "block"; range: string; pets: string };
