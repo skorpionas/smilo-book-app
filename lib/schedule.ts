@@ -35,3 +35,36 @@ export function lanesForDate<G extends ScheduleGroomer>(
     return [];
   });
 }
+
+/** Most days one blocked-time period may cover (vacation, sick leave). */
+export const BLOCK_MAX_DAYS = 62;
+
+/** "YYYY-MM-DD" moved by `days` (calendar days; client-safe, no date-fns). */
+export function shiftDate(date: DateStr, days: number): DateStr {
+  return new Date(Date.parse(`${date}T12:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** Dates from `from` to `to`, both included ("YYYY-MM-DD"); empty when `to` < `from`, capped at 367. */
+export function datesBetween(from: DateStr, to: DateStr): DateStr[] {
+  const out: DateStr[] = [];
+  for (let d = from; d <= to && out.length <= 366; d = shiftDate(d, 1)) out.push(d);
+  return out;
+}
+
+/**
+ * The days a blocked-time period is saved on, one entry per groomer and day.
+ * A single date is kept as chosen, even on a groomer's day off (an exception the
+ * owner picked on purpose). Over several days, each groomer's days off are skipped,
+ * so a vacation does not fill her Sundays with "off day" lanes.
+ */
+export function blockDays(
+  groomers: readonly ScheduleGroomer[],
+  from: DateStr,
+  to: DateStr,
+): { groomerId: string; date: DateStr }[] {
+  const dates = datesBetween(from, to);
+  if (dates.length === 1) return groomers.map((g) => ({ groomerId: g.id, date: dates[0] }));
+  return groomers.flatMap((g) =>
+    dates.filter((date) => worksOn(g, date)).map((date) => ({ groomerId: g.id, date })),
+  );
+}

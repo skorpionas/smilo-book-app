@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatWorkDays } from "@/lib/clock";
-import { isoWeekdayOf, lanesForDate, worksOn } from "@/lib/schedule";
+import { blockDays, datesBetween, isoWeekdayOf, lanesForDate, shiftDate, worksOn } from "@/lib/schedule";
 import { addMonths, isoWeekNumber, monthTitle, monthWeeks, startOfMonth } from "@/lib/time";
 import lt from "@/messages/lt.json";
 
@@ -72,5 +72,37 @@ describe("month helpers", () => {
     expect(isoWeekNumber("2027-01-01")).toBe(53);
     expect(monthTitle("2026-10-01")).toBe("2026 m. spalis");
     expect(() => monthTitle("nope")).toThrow();
+  });
+});
+
+describe("blocked time over several days", () => {
+  it("lists the dates of a period, across the DST change and month ends", () => {
+    expect(datesBetween("2026-10-24", "2026-10-26")).toEqual(["2026-10-24", "2026-10-25", "2026-10-26"]);
+    expect(datesBetween("2026-10-30", "2026-11-02")).toHaveLength(4);
+    expect(datesBetween("2026-12-31", "2027-01-01")).toEqual(["2026-12-31", "2027-01-01"]);
+    expect(datesBetween("2026-10-26", "2026-10-25")).toEqual([]);
+    expect(shiftDate("2026-03-28", 2)).toBe("2026-03-30");
+  });
+
+  it("keeps a single date as chosen, even on a day off", () => {
+    expect(blockDays([A, B], "2026-10-25", "2026-10-25")).toEqual([
+      { groomerId: "a", date: "2026-10-25" },
+      { groomerId: "b", date: "2026-10-25" },
+    ]);
+  });
+
+  it("skips each groomer's days off over several days", () => {
+    // Mon 19 … Sun 25: A works Mon–Sat, B only Mondays
+    const days = blockDays([A, B], "2026-10-19", "2026-10-25");
+    expect(days.filter((d) => d.groomerId === "a").map((d) => d.date)).toEqual([
+      "2026-10-19",
+      "2026-10-20",
+      "2026-10-21",
+      "2026-10-22",
+      "2026-10-23",
+      "2026-10-24",
+    ]);
+    expect(days.filter((d) => d.groomerId === "b").map((d) => d.date)).toEqual(["2026-10-19"]);
+    expect(blockDays([B], "2026-10-20", "2026-10-25")).toEqual([]);
   });
 });

@@ -136,7 +136,11 @@
     "contactRequired": "Įrašykite bent vieną: vardą, telefoną arba el. paštą.",
     "forbidden": "Šio veiksmo atlikti negalima. Atnaujinkite puslapį ir bandykite dar kartą.",
     "visitInFuture": "Vizito, kuris dar neprasidėjo, užbaigti negalima.",
-    "endBeforeStart": "Pabaiga turi būti vėliau nei pradžia."
+    "endBeforeStart": "Pabaiga turi būti vėliau nei pradžia.",
+    "dateToBeforeFrom": "Data „Iki“ negali būti ankstesnė nei „Nuo“.",
+    "periodTooLong": "Nedarbo laikotarpis gali būti daugiausia 62 dienos.",
+    "blockNoWorkDays": "Šiuo laikotarpiu pasirinktos meistrės nedirba – nėra ką pažymėti.",
+    "blockPeriodTaken": "Šiuo laikotarpiu jau yra registracijų: {list}. Pirmiausia jas perkelkite arba atšaukite."
   },
   "common": {
     "close": "Uždaryti",
@@ -522,7 +526,12 @@
     "changeServices": "Keisti paslaugas",
     "editTitle": "Keisti vizitą",
     "changed": "Vizitas pakeistas",
-    "editCompletedNote": "Vizitas jau įvykdytas: laikas nesikeičia, o naujos kainos išsaugomos kaip faktinės."
+    "editCompletedNote": "Vizitas jau įvykdytas: laikas nesikeičia, o naujos kainos išsaugomos kaip faktinės.",
+    "blockPeriod": "Laikotarpis: {from} – {to}",
+    "deleteBlockDay": "Tik šią dieną",
+    "deleteBlockPeriod": "Visą laikotarpį",
+    "deleteBlockPeriodText": "Ši diena yra laikotarpio {from} – {to} dalis ({count, plural, one {# įrašas} few {# įrašai} other {# įrašų}}). Ką ištrinti?",
+    "blockPeriodDeleted": "Nedarbo laikotarpis ištrintas"
   },
   "search": {
     "label": "Ieškoti kliento ar augintinio",
@@ -711,13 +720,18 @@
     "description": "Pertrauka, atostogos ar liga – šiuo laiku registruoti nebus galima.",
     "groomers": "Meistrės",
     "bothGroomers": "Abiem meistrams",
-    "date": "Data",
+    "dateFrom": "Data nuo",
+    "dateTo": "Data iki",
+    "periodHint": "Vienai dienai palikite tą pačią datą. Kelioms dienoms meistrių nedarbo dienos praleidžiamos.",
+    "periodDays": "{count, plural, one {# diena} few {# dienos} other {# dienų}}",
     "from": "Nuo",
     "to": "Iki",
+    "timeEachDay": "Laikas kiekvieną dieną",
     "wholeDay": "Visa diena ({from}–{to})",
     "reason": "Priežastis",
     "reasonPlaceholder": "Pvz. atostogos, pietūs, liga",
     "saved": "Nedarbo laikas pažymėtas",
-    "save": "Pažymėti"
+    "save": "Pažymėti",
+    "savedPeriod": "Nedarbo laikotarpis pažymėtas"
   }
 }

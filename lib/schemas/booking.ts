@@ -14,7 +14,8 @@ import {
 } from "./common";
 import { SPECIES } from "@/lib/pets";
 import { isTimeStr, timeToMinutes } from "@/lib/clock";
-import { todayInVilnius } from "@/lib/time";
+import { BLOCK_MAX_DAYS, datesBetween } from "@/lib/schedule";
+import { isDateStr, todayInVilnius } from "@/lib/time";
 
 /** Bookings can be made for today (any time) or later, never for a past day. */
 export const bookingDate = dateStr.refine((d) => d >= todayInVilnius(), { error: "pastDate" });
@@ -136,8 +137,9 @@ export const rescheduleSchema = z.object({
 export type RescheduleInput = z.input<typeof rescheduleSchema>;
 
 /**
- * US-16: blocked time ("Nedarbo laikas") for one or both groomers. One row per groomer,
- * all or nothing; the same exclusion constraint as bookings keeps it from overlapping.
+ * US-16: blocked time ("Nedarbo laikas") for one or both groomers, on one date or over
+ * several days (`date` … `dateTo`, e.g. a vacation). One row per groomer and day, all
+ * or nothing; the same exclusion constraint as bookings keeps it from overlapping.
  */
 export const blockSchema = z
   .object({
@@ -147,6 +149,8 @@ export const blockSchema = z
       .max(10, { error: "invalid" })
       .refine((ids) => new Set(ids).size === ids.length, { error: "invalid" }),
     date: bookingDate,
+    /** Last day of the period; empty or missing = the same day as `date`. */
+    dateTo: z.preprocess((v) => (v === "" || v === null ? undefined : v), dateStr.optional()),
     startTime: gridTime,
     endTime: gridTime,
     reason: optionalText(200),
@@ -156,7 +160,13 @@ export const blockSchema = z
       if (timeToMinutes(v.endTime) <= timeToMinutes(v.startTime))
         ctx.addIssue({ code: "custom", message: "endBeforeStart", path: ["endTime"] });
     }
-  });
+    if (v.dateTo !== undefined && isDateStr(v.date) && isDateStr(v.dateTo)) {
+      if (v.dateTo < v.date) ctx.addIssue({ code: "custom", message: "dateToBeforeFrom", path: ["dateTo"] });
+      else if (datesBetween(v.date, v.dateTo).length > BLOCK_MAX_DAYS)
+        ctx.addIssue({ code: "custom", message: "periodTooLong", path: ["dateTo"] });
+    }
+  })
+  .transform(({ dateTo, ...v }) => ({ ...v, dateTo: dateTo ?? v.date }));
 export type BlockInput = z.input<typeof blockSchema>;
 
 /** Visit results the owner can record (US-11). */

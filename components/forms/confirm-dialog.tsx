@@ -26,6 +26,7 @@ export function ConfirmDialog({
   onConfirm,
   open,
   onOpenChange,
+  secondary,
 }: {
   title: string;
   description: string;
@@ -35,6 +36,8 @@ export function ConfirmDialog({
   onConfirm(): Promise<boolean>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** A second answer next to the main one (e.g. "Tik šią dieną" / "Visą laikotarpį"). */
+  secondary?: { label: string; onConfirm(): Promise<boolean> };
 }) {
   const t = useTranslations("common");
   const [pending, startTransition] = React.useTransition();
@@ -51,6 +54,20 @@ export function ConfirmDialog({
               {cancelLabel ?? t("cancel")}
             </Button>
           </DialogClose>
+          {secondary ? (
+            <Button
+              variant="secondary"
+              disabled={pending}
+              className={tone === "danger" ? "text-danger" : undefined}
+              onClick={() =>
+                startTransition(async () => {
+                  if (await secondary.onConfirm()) onOpenChange(false);
+                })
+              }
+            >
+              {secondary.label}
+            </Button>
+          ) : null}
           <Button
             variant={tone}
             loading={pending}

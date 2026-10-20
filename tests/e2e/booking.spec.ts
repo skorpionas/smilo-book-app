@@ -340,3 +340,61 @@ test("change a booking's service, length and price (owner feedback 2026-10-19)",
   // The message sits at the top and closes by itself.
   await expect(page.getByText("Vizitas pakeistas").first()).toBeHidden({ timeout: 8000 });
 });
+
+test("blocked time over several days: days off skipped, conflicts named, whole period deleted", async ({
+  page,
+}, testInfo) => {
+  const sunday = futureSunday({ mobile: 30, tablet: 31, desktop: 32 }[testInfo.project.name] ?? 32);
+  const shift = (date: string, days: number) =>
+    new Date(Date.parse(`${date}T12:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+  const saturday = shift(sunday, -1);
+  const monday = shift(sunday, 1);
+  const tuesday = shift(sunday, 2);
+  const sheet = page.getByRole("dialog").first();
+  const vacation = page.getByRole("button", { name: "Nedarbo laikas 08:00–19:00, Atostogos" });
+
+  // Saturday → Monday for both groomers (Meistrė B does not work on Sundays)
+  await login(page, `/calendar?date=${saturday}`);
+  await page.getByRole("button", { name: "Registruoti: Meistrė A, 09:00" }).click();
+  await sheet.getByRole("radio", { name: "Nedarbo laikas" }).click();
+  await sheet.getByLabel("Abiem meistrams").check();
+  await sheet.getByLabel("Data iki").fill(monday);
+  await expect(sheet.getByText("3 dienos.", { exact: false })).toBeVisible();
+  await expect(sheet.getByLabel(/Visa diena/)).toBeChecked();
+  await sheet.getByLabel("Priežastis").fill("Atostogos");
+  await sheet.getByRole("button", { name: "Pažymėti" }).click();
+  await expect(page.getByText("Nedarbo laikotarpis pažymėtas").first()).toBeVisible();
+
+  await page.goto(`/calendar?date=${saturday}`);
+  await expect(vacation).toHaveCount(2);
+  await page.goto(`/calendar?date=${sunday}`);
+  await expect(vacation).toHaveCount(1);
+  await page.goto(`/calendar?date=${monday}`);
+  await expect(vacation).toHaveCount(2);
+
+  // A second period over Monday is refused and names what is in the way
+  await page.goto(`/calendar?date=${tuesday}`);
+  await page.getByRole("button", { name: "Registruoti: Meistrė A, 09:00" }).click();
+  await sheet.getByRole("radio", { name: "Nedarbo laikas" }).click();
+  await sheet.getByLabel("Data nuo").fill(monday);
+  await sheet.getByLabel("Data iki").fill(tuesday);
+  await sheet.getByRole("button", { name: "Pažymėti" }).click();
+  await expect(
+    sheet.getByRole("alert").filter({ hasText: "Šiuo laikotarpiu jau yra registracijų" }),
+  ).toContainText(`${monday} 08:00–19:00`);
+  await page.keyboard.press("Escape");
+
+  // Deleting from one day offers the whole period
+  await page.goto(`/calendar?date=${sunday}`);
+  await vacation.click();
+  await expect(sheet.getByText(`Laikotarpis: ${saturday} – ${monday}`)).toBeVisible();
+  await sheet.getByRole("button", { name: "Ištrinti" }).click();
+  await expect(page.getByText("5 įrašai", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Visą laikotarpį" }).click();
+  await expect(page.getByText("Nedarbo laikotarpis ištrintas").first()).toBeVisible();
+
+  await page.goto(`/calendar?date=${saturday}`);
+  await expect(vacation).toHaveCount(0);
+  await page.goto(`/calendar?date=${monday}`);
+  await expect(vacation).toHaveCount(0);
+});
